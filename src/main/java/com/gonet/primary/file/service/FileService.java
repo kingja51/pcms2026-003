@@ -87,8 +87,14 @@ public interface FileService {
 
     /**
      * 이미지 썸네일 다운로드 — 관리자/본문 <img> 태그에서 참조.
-     * 썸네일이 없거나 이미지가 아니면 {@code 404}. 검사 상태는 제한하지 않음 —
-     * 썸네일은 서버가 생성한 안전한 JPG 로 원본과 별도.
+     * 썸네일이 없거나 이미지가 아니면 {@code 404}.
+     *
+     * <p><b>검사 상태(virus_scan_status)는 제한하지 않는다</b> — 썸네일은 서버가 생성한
+     * 안전한 JPG 로 원본 바이트와 별도다. 의도된 예외다.
+     *
+     * <p><b>단 {@code file_group.download_auth} 는 적용한다</b>(2026-07-31 추가).
+     * 위 논리는 악성코드 전파만 다루고 접근통제는 다루지 않는다 — 썸네일도 내용을
+     * 드러내므로 MEMBER 전용 첨부가 익명에게 열리면 안 된다.
      */
     long downloadThumbnail(String fileId, HttpServletResponse res);
 

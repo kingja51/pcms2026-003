@@ -12,6 +12,193 @@
 ---
 
 ```
+================ 2026.7.31 23:52:40 =======================
+```
+
+## P4 — 핵심 CMS 🟡 작업 전건 완료, DoD 3건 기동 검증 대기
+
+**완료**: 2026-07-31 23:52:40
+**목표**: 사이트·메뉴·콘텐츠·게시판·파일이 동작한다.
+
+### 산출물
+
+| 구분 | 내용 |
+|---|---|
+| 이식 | java 210 · 템플릿 337 · 매퍼 XML 24 (사이트·메뉴·공통코드·콘텐츠·게시판·파일·배너·팝업·알림) |
+| 신규 | `DefaultUsrController` · `ProgramUsrController` · `fragments/pagination.html` · `pageQuery` 모델속성 |
+| 마이그레이션 | `V2026073104__seed_url_access_p4.sql` — 접근 규칙 14행 |
+| 테스트 | 35건 (ArchUnit 10 · 공통기반 10 · 페이지네이션 7 · pageQuery 8) |
+
+### DoD 검증 결과
+
+| 항목 | 결과 |
+|---|---|
+| 콘텐츠 승인 4단계 + 이력 스냅샷 | 🟡 코드 검증 — 왕복 미실행 |
+| 게시판 대표 3유형 왕복 | 🟡 구성 확인 — 왕복 미실행 |
+| 파일 방어 시나리오 차단 | 🟡 배선 확인 — 공격 시나리오 미실행 |
+| 배너/팝업 없이 레이아웃 렌더 | ✅ 실패 시 `List.of()`/`Map.of()` 반환 |
+| ArchUnit · `_maria.xml` · `${}` 0건 | ✅ 10/10 · 전체 35건 · 비-maria 0 · `${}` 0 · `@Mapper` 0 |
+| 인라인 `on*` 0건 · 외부 script/link 0건 | ✅ |
+
+**🟡 3건이 남은 이유**: 이 세션에서 앱을 띄우지 못했다. 8084 를 사용자 인스턴스가
+점유 중이었고(PID 17684, 23:11 기동), DB 자격증명·PII 키가 셸 환경에 없다(`.env` 는
+`.gitignore` 대상이라 저장소에 없고 환경변수도 미설정). 포트를 바꿔도 DB 에 붙지 못한다.
+**남은 3건은 사용자 환경에서 `V2026073104` 적용 후 실행해야 끝난다.**
+
+코드 수준으로 확인한 것은 다음과 같다 — 실행 검증을 대신하지는 못하지만,
+"구현이 아예 없는 것"과 "있는데 검증만 남은 것"은 구분해 둔다.
+
+- **승인 워크플로**: `ContentStatus.canTransitionTo` 가 `DRAFT→REVIEW→APPROVED→PUBLISHED`
+  만 허용하고 역행은 DRAFT 로만 열려 있다. `ContentServiceImpl.changeStatus:233` 이
+  `assertCanTransitionTo` 를 호출해 **직행 시 `IllegalStateException`** 이다.
+  수정 경로 2곳(`:135`·`:179`)이 `snapshotToHistory` 를 부른다.
+- **게시판**: 유형별 화면 9종(NOTICE·FREE·QNA·GALLERY·PDF·FILE·YOUTUBE·BODO·FAQ) +
+  왕복 컨트롤러 4종(`BoardUsrController`·`BoardCommentUsrController`·
+  `BoardLikeApiController`·`BoardReportApiController`) 존재.
+- **파일 6중 방어**: `FileUploadServiceImpl` 이 6개를 전부 주입·호출한다 —
+  `FileExtensionValidator` → `TikaMimeDetector.detectAndValidate` →
+  `FileStorage.saveToQuarantine` → `ImageReencoder` → `Sha256Hasher` → ClamAV.
+  경로 containment 는 `FileStorage:162` 의 `resolved.startsWith(root)`.
+  6번째는 **외부 JAR 데몬**이 `tb_file.virus_scan_status` 를 갱신하고, 앱은
+  `FileServiceImpl:327·363` 에서 `isDownloadable()` 로 INFECTED/ERROR 다운로드를 막는다.
+
+### 프런트 규약 교정 — 이식하면서 고친 것
+
+001 의 인라인 핸들러를 그대로 옮기면 **장애를 이식**하게 된다. CSP `script-src` 에
+`'unsafe-inline'` 이 없어 브라우저가 조용히 무시하고, 001 에서 이것 때문에
+`onsubmit="return confirm(…)"` 38건이 무력화돼 **확인창 없이 삭제가 실행**된 이력이 있다.
+
+| 인라인 | 건수 | 대체 계약 |
+|---|---|---|
+| `onsubmit="return confirm(…)"` | 23 | `data-confirm` (app.js 기존) |
+| `onchange="this.form.submit()"` | 2 | `data-action="submit-on-change"` (**app.js 신규**) |
+| `onclick="previewMail()"` | 1 | `data-action="preview-mail"` (화면 nonce 스크립트) |
+| `onerror="this.style.visibility='hidden'"` | 2 | `data-hide-on-error` (app.js 기존) |
+
+`submit-on-change` 는 개발가이드 §9-2 계약표에 **있었지만 app.js 에 구현이 없었다.**
+인라인만 걷어냈다면 통계 대시보드의 사이트 선택이 조용히 먹통이 됐을 것이다.
+
+CDN: `admin/system/sample/tui-editor.html` 삭제(TOAST UI 를 `uicdn.toast.com` 에서 로드 —
+`strict-dynamic` 하에서 host 화이트리스트는 무시돼 차단된다). 매핑 컨트롤러·링크 참조
+0건인 고아 파일이고 003 의 에디터는 tiptap 확정이다. 남은 외부 참조 4건은 Google Maps
+`<iframe>`/`<a>` 로 `script-src` 무관이며 `frame-src` 에 `www.google.com` 이 이미 있다
+(`CspNonceFilter:161`) — **위반이 아니라 손대지 않았다.**
+
+색상은 **P8 데모 정비로 이월**(사용자 결정). 실측 Tailwind 기본 팔레트 1,049건 ·
+raw hex 299건(메일 템플릿 제외 143건). 인라인 핸들러·CDN 과 달리 조용한 오작동이 없다.
+메일 템플릿의 raw hex 156건은 정상 예외다 — 이메일 클라이언트가 CSS 변수를 지원하지 않는다.
+
+### 페이지네이션 조각 — P3 이월분, 신규 작성
+
+001 에는 공용 조각이 없었다. 목록 화면마다 같은 마크업 25줄을 복사하고 검색조건을
+링크식에 일일이 나열했다. **왜 그랬는지 이유가 있었다** — Thymeleaf 링크식
+`@{...(a=1,b=2)}` 은 파라미터 이름이 리터럴이어야 해서 Map 을 펼칠 수 없다.
+조건이 하나 늘면 모든 목록 화면을 고쳐야 하고, 실제로 화면마다 어떤 조건이 보존되는지가
+갈렸다(페이지를 넘기면 검색이 풀리는 화면이 생긴다).
+
+그래서 검색조건 전달을 조각 밖으로 뺐다. `SiteContextModelAdvice` 가 현재 쿼리스트링에서
+`page` 만 빼고 URL 인코딩한 **`pageQuery`** 를 전 `@Controller` 에 주입하고, 조각은
+`?page=N${pageQuery}` 만 조립한다.
+
+접근성은 `aria-current="page"`(PLAN 요구사항)에 더해, **현재 페이지를 `<a>` 가 아니라
+`<span>` 으로** 둔다 — 이동할 곳 없는 링크를 탭 순서에 남기지 않는다.
+
+검증은 앱 기동 없이 Thymeleaf 엔진만 띄워 렌더 결과를 직접 본다(13건). 페이징은
+**틀려도 화면이 죽지 않는** 결함이라 눈으로 잡기 어렵다 — 번호 범위가 어긋나거나
+검색조건이 빠져도 200 으로 뜬다.
+
+- window 경계: 100쪽 중 50쪽 → 10개, 마지막 구간(98쪽) → **왼쪽으로 채워 10개 유지**,
+  전체 4쪽 → 4개
+- 검색조건 보존: `?page=3&amp;keyword=%EA%B3%B5%EC%A7%80&amp;pageSize=20`
+  (`&amp;` 는 HTML 이스케이프가 맞다)
+- `pageQuery`: 한글 percent-encoding · `page` 제거 · 빈 값 제외 · 다중값 보존 ·
+  XSS 벡터 인코딩
+
+**⚠️ 기존 목록 화면 65개는 아직 전환하지 않았다.** 상당수가 자바 도메인 미이식
+(`front/g2b/*`·`front/lfios/*`·`front/survey/*`·`front/complaint/*`·`front/schedule/*`)이라
+지금 바꿔도 검증할 수 없고, 화면마다 baseUrl 과 보존 파라미터가 다르다.
+**앱 기동 검증 없이 65개를 일괄 치환하는 것은 001·002 의 범위 확대 실패 패턴**이라
+후속 작업으로 분리했다(PLAN §7).
+
+### 코드 리뷰 — 자체 검출·수정 2건 (2026-07-31)
+
+작성 직후 리뷰에서 **직접 만든 결함 2건**이 나왔다. 둘 다 무증상이라 기동 검증으로도
+안 잡혔을 종류다.
+
+**① `pageQuery` 가 CSRF 토큰을 흘린다** — `page` 만 빼고 전 파라미터를 복사했다.
+Spring Security 는 토큰을 읽은 뒤에도 파라미터 맵에서 지우지 않으므로, POST 가 뷰를
+직접 렌더하는 경로(검증 실패 시 폼 재렌더 — `BoardCategoryMngController:79` 등 실재)에서
+**모든 페이지 링크 href 에 토큰이 박힌다.** Referer 헤더로 외부 유출, 브라우저 히스토리,
+`log_access` 적재.
+
+요청의 `CsrfToken` 에서 실제 파라미터명을 읽어 제외하고(커스텀 이름 대응),
+못 읽으면 기본값 `_csrf` 로 막는다. 조각을 채택한 화면이 아직 0곳이라 **실제 유출은
+없었다** — 65개 목록 전환 전에 잡은 셈이다.
+
+**② `/fileDown/{id}/thumb` 이 접근통제 없이 열렸다** — 파일 서비스의 다운로드 게이트를
+전수 대조하니 `downloadThumbnail` 만 `enforceDownloadAuth` 가 없었다:
+
+| 메서드 | download_auth | 감염 차단 |
+|---|---|---|
+| `download` | ✅ | ✅ `isDownloadable()` |
+| `previewInline` | ✅ | ✅ `isDownloadable()` |
+| `downloadGroup` | ✅ | ✅ SQL `virus_scan_status IN ('CLEAN','PENDING')` |
+| `downloadThumbnail` | ❌ → ✅ **수정** | ❌ **의도된 예외 — 유지** |
+
+무매칭 DENY 시절엔 도달 자체가 불가했고, **P4 의 `/fileDown/**` PERMIT_ALL 규칙이 이
+경로를 열면서** MEMBER 전용 첨부의 썸네일이 UUID 만 알면 익명에게 열리는 상태가 됐다.
+
+바이러스 게이트는 **넣지 않았다.** 인터페이스 javadoc 의 "썸네일은 서버가 생성한 안전한
+JPG 로 원본과 별도" 는 타당하다 — `ThumbnailGenerator` 가 새로 만든 JPG 라 원본의 악성
+코드를 옮기지 않는다. 누락 지점은 **그 논리가 악성코드 전파만 다루고 접근통제는 다루지
+않는다**는 것이었다. 썸네일도 내용을 드러낸다.
+
+테스트 2건 추가(총 35건). 리뷰에서 나온 나머지 지적은 §7 에 기록만 했다 —
+catch-all 컨트롤러의 리터럴 경로 4개 우선순위(기동 검증 항목), 비-GET DENY 2곳,
+`ensureScaffold` 요청당 파일 I/O.
+
+### 접근 규칙 — `V2026073104__seed_url_access_p4.sql`
+
+무매칭 DENY 라 규칙이 없으면 P4 화면이 전부 막힌다. **현재 기동 중인 인스턴스에서
+`/bbs/x/y` → 302 로 실측 확인**했다(마이그레이션 미적용 상태).
+
+URL 계층은 **거친 문**만 담당한다. `readAuth`·`writeAuth`·`downloadAuth`·비밀글 본인확인·
+본인 글 수정삭제는 컨트롤러·서비스가 판정한다(`BoardUsrController.canWrite/canEdit/
+canDelete/canSeeSecret`). URL 규칙으로 세밀 권한을 흉내내면 두 곳이 어긋났을 때
+어느 쪽이 진실인지 알 수 없다.
+
+다만 **쓰기 경로는 URL 계층에서도 인증을 요구**한다 — `/bbs/**` POST, 파일 업로드,
+좋아요·신고. 컨트롤러가 이미 막지만(`canWrite` 는 비로그인 시 false) 웹쉘 침해 이력이
+있어 방어를 한 겹만 두지 않는다.
+
+**사이트별 `/{sc}`·`/{sc}/**` 규칙은 넣지 않았다.** 사이트마다 2행이 필요하고
+(001 실측 48개 × 2 = 96행), catch-all `/*` 를 넣으면 미등록 site_code 까지 열린다.
+`tb_site` 행이 아직 0이라 지금 넣을 대상도 없다. **사이트를 만들 때 함께 넣어야 하고,
+빠뜨리면 그 사이트만 조용히 안 열린다** — PLAN §7 에 기록했다.
+
+### 001 대비 변경
+
+| 항목 | 001 | 003 | 사유 |
+|---|---|---|---|
+| `AbstractSiteUsrController` | 존재(269줄) | **미이식** | 001 실측 상속 클래스 **0건**. `DefaultUsrController` 가 이미 대체했고 001 주석도 "구 AbstractSiteUsrController" 라 부른다. 죽은 코드를 옮기면 다음 사람이 둘 중 어느 쪽이 진짜인지 다시 조사해야 한다 |
+| 홈 일정 주입 | `scheduleMasters`·`upcomingSchedules` | **미주입** | 일정 도메인은 P6. 사이트 홈 48종이 이 속성을 참조하지만 전부 `th:if="${... != null and !#lists.isEmpty(...)}"` 로 감싸져 있어 **해당 섹션만 비고 예외는 없다**(실측). P6 에서 `injectLandingData` 에 되살리면 템플릿 수정 불요 |
+| `/{sc}/weather` | 존재 | **미이식** | 날씨 도메인은 이식 계획 자체가 없다 |
+| `ProgramDataUsrController` | secondary 목록 조각 | **미이식** | `tb_lab`·`tb_staff`·`tb_syllabus` 이식 여부 미결(§7). `/prg` 쉘은 레이아웃까지만 렌더되고 htmx 목록은 404 |
+| ArchUnit R6 | — | `common/mail` → `primary.system.mail` 예외 1건 | `MailService` 가 DB 의 메일 템플릿(`tb_mail_template`)을 조회한다. 템플릿은 운영자가 관리하는 도메인 데이터라 common 안에 둘 수 없다. 사유를 javadoc 에 남겼다 |
+| 페이지네이션 | 화면마다 인라인 25줄 | 공용 조각 + `pageQuery` | 위 참조 |
+
+### 미해결
+
+1. **DoD 3건 기동 검증** — 콘텐츠 왕복 · 게시판 3유형 왕복 · 파일 공격 시나리오
+2. **목록 화면 65개 조각 전환** — 후속 작업
+3. **사이트별 접근 규칙** — `tb_site` 시드와 함께(P8)
+4. **개인 Gmail 하드코딩** — `MailTemplateMngController:200` 의 self-test 수신자 fallback +
+   메일 템플릿 4종의 고객센터 `mailto:`. git author 이메일과 같아 새 유출은 없으나,
+   발신자 미설정 상태에서 "테스트 발송" 을 누르면 **운영에서 개인 주소로 메일이 나간다**
+
+---
+
+```
 ================ 2026.7.31 22:45:10 =======================
 ```
 

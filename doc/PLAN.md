@@ -51,7 +51,7 @@
 | **P1** | 공통 기반 계층 + ArchUnit 게이트 | `common/` 전체 | ✅ 2026-07-31 |
 | **P2** | 보안·인증 기반 | 로그인·인가 동작 | 🟡 2026-07-31 — 화면(P3) 대기로 부분 |
 | **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ✅ 2026-07-31 |
-| **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | ⬜ |
+| **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | 🟡 2026-07-31 — 작업 전건 완료, DoD 3건 기동 검증 대기 |
 | **P5** | 회원 · 인증 연동 | 회원 생명주기 | ⬜ |
 | **P6** | 부가 도메인 | 설문·민원·일정·팝업·알림 등 | ⬜ |
 | **P7** | 운영 · 관측 | 로깅·통계·배치 | ⬜ |
@@ -300,29 +300,70 @@
 
 #### 작업
 
-- [ ] **사이트/템플릿** — `tb_site`, `tb_template`. siteCode 해석 원칙(**"URL이 진실, 세션은 편의"**),
+- [x] **사이트/템플릿** — `tb_site`, `tb_template`. siteCode 해석 원칙(**"URL이 진실, 세션은 편의"**),
       `SiteContext` 캐시 + 변경 이벤트로 즉시 반영, `tb_site.theme` 연동
-- [ ] **메뉴** — `tb_menu` 트리, menuTree 데이터드리븐 렌더
-- [ ] **공통코드** — `tb_code_group`, `tb_code`
-- [ ] **콘텐츠** — `tb_content` + `tb_content_history`,
+- [x] **메뉴** — `tb_menu` 트리, menuTree 데이터드리븐 렌더
+- [x] **공통코드** — `tb_code_group`, `tb_code`
+- [x] **콘텐츠** — `tb_content` + `tb_content_history`,
       승인 워크플로 **DRAFT→REVIEW→APPROVED→PUBLISHED**(직행 금지), 수정 시 버전 스냅샷, 미리보기
-- [ ] **게시판** — `tb_bbs_master` + 유형별 화면(NOTICE/FREE/QNA/GALLERY/PHOTO/YOUTUBE/BODO/FAQ),
+- [x] **게시판** — `tb_bbs_master` + 유형별 화면(NOTICE/FREE/QNA/GALLERY/PHOTO/YOUTUBE/BODO/FAQ),
       `tb_bbs_article`·`tb_bbs_category`·`tb_bbs_comment`·`tb_bbs_like`·`tb_bbs_report`
-- [ ] **파일** — `tb_file`, `tb_file_group`. **업로드 6중 방어**(개발가이드 §10-3),
+- [x] **파일** — `tb_file`, `tb_file_group`. **업로드 6중 방어**(개발가이드 §10-3),
       다운로드 이력, 미리보기, 파일 그룹 UUID 일관성(생성 폼에서 그룹 재사용)
-- [ ] **P3 이월 — 페이지네이션 조각**(2026-07-31 결정)
-      `aria-current` 필수. 001 에 전용 조각 파일이 없어 신규 작성한다.
-      실제 목록 화면이 있어야 형태가 정해지므로 여기서 만든다
-- [ ] 각 신규 URL 의 `tb_role_url_access` 규칙 등록
-- [ ] 매퍼 XML 작성 — **`*_maria.xml` 단일**(MariaDB 전용, 개발가이드 §6-4)
+- [x] **P3 이월 — 페이지네이션 조각** (2026-07-31) — `fragments/pagination.html`.
+      `render(page, baseUrl)` / `renderWindow(page, baseUrl, size)` 2종.
+      현재 페이지는 `<a>` 가 아니라 **`aria-current="page"` 인 `<span>`** —
+      이동할 곳 없는 링크를 탭 순서에 남기지 않는다
+      — 검색조건은 화면마다 나열하지 않는다. `SiteContextModelAdvice` 가 주입하는
+        **`pageQuery`**(현재 쿼리스트링에서 `page` 만 빼고 URL 인코딩)를 이어붙인다.
+        Thymeleaf 링크식은 파라미터 이름이 리터럴이어야 해 Map 을 펼칠 수 없다 —
+        **001 에 공용 조각이 없던 이유가 이것**이다
+      — 렌더 테스트 7건 + `pageQuery` 테스트 6건으로 검증(앱 기동 불요)
+      — ⚠️ **기존 65개 목록 화면은 아직 전환하지 않았다** — §7 기록
+- [x] 각 신규 URL 의 `tb_role_url_access` 규칙 등록 (2026-07-31)
+      `V2026073104__seed_url_access_p4.sql` — 14행.
+      쓰기 경로(`/bbs/**` POST, 업로드, 좋아요·신고)는 **URL 계층에서도 인증 요구** —
+      컨트롤러가 이미 막지만 웹쉘 침해 이력이 있어 방어를 한 겹만 두지 않는다.
+      조회 경로(게시판·첨부·배너·`/prg`)는 PERMIT_ALL 이고 세밀 권한
+      (`readAuth`·`downloadAuth`·비밀글·본인 글)은 컨트롤러·서비스가 판정한다
+      — **사이트별 `/{sc}`·`/{sc}/**` 규칙은 넣지 않았다.** catch-all `/*` 를 넣으면
+        미등록 사이트 코드까지 열린다. `tb_site` 행과 함께 등록해야 한다(P8)
+- [x] 매퍼 XML 작성 — **`*_maria.xml` 단일**(MariaDB 전용, 개발가이드 §6-4)
+- [x] **사용자 진입 컨트롤러** (2026-07-31)
+      `DefaultUsrController` — 모든 사이트의 `/{sc}`·`/{sc}/home`·`/{sc}/sitemap`·`/{sc}/{slug}`
+      를 단일 컨트롤러로 처리(사이트 추가 시 컨트롤러 복사 없음).
+      `ProgramUsrController` — `/prg/{program}/{siteCode}` 학과 프로그램 제네릭 쉘
+      — **`AbstractSiteUsrController` 는 이식하지 않는다.** 001 실측 상속 클래스 **0건**으로
+        `DefaultUsrController` 가 이미 대체했다(001 주석에도 "구 AbstractSiteUsrController").
+        죽은 코드를 옮기면 다음 사람이 둘 중 어느 쪽이 진짜인지 다시 조사해야 한다
 
 #### DoD
 
 - 콘텐츠 작성 → 승인 4단계 → 게시 → 수정 시 이력 스냅샷 생성
+  — 🟡 **코드 검증까지**. `ContentStatus.assertCanTransitionTo` 가 직행을 막고
+    (`DRAFT→REVIEW→APPROVED→PUBLISHED`, 역행은 DRAFT 로만),
+    `ContentServiceImpl.changeStatus:233` 이 이를 호출한다. 수정 경로 2곳
+    (`:135`·`:179`)이 `snapshotToHistory` 를 부른다. **실제 왕복은 미실행**
 - 게시판 8유형 중 대표 3유형 작성 → 상세 → 댓글 → 좋아요 → 신고
+  — 🟡 **구성 확인까지**. 유형별 화면 9종(NOTICE·FREE·QNA·GALLERY·PDF·FILE·YOUTUBE·BODO·FAQ)
+    + 왕복 컨트롤러 4종 존재. **실제 왕복은 미실행**
 - 파일 방어 시나리오 차단 — 확장자 위조, 경로 조작, 허용 외 확장자
+  — 🟡 **배선 확인까지**. 6중 방어가 `FileUploadServiceImpl` 에 전부 주입·호출된다:
+    `FileExtensionValidator` · `TikaMimeDetector.detectAndValidate` · `FileStorage.saveToQuarantine`
+    · `ImageReencoder` · `Sha256Hasher` · ClamAV(`virus_scan_status`).
+    경로 containment 는 `FileStorage:162` 의 `resolved.startsWith(root)`.
+    6번째 방어는 **외부 JAR 데몬**이 스캔하고 앱은 `FileServiceImpl:327·363` 에서
+    `isDownloadable()` 로 INFECTED/ERROR 다운로드를 막는다. **공격 시나리오 미실행**
 - 배너/팝업 없이도 레이아웃 정상 렌더(빈 컬렉션 안전값)
+  — ✅ `SiteContextModelAdvice` 가 실패·미해석 시 `List.of()`/`Map.of()` 를 돌려준다
 - ArchUnit 전건 통과 · 매퍼 XML 전량 `_maria.xml` · `${}` 0건
+  — ✅ ArchUnit 10/10 · 전체 테스트 33건 · 비-maria XML 0 · `${}` 0 · `@Mapper` 0 ·
+    인라인 `on*` 0 · 외부 script/link 0
+
+> **🟡 3건은 앱을 띄워야 끝난다.** 이 세션에서는 8084 를 사용자 인스턴스가 점유 중이고
+> DB·PII 키가 셸에 없어 기동하지 못했다. 마이그레이션 `V2026073104` 적용 후
+> 사용자 환경에서 실행해야 한다 — 적용 전에는 `/bbs/**` 가 무매칭 DENY 로 302 다
+> (2026-07-31 실측: 현재 기동 중인 인스턴스에서 `/bbs/x/y` → 302).
 
 **범위 밖** — 회원 전용 권한(P5 이후), 통계(P7), 검색(외부 엔진으로 분리).
 
@@ -546,6 +587,12 @@
 | 2026-07-31 | **CDN `<script src>` 잔존** — `admin/system/sample/tui-editor.html` 이 TOAST UI Editor 를 `uicdn.toast.com` 에서 로드. `strict-dynamic` 하에서 host 화이트리스트는 무시되므로 **차단**된다. 매핑 컨트롤러·링크 참조 0건인 고아 파일이고, 003 의 에디터는 tiptap 으로 확정돼 있다 | P4 | 중 | ✅ **해결 2026-07-31** — 파일 삭제(`templates/admin/system/sample/`). 외부 `<script>/<link>` 재검사 **0건**. 남은 외부 참조 4건은 Google Maps `<iframe>`·`<a>` 로 `script-src` 무관이며 `frame-src` 에 `https://www.google.com` 이 이미 있어 **차단되지 않는다**(CspNonceFilter:161) |
 | 2026-07-31 | **이식 템플릿의 색상 규약 위반 대량** — Tailwind 기본 팔레트 **1,049건**(`bg-blue-500` 류), raw hex **299건**(메일 템플릿 제외 시 **143건**). KRDS 시맨틱 토큰 원칙 위반이나 **기능 결함은 아니다**(인라인 핸들러·CDN 과 달리 조용한 오작동이 없다) | P4 | 중 | **P8 이월**(사용자 결정 2026-07-31) — "인라인 핸들러·CDN 만 우선 교정, 색상은 P8 데모 정비 때". 메일 템플릿 raw hex 는 **정상**(이메일 클라이언트가 CSS 변수 미지원 — CLAUDE.md 예외 명시) |
 | 2026-07-31 | **개인 Gmail 주소가 고객센터·발신 기본값으로 하드코딩** — `MailTemplateMngController:200` 의 self-test 수신자 fallback, 같은 파일 `:237` 의 `supportUrl`, 메일 템플릿 4종(`member-welcome`·`member-withdraw`·`account-dormant`·`password-changed`)의 "고객센터" `mailto:`. 001 잔재다. 저장소가 public 이지만 **git author 이메일과 동일해 새로 유출되는 정보는 없다**. 문제는 기능 쪽 — 템플릿 발신자 미설정 상태에서 "테스트 발송" 을 누르면 **운영에서 개인 주소로 메일이 나간다** | P4 | 중 | 미정 — 범위 밖이라 기록만. 처리 시 `gopcms.mail.support-address` 로 외부화하고 미설정이면 발송을 거부(fallback 금지)하는 편이 안전 |
+| 2026-07-31 | **기존 목록 화면 65개가 여전히 인라인 페이징이다** — `fragments/pagination` 을 만들었지만 채택한 화면이 아직 0곳이다. 65개 중 상당수(`front/g2b/*`·`front/lfios/*`·`front/survey/*`·`front/complaint/*`·`front/schedule/*`)는 **자바 도메인이 미이식**이라 지금 손대도 검증할 수 없고, 화면마다 baseUrl 과 보존 파라미터가 다르다 | P4 | 중 | **후속 작업으로 분리**(2026-07-31) — 조각 자체는 테스트 13건으로 검증됐다. 전환은 ① P4 소관 화면(board·content·file·site·menu·code) 먼저 ② 나머지는 해당 도메인 이식 페이즈에서. **앱 기동 검증 없이 65개를 일괄 치환하지 않는다** — 001·002 의 범위 확대 실패 패턴이다 |
+| 2026-07-31 | **사이트별 접근 규칙 `/{sc}`·`/{sc}/**` 를 넣을 수 없다** — `DefaultUsrController` 는 `/{sc}` 를 패턴으로 받지만 `tb_role_url_access` 는 **사이트마다 2행**이 필요하다(001 실측 48개 × 2 = 96행). catch-all `/*` 를 넣으면 미등록 site_code 까지 열린다. `tb_site` 행이 아직 0이라 지금 넣을 대상도 없다 | P4 | 중 | 미정 — 사이트 등록 화면이 규칙까지 함께 생성하는 것이 최종 형태(P8). 그전까지는 사이트를 만들 때 손으로 2행씩 넣어야 하고, **빠뜨리면 그 사이트만 조용히 404/302 가 된다** |
+| 2026-07-31 | **일정(schedule) 템플릿 12종이 컨트롤러 없이 떠 있다** — 템플릿 전량 이식으로 `admin/system/schedule*`·`front/schedule/*` 가 들어왔으나 자바 도메인은 P6 다. 사이트 홈 템플릿 48종도 `scheduleMasters`·`upcomingSchedules` 를 참조한다 | P4 | 낮음 | 확인만 — 참조 전부 `th:if="${... != null and !#lists.isEmpty(...)}"` 로 감싸져 있어 **미주입 시 해당 섹션만 비고 예외는 없다**(실측). P6 에서 `DefaultUsrController.injectLandingData` 에 주입을 되살리면 템플릿 수정 없이 살아난다 |
+| 2026-07-31 | **`/prg` 쉘의 목록 조각이 404 다** — `ProgramUsrController`(primary)는 이식했으나 실제 목록을 반환하는 001 의 `ProgramDataUsrController`(secondary, `/prg/{program}/{siteCode}/list`)는 `tb_lab`·`tb_staff`·`tb_syllabus` 이식 여부가 미결이라 제외했다. 쉘·레이아웃까지만 렌더된다 | P4 | 낮음 | 미정 — secondary 3테이블 결정(§7 상단 행)과 함께 처리한다. 데이터 계층이 들어오면 쉘은 수정 없이 동작한다 |
+| 2026-07-31 | **`pageQuery` 가 CSRF 토큰을 페이지 링크에 흘린다** — 신설한 `SiteContextModelAdvice.injectPageQuery` 가 `page` 만 빼고 전 파라미터를 복사했다. Spring Security 는 토큰을 읽은 뒤에도 파라미터 맵에서 지우지 않으므로, POST 가 뷰를 직접 렌더하는 경로(검증 실패 시 폼 재렌더 — `BoardCategoryMngController:79` 등 실재)에서 **모든 페이지 링크 href 에 토큰이 박힌다**. Referer 로 외부 유출 + 브라우저 히스토리 + `log_access` 적재 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. 요청의 `CsrfToken` 에서 실제 파라미터명을 읽어 제외하고, 못 읽으면 기본값 `_csrf` 로 막는다(커스텀 이름 대응). 테스트 2건 추가. **조각 채택 화면이 0곳이라 실제 유출은 없었다** — 65개 목록 전환 전에 잡았다 |
+| 2026-07-31 | **`/fileDown/{id}/thumb` 이 접근통제 없이 열렸다** — `FileServiceImpl.downloadThumbnail` 만 `enforceDownloadAuth` 가 없었다(`download`·`previewInline`·`downloadGroup` 은 전부 있음). 무매칭 DENY 시절엔 도달 불가였으나 P4 의 `/fileDown/**` PERMIT_ALL 규칙이 이 경로를 열어 **MEMBER 전용 첨부의 썸네일이 UUID 만 알면 익명에게 노출**되는 상태가 됐다 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. `enforceDownloadAuth` 추가. **바이러스 게이트(`isDownloadable`)는 넣지 않았다** — 썸네일은 `ThumbnailGenerator` 가 새로 만든 JPG 라 원본 악성코드를 옮기지 않는다는 인터페이스 javadoc 의 **의도된 예외**가 맞다. 그 논리는 악성코드 전파만 다루고 접근통제는 다루지 않는다는 점이 누락 지점이었다 |
 
 ---
 

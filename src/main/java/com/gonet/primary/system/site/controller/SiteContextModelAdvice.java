@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
@@ -30,6 +31,9 @@ import java.util.Map;
 @ControllerAdvice(annotations = org.springframework.stereotype.Controller.class)
 @Order(0)
 public class SiteContextModelAdvice {
+
+    /** Spring Security 기본 CSRF 파라미터명 — 커스텀 이름을 못 읽었을 때의 방어선. */
+    private static final String DEFAULT_CSRF_PARAM = "_csrf";
 
     /** Kakao Map JS API key — 비어 있으면 지도 스크립트가 로드되지 않으니 운영 시 환경변수 설정 필수. */
     @Value("${gopcms.kakao.map.appkey:}")
@@ -62,6 +66,52 @@ public class SiteContextModelAdvice {
     @ModelAttribute("currentUri")
     public String injectCurrentUri(HttpServletRequest req) {
         return req.getRequestURI();
+    }
+
+    /**
+     * 페이지네이션 조각({@code fragments/pagination})이 링크를 만들 때 붙이는
+     * <b>현재 검색조건 쿼리스트링</b>. {@code page} 만 제거하고 나머지를 URL 인코딩해
+     * {@code "&keyword=%EA%B3%B5%EC%A7%80&pageSize=20"} 형태로 돌려준다(없으면 빈 문자열).
+     *
+     * <p>이걸 두는 이유: Thymeleaf 링크식 {@code @{...(a=1,b=2)}} 은 <b>파라미터 이름이
+     * 리터럴이어야 한다</b>. Map 을 펼칠 수 없어서, 조각을 재사용하려면 화면마다
+     * 검색조건을 일일이 나열해야 했다(001 의 실제 모습 — 그래서 조각이 없었다).
+     * 여기서 한 번 만들어 두면 조각은 {@code ?page=N${pageQuery}} 만 조립하면 된다.
+     *
+     * <p>Thymeleaf 3.1+ 는 {@code #httpServletRequest} 를 제거해 뷰에서 직접 못 읽는다 —
+     * {@code currentUri} 와 같은 이유로 advice 가 주입한다.
+     *
+     * <p><b>CSRF 토큰은 반드시 제외한다.</b> Spring Security 는 토큰을 읽은 뒤에도
+     * 파라미터 맵에서 지우지 않으므로, POST 가 뷰를 직접 렌더하는 경로(검증 실패 시 폼
+     * 재렌더 등)에서 그대로 복사하면 <b>모든 페이지 링크 href 에 토큰이 박힌다</b> —
+     * Referer 헤더로 외부 유출, 브라우저 히스토리, {@code log_access} 적재.
+     * 파라미터 이름은 커스터마이즈될 수 있으므로 요청에 실린 {@link CsrfToken} 에서
+     * 실제 이름을 읽고, 없으면 기본값 {@code _csrf} 로 막는다.
+     */
+    @ModelAttribute("pageQuery")
+    public String injectPageQuery(HttpServletRequest req) {
+        java.util.Map<String, String[]> params = req.getParameterMap();
+        if (params.isEmpty()) return "";
+
+        CsrfToken csrf = (CsrfToken) req.getAttribute(CsrfToken.class.getName());
+        String csrfParam = (csrf != null && csrf.getParameterName() != null)
+                ? csrf.getParameterName() : DEFAULT_CSRF_PARAM;
+
+        StringBuilder sb = new StringBuilder();
+        for (java.util.Map.Entry<String, String[]> e : params.entrySet()) {
+            String name = e.getKey();
+            if ("page".equals(name)) continue;          // 페이지 번호는 조각이 새로 붙인다
+            if (csrfParam.equals(name) || DEFAULT_CSRF_PARAM.equals(name)) continue;
+            if (e.getValue() == null) continue;
+            for (String v : e.getValue()) {
+                if (v == null || v.isBlank()) continue; // 빈 검색조건은 URL 을 더럽히기만 한다
+                sb.append('&')
+                  .append(java.net.URLEncoder.encode(name, java.nio.charset.StandardCharsets.UTF_8))
+                  .append('=')
+                  .append(java.net.URLEncoder.encode(v, java.nio.charset.StandardCharsets.UTF_8));
+            }
+        }
+        return sb.toString();
     }
 
     /**

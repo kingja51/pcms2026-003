@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- ══════════════════════════════════════════════════════════════════════
+     공용 페이지네이션 조각
+
+     001 에는 전용 조각이 없었다. 목록 화면마다 같은 마크업 25줄을 복사하고
+     검색조건을 링크식에 일일이 나열했다:
+       @{|/admin/system/log/${type}|(page=.., keyword=${search.keyword},
+                                     dateFrom=.., dateTo=..)}
+     조건이 하나 늘면 모든 목록 화면을 고쳐야 하고, 실제로 화면마다 어떤 조건이
+     보존되는지가 갈렸다(페이지를 넘기면 검색이 풀리는 화면이 생긴다).
+
+     여기서는 검색조건을 나열하지 않는다. `pageQuery` 를 그대로 이어붙인다 —
+     SiteContextModelAdvice 가 현재 쿼리스트링에서 page 만 빼고 URL 인코딩해
+     전 @Controller 에 주입한다. Thymeleaf 링크식 @{...(a=1,b=2)} 은 파라미터
+     이름이 리터럴이어야 해서 Map 을 펼칠 수 없다 — 이게 001 에 조각이 없던 이유다.
+
+     ── 사용 ────────────────────────────────────────────────────────────
+       <th:block th:replace="~{fragments/pagination :: render(${page}, '/admin/system/board')}"/>
+
+       page    common.dto.PageResponse — page(1-base) · totalPages · pageSize
+       baseUrl 페이지 링크 경로. 쿼리스트링은 붙이지 않는다(조각이 만든다)
+
+     번호 window 를 바꾸려면 renderWindow 를 쓴다(기본 10):
+       ~{fragments/pagination :: renderWindow(${page}, '/admin/system/board', 5)}
+
+     ※ 같은 이름 다른 인자수로 두 조각을 정의하지 않는다 — Thymeleaf 의 조각 조회는
+       이름 기준이라 arity 오버로딩이 모호해진다. 이름을 나눈다.
+
+     ── 접근성 ──────────────────────────────────────────────────────────
+     · <nav aria-label> + 현재 페이지 aria-current="page" (PLAN P4 요구사항).
+       현재 페이지는 <a> 가 아니라 <span> 이다 — 이동할 곳 없는 링크를
+       탭 순서에 남기지 않는다
+     · 처음/이전/다음/끝은 기호만 보이므로 aria-label 로 이름을 준다
+     · 전체 1쪽 이하면 조각 전체를 렌더하지 않는다
+
+     스타일은 KRDS 시맨틱 토큰만. gray 는 KRDS 3색 원칙(Brand+Point+Gray)의 한 축이라
+     정상 토큰이다.
+     ══════════════════════════════════════════════════════════════════════ -->
+
+<!-- 기본 window = 10 -->
+<th:block th:fragment="render(page, baseUrl)">
+  <th:block th:replace="~{fragments/pagination :: renderWindow(${page}, ${baseUrl}, 10)}"/>
+</th:block>
+
+<th:block th:fragment="renderWindow(page, baseUrl, windowSize)">
+  <nav th:if="${page != null and page.totalPages > 1}"
+       aria-label="페이지 목록" class="mt-6">
+    <th:block th:with="curr      =${page.page},
+                       last      =${page.totalPages},
+                       startCand =${curr - windowSize / 2},
+                       startCand =${startCand lt 1 ? 1 : startCand},
+                       endCand   =${startCand + windowSize - 1},
+                       endPage   =${endCand gt last ? last : endCand},
+                       startPage =${endPage - windowSize + 1 lt 1 ? 1 : endPage - windowSize + 1}">
+
+      <ul class="flex items-center justify-center gap-1 text-label-md">
+
+        <!-- 처음 · 이전 -->
+        <li th:if="${curr > 1}">
+          <a th:href="@{|${baseUrl}?page=1${pageQuery}|}" aria-label="첫 페이지"
+             class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">&laquo;</a>
+        </li>
+        <li th:if="${curr > 1}">
+          <a th:href="@{|${baseUrl}?page=${curr - 1}${pageQuery}|}" aria-label="이전 페이지"
+             class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">&lsaquo;</a>
+        </li>
+
+        <!-- 번호 -->
+        <li th:each="p : ${#numbers.sequence(startPage, endPage)}">
+          <span th:if="${p == curr}" aria-current="page" th:text="${p}"
+                class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded bg-gray-90 text-fg-on font-medium">1</span>
+          <a th:unless="${p == curr}"
+             th:href="@{|${baseUrl}?page=${p}${pageQuery}|}"
+             th:text="${p}" th:attr="aria-label=|${p} 페이지|"
+             class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">2</a>
+        </li>
+
+        <!-- 다음 · 끝 -->
+        <li th:if="${curr < last}">
+          <a th:href="@{|${baseUrl}?page=${curr + 1}${pageQuery}|}" aria-label="다음 페이지"
+             class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">&rsaquo;</a>
+        </li>
+        <li th:if="${curr < last}">
+          <a th:href="@{|${baseUrl}?page=${last}${pageQuery}|}" aria-label="마지막 페이지"
+             class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">&raquo;</a>
+        </li>
+      </ul>
+
+      <!-- 스크린리더용 현재 위치 요약 -->
+      <p class="sr-only" th:text="|전체 ${last} 페이지 중 ${curr} 페이지|">1 / 1</p>
+    </th:block>
+  </nav>
+</th:block>
+</body>
+</html>

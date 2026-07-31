@@ -537,6 +537,19 @@ public class FileServiceImpl extends EgovAbstractServiceImpl implements FileServ
             res.setStatus(HttpServletResponse.SC_NOT_FOUND);
             return 0;
         }
+
+        // file_group.download_auth 적용 — download / previewInline / downloadGroup 과 동일 기준.
+        //
+        // 바이러스 게이트(isDownloadable)는 여기에 두지 않는다. 썸네일은 원본 바이트가 아니라
+        // ThumbnailGenerator 가 새로 만든 JPG 라 원본의 악성 코드를 옮기지 않는다 —
+        // 인터페이스 javadoc 에 명시된 의도된 예외다.
+        //
+        // 반면 **접근통제는 그 논리가 커버하지 않는다.** 썸네일도 내용을 드러내므로
+        // MEMBER 전용 첨부의 썸네일이 익명에게 열리면 안 된다. 무매칭 DENY 시절에는
+        // 도달 자체가 불가했으나 P4 에서 /fileDown/** 를 PERMIT_ALL 로 열면서
+        // 이 경로만 검사 없이 남는 상태가 됐다(2026-07-31 코드 리뷰).
+        enforceDownloadAuth(f.getFileGroupId(), fileId);
+
         return downloadEngine.downloadThumbnail(f.getThumbnailPath(), res);
     }
 
