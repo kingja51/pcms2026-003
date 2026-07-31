@@ -12,6 +12,109 @@
 ---
 
 ```
+================ 2026.7.31 22:45:10 =======================
+```
+
+## P3 — 프런트 공통 기반 ✅ 완료 (페이지네이션 조각만 P4 이월)
+
+**완료**: 2026-07-31 22:45:10
+**목표**: 이후 모든 화면이 올라탈 레이아웃·JS 규약·에디터를 먼저 확정한다.
+
+### DoD 검증 결과
+
+| 항목 | 결과 |
+|---|---|
+| 레이아웃 렌더 200 | ✅ `/admin/login`, `/admin/system/editor-check` |
+| **인라인 `on*=` 0건 · raw hex 0건 · CDN script 0건** | ✅ |
+| self-host 폰트 woff2 200 + 실제 적용 | ✅ 2.0MB 전송 · `@font-face` 2건 |
+| 고대비 토글 + FOUC-free | ✅ nonce 인라인 스니펫 치환 확인 |
+| 에디터 — 동기화·우선순위·폴백 | ✅ 브라우저 육안 확인 완료 |
+| 전체 테스트 | ✅ 20건 |
+
+**에디터 육안 확인**(2026-07-31): ①`data-editor="tiptap"` ②`data-editor`(전역 기본) 모두
+툴바 14개가 렌더되고 편집 영역이 표시된다. ③`data-editor="namo"` 는 평문 textarea + 안내 문구로
+폴백한다. 번들 서빙 200/369KB.
+
+처음에는 ①② 가 **빈 상자로만 보였다.** tiptap StarterKit 은 편집 기능만 주고 UI 를 주지 않는데
+툴바를 만들지 않은 것이 원인이었다. ③ 에만 폴백 안내가 뜬 것이 "스크립트는 정상 실행됐고
+엔진 판별도 맞다" 는 단서였다 — 마운트는 처음부터 성공하고 있었다.
+
+### 산출물
+
+| 구분 | 내용 |
+|---|---|
+| 토큰·빌드 | `src/krds.css`(362줄 + 에디터 스킨), Tailwind v4 CLI → `output.css` 41KB |
+| 폰트 | Pretendard·PretendardGOV woff2 2종 (7.2MB, self-host) |
+| 레이아웃 | `layout-admin`, `layout-front` (Thymeleaf Layout Dialect) |
+| 조각 | breadcrumb · file-picker · site-footer · captcha-v3 · notification-bell |
+| 화면 | `admin/login`, `admin/login-2fa`, `admin/me/2fa-*`, `admin/system/editor-check` |
+| JS | `app.js`(이벤트 위임), htmx, flash-alert, admin-nav, notification-bell |
+| 에디터 | `src/editor/tiptap_editor.js` → esbuild ESM 번들 369KB |
+
+### 위지윅 에디터 — 001에 없어 신규 개발
+
+001 을 `tiptap`·`CrossEditor`·`data-editor` 로 전수 검색해 **0건**이었다. 이식이 아니라 신규 작성이다.
+
+설계 원칙은 하나다 — **컨트롤러·DTO 를 건드리지 않는다.** 원본 `<textarea>` 를 없애지 않고
+숨긴 뒤 편집 결과를 그 value 로 되돌려 쓴다. 폼 제출 경로가 그대로라 서버 코드가 무관하다.
+
+- 마크업 계약 `data-editor="tiptap|namo"` — 화면 지정이 전역 기본보다 우선
+- `data-initialized` 가드로 멱등 초기화. htmx 로 들어온 조각도 `htmx:load` 에서 처리
+- 실패 시 **평문 폴백** — textarea 를 그대로 쓰게 두고 안내만 붙인다. 화면이 죽지 않는다
+- 툴바 14개(B/I/U/S · H1~H3 · 목록·인용·코드 · undo/redo). StarterKit 포함 확장만 써서 추가 패키지 없음
+- **인라인 핸들러 0건** — 툴바 컨테이너에 위임 리스너 1개. `type="button"` 으로 폼 제출 방지
+- `role="toolbar"` · `aria-label` · 커서 위치에 따른 `aria-pressed` 갱신
+
+**Namo CrossEditor 4 는 프로젝트 종료 후 도입**한다(2026-07-31). 그때까지 `data-editor="namo"` 는
+미등록 엔진이라 폴백 경로 검증에 그대로 쓴다. 도입 시 `namo_editor.js` 를 추가하고
+`registerEngine('namo', …)` 한 줄이면 되며, 마크업은 고치지 않는다.
+
+### 새 빌드 단계 — esbuild (사전 승인)
+
+CDN 금지(`strict-dynamic`)라 tiptap 을 self-host 해야 하는데, 여러 패키지로 쪼개져 있어
+복사로는 안 되고 번들러가 필요했다. `npm 의존성·빌드 단계 추가는 사전 확인`(작업 원칙 4) 에 따라
+승인받고 도입했다.
+
+```
+npm run css     → Tailwind v4  → static/css/output.css
+npm run editor  → esbuild ESM  → static/js/editor/tiptap_editor.js
+npm run build   → 위 둘        ← maven generate-resources 가 호출
+```
+
+번들 산출물은 `.gitignore` — 원본은 `src/editor/`.
+
+### 001 대비 달라진 점
+
+| 대상 | 처리 | 사유 |
+|---|---|---|
+| `site-footer` | **재작성** | 001 은 특정 대학 주소·전화·담당자·이메일·로고가 하드코딩. 멀티사이트 CMS 에 기관 정보를 코드에 박지 않는다 — 값은 `tb_site`, 데모 표현은 P8 |
+| 페이지네이션 조각 | **P4 이월** | 001 에 전용 조각 파일이 없다. 실제 목록 화면이 있어야 형태가 정해진다 |
+| flash-alert 조각 | **불필요 — 만들지 않는다** | PLAN 은 조각으로 적었으나 001 실측은 `data-flash-alert="메시지"` **속성 계약 + `flash-alert.js`** 다(엄격 CSP 라 인라인 `alert()` 불가). 스크립트는 이식했고 쓰는 화면에서 로드하면 된다 |
+| `breadcrumb` | 이식하되 P4 이후 동작 | `BreadcrumbResolver`(사이트 도메인)에 의존 |
+| JODConverter | **로컬 비활성** | Windows 파일 잠금으로 기동마다 ERROR — 진짜 오류를 3회 가렸다. 운영은 true 유지 |
+
+### 발견 — §15 grep 이 KRDS 토큰을 오탐하고 있었다
+
+`bg-gray-90` 등 9건이 "Tailwind 기본 팔레트 위반"으로 잡혔다. 그런데 **`gray` 는 KRDS 3색 원칙
+(Brand + Point + Gray)의 일부**이고 `krds.css:132` 가 `--color-gray-0…100` 을 직접 정의한다.
+Tailwind 기본 gray 는 `gray-900` 이고 KRDS 는 `gray-90` 이라 2자리 스케일이 grep 패턴에 걸렸다.
+
+색 목록에서 `gray` 를 빼고 CLAUDE.md 에도 명시했다 — 정정 후 **0건**.
+항상 9건을 보고하는 검사는 사람이 무시하게 만든다.
+
+### 실행 메모
+
+- **Flyway 는 `target/classes` 에서 읽는다.** 소스에서 마이그레이션 파일만 지우면 반영되지 않아
+  실패가 반복된다 — `target/classes` 쪽도 함께 지워야 한다
+- `tb_role_url_access` 는 `access_type='ROLE'` 이면 `required_roles` 가 **NOT NULL** 이다
+  (`chk_role_url_access_roles`). 빠뜨리면 마이그레이션이 CHECK 위반으로 실패한다
+- 관리자 `loginId` 는 **8자 이상**(`LoginCredential.@Size(min=8)`) — `admin` 은 `INVALID_FORMAT` 으로 거부된다
+- 폼 파라미터는 Spring 기본값이 아니라 **`loginId`/`password`**(`usernameParameter` override)
+- `tb_member.join_type` CHECK 에 `NORMAL` 은 없다 — `EMAIL`/`HOMEPAGE`/소셜 계열만 허용
+
+---
+
+```
 ================ 2026.7.31 19:52:30 =======================
 ```
 

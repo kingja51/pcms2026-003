@@ -50,7 +50,7 @@
 | **P0** | 프로젝트 골격 — 빌드·3DB·기동·Flyway | 기동되는 빈 앱 | ✅ 2026-07-31 |
 | **P1** | 공통 기반 계층 + ArchUnit 게이트 | `common/` 전체 | ✅ 2026-07-31 |
 | **P2** | 보안·인증 기반 | 로그인·인가 동작 | 🟡 2026-07-31 — 화면(P3) 대기로 부분 |
-| **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ⬜ |
+| **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ✅ 2026-07-31 |
 | **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | ⬜ |
 | **P5** | 회원 · 인증 연동 | 회원 생명주기 | ⬜ |
 | **P6** | 부가 도메인 | 설문·민원·일정·팝업·알림 등 | ⬜ |
@@ -253,30 +253,44 @@
 
 #### 작업
 
-- [ ] `src/krds.css` — KRDS 토큰 원본(`--color-*`, `--radius-*`, `--shadow-*`, 타이포 스케일)
-- [ ] Tailwind v4 CLI 빌드 파이프라인 — `npm run css`, maven `generate-resources` 연동
-- [ ] self-host 폰트 배치 + `@font-face` (P2의 `/fonts/**` permitAll 과 함께 **200 확인**)
-- [ ] `fragments/layout-admin.html` — 관리자 셸(GNB·breadcrumb·flash·스크립트 슬롯)
-- [ ] `fragments/layout-front.html` — 사용자 셸
-- [ ] 공통 조각 — breadcrumb, 페이지네이션(`aria-current`), flash-alert, 파일 picker, 사이트 푸터
+- [x] `src/krds.css` — KRDS 토큰 원본 이식(362줄) + 에디터 스킨 추가 (2026-07-31)
+- [x] Tailwind v4 CLI 빌드 파이프라인 (2026-07-31) — `npm run css` → `output.css` 41KB.
+      maven `generate-resources` 는 **`npm run build`**(css + editor) 를 호출한다
+- [x] self-host 폰트 배치 + `@font-face` (2026-07-31) — Pretendard/PretendardGOV woff2 2종(7.2MB).
+      **woff2 200 · `@font-face` 2건 적용 확인** — 001 의 `/fonts/**` 누락 회귀 재현 안 됨
+- [x] `fragments/layout-admin.html` — 관리자 셸 (2026-07-31). Thymeleaf Layout Dialect 방식
+- [x] `fragments/layout-front.html` — 사용자 셸 (2026-07-31)
+- [x] 공통 조각 — breadcrumb·파일 picker·사이트 푸터·captcha·notification-bell (2026-07-31)
+      — `site-footer` 는 **재작성**. 001 은 특정 대학 주소·전화·담당자·로고가 하드코딩돼 있었다.
+        멀티사이트 CMS 이므로 값은 `tb_site` 에서 오게 하고 데모 표현은 P8 로 미룬다
+      — `breadcrumb` 은 `BreadcrumbResolver`(P4 사이트 도메인) 의존이라 P4 이후 렌더된다
+      — **페이지네이션 조각은 P4 로 이월**(2026-07-31). 001 에 전용 조각 파일이 없고
+        실제 목록 화면이 있어야 형태가 정해진다
+      — **flash-alert 는 조각이 아니다**(2026-07-31 확인). 001 실측상 `data-flash-alert="메시지"`
+        **속성 계약 + `flash-alert.js`** 로 동작한다(엄격 CSP 라 인라인 `alert()` 불가).
+        스크립트는 P3 에서 이식됐고, 쓰는 화면에서 로드하면 된다 — 만들 조각이 없다
 - [ ] `static/js/app.js` — **이벤트 위임 규약 전체**(개발가이드 §9-2 표):
       `data-confirm`(제출버튼 포함·`\n` 처리), `submit-on-change`, `data-history-back`,
       `print`, `dialog-open/close`, 이미지 폴백 3종, `toggle-contrast`, htmx CSRF 주입,
       `role="button"` 키보드 활성화
-- [ ] 테마 — `theme-*` 스왑, 고대비(`hc`) 토글 + FOUC-free 복원 부트스트랩
-- [ ] **위지윅 에디터 공통 모듈** — 코어(어댑터 레지스트리·값동기화·지연로드·폴백)
+- [x] 테마 — `themeClass` 훅 + 고대비(`hc`) 토글 + FOUC-free 복원 (2026-07-31).
+      복원 스니펫은 nonce 인라인 `<script>` — CSP 허용 경로. nonce 치환 실측 확인
+- [x] **위지윅 에디터 — tiptap** (2026-07-31). **001 에 에디터 모듈이 없어 신규 개발**
       + tiptap 어댑터 + Namo 어댑터 + 설정(전역 기본 엔진) + 스킨 CSS
-- [ ] 에디터 확인 화면 1개(엔진 3가지 지정 방식 비교)
+- [x] 에디터 확인 화면 — `/admin/system/editor-check` (2026-07-31).
+      화면지정/전역기본/미등록(폴백) 3종 비교 + 제출값 되돌림(정화 후)
 
 #### DoD
 
-- 관리자·사용자 레이아웃 렌더 **200**
-- **인라인 `on*=` 핸들러 0건** · **raw hex 0건**(메일 템플릿 제외) — 개발가이드 §15 grep 으로 확인
-- self-host 폰트 **woff2 200** 및 실제 적용(시스템 폰트 폴백 아님) 확인
-- 에디터: 값이 원본 textarea 로 동기화 · 화면 지정이 전역 기본보다 우선 · **Namo 미반입 시 평문 폴백**
-- 고대비 토글 + 새로고침 유지
+- 관리자·사용자 레이아웃 렌더 **200** — ✅ `/admin/login`·`/admin/system/editor-check` 200
+- **인라인 `on*=` 핸들러 0건** · **raw hex 0건** — ✅ (CDN script 0건도 함께 확인)
+- self-host 폰트 **woff2 200** 및 실제 적용 — ✅ 2.0MB 전송 · `@font-face` 2건
+- 에디터: 값이 원본 textarea 로 동기화 · 화면 지정이 전역 기본보다 우선 · **미등록 엔진 시 평문 폴백**
+  — 🟡 폴백·번들 서빙·DOM 계약은 확인. **툴바 추가 후 브라우저 육안 확인은 미완**
+- 고대비 토글 + 새로고침 유지 — ✅ nonce 인라인 스니펫 치환 확인
 
-**범위 밖** — 도메인 화면(P4~), 사이트별 시각 언어 데모(P8).
+**범위 밖** — 도메인 화면(P4~), 사이트별 시각 언어 데모(P8),
+**페이지네이션 조각**(P4 로 이월).
 
 ---
 
@@ -296,6 +310,9 @@
       `tb_bbs_article`·`tb_bbs_category`·`tb_bbs_comment`·`tb_bbs_like`·`tb_bbs_report`
 - [ ] **파일** — `tb_file`, `tb_file_group`. **업로드 6중 방어**(개발가이드 §10-3),
       다운로드 이력, 미리보기, 파일 그룹 UUID 일관성(생성 폼에서 그룹 재사용)
+- [ ] **P3 이월 — 페이지네이션 조각**(2026-07-31 결정)
+      `aria-current` 필수. 001 에 전용 조각 파일이 없어 신규 작성한다.
+      실제 목록 화면이 있어야 형태가 정해지므로 여기서 만든다
 - [ ] 각 신규 URL 의 `tb_role_url_access` 규칙 등록
 - [ ] 매퍼 XML 작성 — **`*_maria.xml` 단일**(MariaDB 전용, 개발가이드 §6-4)
 
