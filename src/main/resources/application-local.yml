@@ -24,13 +24,14 @@ spring:
 
 # ----------------------------------------------------------------------------
 # 로컬 임베디드 Tomcat.
-#   · port 8082 — application.yml 의 8083(외부 Tomcat 운영용) override.
-#     001(8081)·001 로컬(8080) 과도 겹치지 않는다.
+#   · port 8084 — application.yml 의 8083(외부 Tomcat 운영용) override.
+#     001(8081)·001 로컬(8080) 과 겹치지 않는다.
+#     ※ 8082 는 이 개발 PC 의 다른 java 프로세스가 점유 중이라 피했다(2026-07-31 실측).
 #   · cookie.secure=false — HTTP 환경에서 secure 쿠키 비활성.
 #     운영은 application.yml 의 true 를 그대로 쓴다.
 # ----------------------------------------------------------------------------
 server:
-  port: 8082
+  port: 8084
   servlet:
     session:
       cookie:
@@ -69,7 +70,9 @@ gopcms:
   crypto:
     pii:
       # 로컬 개발용 키도 환경변수로 주입한다. 생성: openssl rand -base64 32
+      # master-key(AES) 와 hmac-key(HMAC) 는 반드시 서로 다른 값을 쓴다.
       master-key: ${PCMS_PII_MASTER_KEY}
+      hmac-key:   ${PCMS_PII_HMAC_KEY}
       key-id: v1
 
   # --------------------------------------------------------------------------

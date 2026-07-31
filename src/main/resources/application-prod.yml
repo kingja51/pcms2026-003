@@ -11,7 +11,8 @@
 # 필수 환경변수 (setenv 에서 export — 미주입 시 부팅 실패):
 #   JASYPT_ENCRYPTOR_PASSWORD              Jasypt ENC(...) 복호화 마스터키
 #   PCMS_MAIL_USERNAME / GMAIL_SMTP_USER_PASSWD  SMTP 계정·앱 비밀번호
-#   PCMS_PII_MASTER_KEY                    PII AES-256-GCM 마스터키 (base64 32바이트)
+#   PCMS_PII_MASTER_KEY                    PII AES-256-GCM 암호화 키 (base64 32바이트)
+#   PCMS_PII_HMAC_KEY                      *_hash 컬럼용 HMAC-SHA256 키 (base64 32바이트, master 와 다른 값)
 #   PCMS_DB_PRIMARY_URL   / USER / PASSWORD
 #   PCMS_DB_SECONDARY_URL / USER / PASSWORD
 #   PCMS_DB_LOGGING_URL   / USER / PASSWORD
@@ -101,6 +102,7 @@ gopcms:
   crypto:
     pii:
       master-key: ${PCMS_PII_MASTER_KEY}
+      hmac-key:   ${PCMS_PII_HMAC_KEY}
       key-id: ${PCMS_PII_KEY_ID:v1}
 
   # --------------------------------------------------------------------------

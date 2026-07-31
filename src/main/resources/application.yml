@@ -291,8 +291,26 @@ gopcms:
       #   001 의 이전 fallback "0123456789abcdef..." 는 명백한 테스트 키였고,
       #   환경변수 미주입 시 전체 PII 가 약한 키로 영구 암호화되는 회귀가 발생했다.
       #   미주입 시 부팅 실패가 의도된 동작이다.
-      master-key: ${PCMS_PII_MASTER_KEY}   # base64, 32 bytes
+      master-key: ${PCMS_PII_MASTER_KEY}   # AES-256-GCM 암호화 키. base64, 32 bytes
       key-id: ${PCMS_PII_KEY_ID:v1}
+      # ----------------------------------------------------------------------
+      # HMAC-SHA256 전용 키 — `*_hash` 컬럼 산출용 (2026-07-31 분리 결정).
+      #   대상: email_hash · login_id_hash · di_hash · parent_di_hash ·
+      #         voter_name_hash · birth_date_hash · resident_no_suffix_hash
+      #
+      #   001 은 master-key 를 HMAC 에도 재사용했다("별도 키 관리 간소화").
+      #   003 은 key separation 원칙에 따라 분리한다 — 암호화 키와 MAC 키를 공유하면
+      #   감사 지적 대상이 되고, 키 회전 시 두 작업이 강제로 묶인다.
+      #
+      #   ⚠️ 회전 비용이 다르다는 점에 주의:
+      #     · master-key 회전  → 암호문을 복호화 후 재암호화하면 된다(가역).
+      #     · hmac-key 회전    → 해시는 단방향이라 원문을 다시 얻어야 한다.
+      #       즉 master-key 로 복호화한 평문을 새 hmac-key 로 재해시해야 하며,
+      #       그동안 완전일치 검색(로그인·중복확인)이 깨진다. 회전은 점검 시간에 일괄 수행할 것.
+      #
+      #   생성: openssl rand -base64 32
+      # ----------------------------------------------------------------------
+      hmac-key: ${PCMS_PII_HMAC_KEY}       # HMAC-SHA256 키. base64, 32 bytes
 
   # ------------------------------------------------------------------------
   # 보안 정책

@@ -32,6 +32,7 @@ gopcms:
   crypto:
     pii:
       master-key: ${PCMS_PII_MASTER_KEY}
+      hmac-key:   ${PCMS_PII_HMAC_KEY}
       key-id: ${PCMS_PII_KEY_ID:v1}
 
   # --------------------------------------------------------------------------
