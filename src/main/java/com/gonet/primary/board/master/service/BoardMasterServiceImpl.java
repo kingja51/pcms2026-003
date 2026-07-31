@@ -1,5 +1,6 @@
 package com.gonet.primary.board.master.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.JsonUtils;
@@ -144,7 +145,7 @@ public class BoardMasterServiceImpl extends EgovAbstractServiceImpl implements B
         }
         BbsMaster existing = mapper.findById(form.getBbsMasterId());
         if (existing == null) {
-            throw new IllegalArgumentException("게시판을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시판을 찾을 수 없습니다.");
         }
         // bbs_code 는 수정 시에도 검증 (사이트 내 UNIQUE)
         validateCode(existing.getSiteId(), form.getBbsCode(), existing.getBbsMasterId());
@@ -202,7 +203,7 @@ public class BoardMasterServiceImpl extends EgovAbstractServiceImpl implements B
     public void toggleUse(String bbsMasterId, boolean active) {
         BbsMaster existing = mapper.findById(bbsMasterId);
         if (existing == null) {
-            throw new IllegalArgumentException("게시판을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시판을 찾을 수 없습니다.");
         }
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) {
@@ -229,7 +230,7 @@ public class BoardMasterServiceImpl extends EgovAbstractServiceImpl implements B
         }
         BbsMaster existing = mapper.findById(bbsMasterId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 게시판입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 게시판입니다.");
         }
         int affected = mapper.softDelete(bbsMasterId);
         if (affected == 0) {
@@ -309,8 +310,7 @@ public class BoardMasterServiceImpl extends EgovAbstractServiceImpl implements B
         for (String id : ids) {
             BbsMaster target = mapper.findById(id);
             if (target == null) {
-                throw new IllegalArgumentException(
-                    "통합 게시판 대상 중 존재하지 않는 게시판이 있습니다: " + id);
+                throw new ResourceNotFoundException("통합 게시판 대상 중 존재하지 않는 게시판이 있습니다: " + id);
             }
 
             if (target.isAggregator()) {

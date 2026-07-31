@@ -1,5 +1,6 @@
 package com.gonet.primary.admin.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.crypto.AesGcmCipher;
@@ -100,7 +101,7 @@ public class AdminServiceImpl extends EgovAbstractServiceImpl implements AdminSe
         }
         Department dept = departmentMapper.findById(id);
         if (dept == null) {
-            throw new IllegalArgumentException("존재하지 않는 부서입니다.");
+            throw new ResourceNotFoundException("존재하지 않는 부서입니다.");
         }
         entity.setDepartmentName(dept.getDepartmentName());
     }
@@ -211,7 +212,7 @@ public class AdminServiceImpl extends EgovAbstractServiceImpl implements AdminSe
         }
         Admin existing = mapper.findById(form.getAdminId());
         if (existing == null) {
-            throw new IllegalArgumentException("관리자를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("관리자를 찾을 수 없습니다.");
         }
 
         AdminGroupOption group = requireGroup(form.getAdminGroupId());
@@ -246,7 +247,7 @@ public class AdminServiceImpl extends EgovAbstractServiceImpl implements AdminSe
         }
         Admin existing = mapper.findById(adminId);
         if (existing == null) {
-            throw new IllegalArgumentException("관리자를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("관리자를 찾을 수 없습니다.");
         }
         String encoded = passwordEncoder.encode(newPassword);
         LocalDateTime now = LocalDateTime.now();
@@ -263,7 +264,7 @@ public class AdminServiceImpl extends EgovAbstractServiceImpl implements AdminSe
         }
         int n = mapper.unlockAdmin(adminId);
         if (n == 0) {
-            throw new IllegalArgumentException("관리자를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("관리자를 찾을 수 없습니다.");
         }
     }
 
@@ -290,7 +291,7 @@ public class AdminServiceImpl extends EgovAbstractServiceImpl implements AdminSe
     public void softDelete(String adminId, String reason) {
         Admin existing = mapper.findById(adminId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 관리자입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 관리자입니다.");
         }
 
         // 호출 경로별 기본값:
@@ -348,7 +349,7 @@ public class AdminServiceImpl extends EgovAbstractServiceImpl implements AdminSe
     public void updateSelfProfile(String adminId, AdminProfileForm form) {
         Objects.requireNonNull(form, "form");
         Admin existing = mapper.findById(adminId);
-        if (existing == null) throw new IllegalArgumentException("관리자를 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("관리자를 찾을 수 없습니다.");
 
         String emailHash = emailHasher.hash(form.getEmail());
         if (mapper.existsByEmailHash(emailHash, adminId) > 0) {
@@ -370,7 +371,7 @@ public class AdminServiceImpl extends EgovAbstractServiceImpl implements AdminSe
     public void changePassword(String adminId, AdminPasswordForm form) {
         Objects.requireNonNull(form, "form");
         Admin existing = mapper.findById(adminId);
-        if (existing == null) throw new IllegalArgumentException("관리자를 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("관리자를 찾을 수 없습니다.");
 
         if (!passwordEncoder.matches(form.getCurrentPassword(), existing.getPassword())) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");

@@ -1,5 +1,6 @@
 package com.gonet.primary.content.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditContext;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
@@ -128,7 +129,7 @@ public class ContentServiceImpl extends EgovAbstractServiceImpl implements Conte
         }
         Content existing = mapper.findById(form.getContentId());
         if (existing == null) {
-            throw new IllegalArgumentException("콘텐츠를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("콘텐츠를 찾을 수 없습니다.");
         }
         validateSlug(existing.getSiteId(), form.getSlug(), existing.getContentId());
 
@@ -166,7 +167,7 @@ public class ContentServiceImpl extends EgovAbstractServiceImpl implements Conte
         }
         Content existing = mapper.findById(contentId);
         if (existing == null) {
-            throw new IllegalArgumentException("콘텐츠를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("콘텐츠를 찾을 수 없습니다.");
         }
         // 동일 본문이면 no-op (version 증가/이력 적재 방지)
         String oldBody = existing.getBody() == null ? "" : existing.getBody();
@@ -202,7 +203,7 @@ public class ContentServiceImpl extends EgovAbstractServiceImpl implements Conte
         }
         Content existing = mapper.findById(contentId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 콘텐츠입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 콘텐츠입니다.");
         }
         if (ContentStatus.safeParse(existing.getStatus()) == ContentStatus.PUBLISHED) {
             throw new IllegalArgumentException(
@@ -227,7 +228,7 @@ public class ContentServiceImpl extends EgovAbstractServiceImpl implements Conte
         Objects.requireNonNull(target, "target status");
         Content existing = mapper.findById(contentId);
         if (existing == null) {
-            throw new IllegalArgumentException("콘텐츠를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("콘텐츠를 찾을 수 없습니다.");
         }
         ContentStatus current = ContentStatus.safeParse(existing.getStatus());
         current.assertCanTransitionTo(target);

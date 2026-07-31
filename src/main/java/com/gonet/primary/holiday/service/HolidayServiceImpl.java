@@ -1,5 +1,6 @@
 package com.gonet.primary.holiday.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.JsonUtils;
@@ -103,7 +104,7 @@ public class HolidayServiceImpl extends EgovAbstractServiceImpl implements Holid
         }
         Holiday existing = mapper.findById(form.getHolidayId());
         if (existing == null) {
-            throw new IllegalArgumentException("공휴일을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("공휴일을 찾을 수 없습니다.");
         }
         validateDup(form.getHolidayDate(), form.getHolidayName(), existing.getHolidayId());
 
@@ -129,7 +130,7 @@ public class HolidayServiceImpl extends EgovAbstractServiceImpl implements Holid
     public void toggleUse(String holidayId, boolean active) {
         Holiday existing = mapper.findById(holidayId);
         if (existing == null) {
-            throw new IllegalArgumentException("공휴일을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("공휴일을 찾을 수 없습니다.");
         }
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) return;
@@ -151,7 +152,7 @@ public class HolidayServiceImpl extends EgovAbstractServiceImpl implements Holid
         }
         Holiday existing = mapper.findById(holidayId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않습니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않습니다.");
         }
         int affected = mapper.softDelete(holidayId);
         if (affected == 0) {

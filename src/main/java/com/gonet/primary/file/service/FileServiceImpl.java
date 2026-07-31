@@ -1,5 +1,6 @@
 package com.gonet.primary.file.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.file.dto.UploadCommit;
@@ -682,7 +683,7 @@ public class FileServiceImpl extends EgovAbstractServiceImpl implements FileServ
         }
         FileItem existing = fileMapper.findById(fileId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 파일입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 파일입니다.");
         }
         int affected = fileMapper.softDelete(fileId);
         if (affected == 0) {
@@ -703,7 +704,7 @@ public class FileServiceImpl extends EgovAbstractServiceImpl implements FileServ
         if (fileId == null || fileId.isBlank()) throw new IllegalArgumentException("fileId required");
         if (status == null) throw new IllegalArgumentException("status required");
         FileItem existing = fileMapper.findById(fileId);
-        if (existing == null) throw new IllegalArgumentException("파일을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("파일을 찾을 수 없습니다.");
         int affected = fileMapper.updateVirusScanStatus(fileId, status.name());
         if (affected == 0) throw new IllegalStateException("상태 변경 실패: " + fileId);
         auditLogger.write(AuditEvent.of("FILE_SCAN_STATUS_OVERRIDE", "tb_file")

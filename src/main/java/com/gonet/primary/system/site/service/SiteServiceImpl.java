@@ -1,5 +1,6 @@
 package com.gonet.primary.system.site.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.util.UuidV7Generator;
 import com.gonet.primary.system.menu.service.MenuService;
 import com.gonet.primary.system.site.dto.*;
@@ -123,7 +124,7 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
         }
         Site existing = mapper.findById(form.getSiteId());
         if (existing == null) {
-            throw new IllegalArgumentException("사이트를 찾을 수 없습니다: " + form.getSiteId());
+            throw new ResourceNotFoundException("사이트를 찾을 수 없습니다: " + form.getSiteId());
         }
         validateDuplicates(form.getSiteCode(), form.getDomain(), form.getSiteId());
         validateTemplateExists(form.getTemplateId());
@@ -154,7 +155,7 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
         }
         Site site = mapper.findById(siteId);
         if (site == null) {
-            throw new IllegalArgumentException("사이트를 찾을 수 없습니다: " + siteId);
+            throw new ResourceNotFoundException("사이트를 찾을 수 없습니다: " + siteId);
         }
         validateTemplateExists(templateId);
 
@@ -172,7 +173,7 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
         }
         int affected = mapper.softDelete(siteId);
         if (affected == 0) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 사이트입니다: " + siteId);
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 사이트입니다: " + siteId);
         }
         publisher.publishEvent(
             new SiteContextChangedEvent(siteId, SiteContextChangedEvent.Reason.SITE_UPDATED));
@@ -202,7 +203,7 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
         if (templateId == null || templateId.isBlank()) return;
         TemplateInfo t = templateMapper.findById(templateId);
         if (t == null) {
-            throw new IllegalArgumentException("템플릿을 찾을 수 없거나 비활성 상태입니다: " + templateId);
+            throw new ResourceNotFoundException("템플릿을 찾을 수 없거나 비활성 상태입니다: " + templateId);
         }
     }
 

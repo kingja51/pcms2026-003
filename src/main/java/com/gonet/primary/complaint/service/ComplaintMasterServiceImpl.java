@@ -1,5 +1,6 @@
 package com.gonet.primary.complaint.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.dto.PageResponse;
@@ -78,7 +79,7 @@ public class ComplaintMasterServiceImpl extends EgovAbstractServiceImpl
         transactionManager = PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void update(String complaintMasterId, ComplaintMasterSaveForm form) {
         ComplaintMaster existing = mapper.findById(complaintMasterId);
-        if (existing == null) throw new IllegalArgumentException("민원 마스터를 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("민원 마스터를 찾을 수 없습니다.");
         ComplaintMaster master = toEntity(form);
         master.setComplaintMasterId(complaintMasterId);
         mapper.update(master);

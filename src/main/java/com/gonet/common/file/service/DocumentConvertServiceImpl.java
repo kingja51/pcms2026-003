@@ -1,5 +1,6 @@
 package com.gonet.common.file.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import org.jodconverter.core.DocumentConverter;
 import org.jodconverter.core.document.DefaultDocumentFormatRegistry;
 import org.slf4j.Logger;
@@ -55,7 +56,7 @@ public class DocumentConvertServiceImpl implements DocumentConvertService {
     @Override
     public Path ensurePdf(Path sourcePath, String fileHash) {
         if (sourcePath == null || !Files.isRegularFile(sourcePath)) {
-            throw new IllegalArgumentException("원본 파일이 존재하지 않습니다: " + sourcePath);
+            throw new ResourceNotFoundException("원본 파일이 존재하지 않습니다: " + sourcePath);
         }
         if (fileHash == null || !SHA256_HEX.matcher(fileHash.toLowerCase()).matches()) {
             throw new IllegalArgumentException("유효하지 않은 file hash: " + fileHash);

@@ -1,5 +1,6 @@
 package com.gonet.primary.board.comment.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.JsonUtils;
@@ -123,7 +124,7 @@ public class BoardCommentServiceImpl extends EgovAbstractServiceImpl implements 
             parent = commentMapper.findById(form.getParentCommentId());
             if (parent == null
                 || !parent.getArticleId().equals(article.getArticleId())) {
-                throw new IllegalArgumentException("부모 댓글을 찾을 수 없습니다.");
+                throw new ResourceNotFoundException("부모 댓글을 찾을 수 없습니다.");
             }
             // 2 단계까지만 허용 — 부모가 답글이면 본 댓글도 같은 부모를 가지도록 평탄화
             if (parent.getDepth() >= 2 && parent.getParentCommentId() != null) {
@@ -200,7 +201,7 @@ public class BoardCommentServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsComment existing = commentMapper.findById(form.getCommentId());
         if (existing == null) {
-            throw new IllegalArgumentException("댓글을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("댓글을 찾을 수 없습니다.");
         }
         ensureOwnerOnly(existing, currentUser());
 
@@ -227,7 +228,7 @@ public class BoardCommentServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsComment existing = commentMapper.findById(commentId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 댓글입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 댓글입니다.");
         }
         ensureOwnerOrAdmin(existing, currentUser());
 
@@ -261,7 +262,7 @@ public class BoardCommentServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsComment existing = commentMapper.findById(commentId);
         if (existing == null) {
-            throw new IllegalArgumentException("댓글을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("댓글을 찾을 수 없습니다.");
         }
         if (target.name().equals(existing.getStatus())) return;
 
@@ -297,7 +298,7 @@ public class BoardCommentServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsArticle a = articleMapper.findById(articleId);
         if (a == null) {
-            throw new IllegalArgumentException("게시글을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시글을 찾을 수 없습니다.");
         }
         return a;
     }
@@ -305,7 +306,7 @@ public class BoardCommentServiceImpl extends EgovAbstractServiceImpl implements 
     private BbsMaster requireMaster(String bbsMasterId) {
         BbsMaster m = masterMapper.findById(bbsMasterId);
         if (m == null) {
-            throw new IllegalArgumentException("게시판을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시판을 찾을 수 없습니다.");
         }
         return m;
     }

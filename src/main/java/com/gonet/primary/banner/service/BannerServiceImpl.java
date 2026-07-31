@@ -1,5 +1,6 @@
 package com.gonet.primary.banner.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.JsonUtils;
@@ -149,7 +150,7 @@ public class BannerServiceImpl extends EgovAbstractServiceImpl implements Banner
         }
         Banner existing = mapper.findById(form.getBannerId());
         if (existing == null) {
-            throw new IllegalArgumentException("배너를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("배너를 찾을 수 없습니다.");
         }
         validateRange(form.getShowFrom(), form.getShowTo());
 
@@ -185,7 +186,7 @@ public class BannerServiceImpl extends EgovAbstractServiceImpl implements Banner
     public void toggleUse(String bannerId, boolean active) {
         Banner existing = mapper.findById(bannerId);
         if (existing == null) {
-            throw new IllegalArgumentException("배너를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("배너를 찾을 수 없습니다.");
         }
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) return;
@@ -208,7 +209,7 @@ public class BannerServiceImpl extends EgovAbstractServiceImpl implements Banner
         }
         Banner existing = mapper.findById(bannerId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 배너입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 배너입니다.");
         }
         int affected = mapper.softDelete(bannerId);
         if (affected == 0) {

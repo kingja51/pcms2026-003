@@ -1,5 +1,6 @@
 package com.gonet.primary.board.article.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
@@ -247,7 +248,7 @@ public class BoardArticleServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsArticle existing = articleMapper.findById(form.getArticleId());
         if (existing == null) {
-            throw new IllegalArgumentException("게시글을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시글을 찾을 수 없습니다.");
         }
         // master 가 동시 삭제되는 race 시에도 update 시점에 일관된 정책 사용 (사후 조회 시 m==null 분기 회피).
         BbsMaster master = masterMapper.findById(existing.getBbsMasterId());
@@ -312,7 +313,7 @@ public class BoardArticleServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsArticle existing = articleMapper.findById(articleId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 게시글입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 게시글입니다.");
         }
         CustomUserDetails me = currentUser();
         log.info("===BBS_ARTICLE_DELETE_ATTEMPT id={} userId={} userType={}",
@@ -355,7 +356,7 @@ public class BoardArticleServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsArticle existing = articleMapper.findById(articleId);
         if (existing == null) {
-            throw new IllegalArgumentException("게시글을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시글을 찾을 수 없습니다.");
         }
         if (status.name().equals(existing.getStatus())) {
             return; // idempotent
@@ -393,7 +394,7 @@ public class BoardArticleServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsArticle existing = articleMapper.findById(articleId);
         if (existing == null) {
-            throw new IllegalArgumentException("게시글을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시글을 찾을 수 없습니다.");
         }
         String next = notice ? "Y" : "N";
         if (next.equals(existing.getNoticeYn())) {
@@ -453,7 +454,7 @@ public class BoardArticleServiceImpl extends EgovAbstractServiceImpl implements 
         }
         BbsMaster m = masterMapper.findById(bbsMasterId);
         if (m == null) {
-            throw new IllegalArgumentException("게시판을 찾을 수 없습니다: " + bbsMasterId);
+            throw new ResourceNotFoundException("게시판을 찾을 수 없습니다: " + bbsMasterId);
         }
         return m;
     }

@@ -1,5 +1,6 @@
 package com.gonet.primary.survey.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.JsonUtils;
@@ -76,7 +77,7 @@ public class SurveyResponseServiceImpl extends EgovAbstractServiceImpl implement
         }
 
         Survey sv = surveyMapper.findById(surveyId);
-        if (sv == null) throw new IllegalArgumentException("설문을 찾을 수 없습니다.");
+        if (sv == null) throw new ResourceNotFoundException("설문을 찾을 수 없습니다.");
         if (!"Y".equals(sv.getUseYn())) throw new IllegalStateException("사용중지된 설문입니다.");
         if (SurveyStatus.safeParse(sv.getStatus()) != SurveyStatus.PUBLISHED) {
             throw new IllegalStateException("응답 가능한 상태가 아닙니다.");

@@ -1,5 +1,6 @@
 package com.gonet.primary.system.site.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.util.UuidV7Generator;
 import com.gonet.config.datasource.PrimaryDataSourceConfig;
 import com.gonet.primary.system.site.dto.SiteContextChangedEvent;
@@ -96,7 +97,7 @@ public class TemplateServiceImpl extends EgovAbstractServiceImpl implements Temp
         }
         Template existing = mapper.findById(form.getTemplateId());
         if (existing == null) {
-            throw new IllegalArgumentException("템플릿을 찾을 수 없습니다: " + form.getTemplateId());
+            throw new ResourceNotFoundException("템플릿을 찾을 수 없습니다: " + form.getTemplateId());
         }
         String code = form.getTemplateCode().trim().toUpperCase();
         if (mapper.existsByCode(code, existing.getTemplateId()) > 0) {
@@ -125,7 +126,7 @@ public class TemplateServiceImpl extends EgovAbstractServiceImpl implements Temp
         }
         Template existing = mapper.findById(templateId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 템플릿입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 템플릿입니다.");
         }
 
         int refs = mapper.countReferencingSites(templateId);

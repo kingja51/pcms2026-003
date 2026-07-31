@@ -1,5 +1,6 @@
 package com.gonet.primary.board.article.controller;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.captcha.CaptchaGuard;
 import com.gonet.common.dto.PageResponse;
 import com.gonet.common.util.IpUtils;
@@ -478,7 +479,7 @@ public class BoardUsrController {
         BbsMaster m = masterService.getBySiteCodeAndBbsCode(siteCode, bbsCode);
         if (m == null) {
             log.warn("BBS_MASTER_NOT_FOUND site={} bbs={}", siteCode, bbsCode);
-            throw new IllegalArgumentException("게시판을 찾을 수 없습니다: " + siteCode + "/" + bbsCode);
+            throw new ResourceNotFoundException("게시판을 찾을 수 없습니다: " + siteCode + "/" + bbsCode);
         }
         return m;
     }

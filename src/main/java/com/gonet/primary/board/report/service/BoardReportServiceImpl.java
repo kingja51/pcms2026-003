@@ -1,5 +1,6 @@
 package com.gonet.primary.board.report.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.dto.PageResponse;
@@ -212,7 +213,7 @@ public class BoardReportServiceImpl extends EgovAbstractServiceImpl implements B
         }
         BbsReport existing = reportMapper.findById(reportId);
         if (existing == null) {
-            throw new IllegalArgumentException("신고를 찾을 수 없습니다: " + reportId);
+            throw new ResourceNotFoundException("신고를 찾을 수 없습니다: " + reportId);
         }
 
         reportMapper.updateReview(reportId, status, admin.getUserId(), blankToNull(reviewNote));

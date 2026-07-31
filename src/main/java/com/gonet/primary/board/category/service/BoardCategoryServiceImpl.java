@@ -1,5 +1,6 @@
 package com.gonet.primary.board.category.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.JsonUtils;
@@ -70,7 +71,7 @@ public class BoardCategoryServiceImpl extends EgovAbstractServiceImpl
         Objects.requireNonNull(form, "form");
         BbsMaster master = masterMapper.findById(form.getBbsMasterId());
         if (master == null) {
-            throw new IllegalArgumentException("게시판을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("게시판을 찾을 수 없습니다.");
         }
         if (categoryMapper.existsByCode(form.getBbsMasterId(),
                                          form.getCategoryCode(), null) > 0) {
@@ -110,7 +111,7 @@ public class BoardCategoryServiceImpl extends EgovAbstractServiceImpl
         }
         BbsCategory existing = categoryMapper.findById(form.getCategoryId());
         if (existing == null) {
-            throw new IllegalArgumentException("카테고리를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("카테고리를 찾을 수 없습니다.");
         }
         // bbs_master_id 변경은 비허용 — 다른 게시판으로의 카테고리 이동은 신규 작성으로 유도
         if (!existing.getBbsMasterId().equals(form.getBbsMasterId())) {
@@ -149,7 +150,7 @@ public class BoardCategoryServiceImpl extends EgovAbstractServiceImpl
         }
         BbsCategory existing = categoryMapper.findById(categoryId);
         if (existing == null) {
-            throw new IllegalArgumentException("카테고리를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("카테고리를 찾을 수 없습니다.");
         }
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) return;
@@ -170,7 +171,7 @@ public class BoardCategoryServiceImpl extends EgovAbstractServiceImpl
         }
         BbsCategory existing = categoryMapper.findById(categoryId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 카테고리입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 카테고리입니다.");
         }
         int activeArticles = categoryMapper.countActiveArticles(categoryId);
         if (activeArticles > 0) {

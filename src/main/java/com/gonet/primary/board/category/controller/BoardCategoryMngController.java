@@ -1,5 +1,6 @@
 package com.gonet.primary.board.category.controller;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.primary.board.category.dto.BbsCategory;
 import com.gonet.primary.board.category.dto.BbsCategorySaveForm;
 import com.gonet.primary.board.category.service.BoardCategoryService;
@@ -45,7 +46,7 @@ public class BoardCategoryMngController {
     public BbsMaster master(@PathVariable String bbsMasterId) {
         BbsMaster m = masterService.get(bbsMasterId);
         if (m == null) {
-            throw new IllegalArgumentException("게시판을 찾을 수 없습니다: " + bbsMasterId);
+            throw new ResourceNotFoundException("게시판을 찾을 수 없습니다: " + bbsMasterId);
         }
         return m;
     }
@@ -100,7 +101,7 @@ public class BoardCategoryMngController {
                             Model model) {
         BbsCategory c = categoryService.get(categoryId);
         if (c == null || !bbsMasterId.equals(c.getBbsMasterId())) {
-            throw new IllegalArgumentException("카테고리를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("카테고리를 찾을 수 없습니다.");
         }
         BbsCategorySaveForm form = new BbsCategorySaveForm();
         form.setCategoryId(c.getCategoryId());

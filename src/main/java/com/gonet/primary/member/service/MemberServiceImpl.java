@@ -1,5 +1,6 @@
 package com.gonet.primary.member.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditContext;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
@@ -320,7 +321,7 @@ public class MemberServiceImpl extends EgovAbstractServiceImpl implements Member
     public void updateProfile(String memberId, MemberProfileForm form) {
         Objects.requireNonNull(form, "form");
         Member existing = mapper.findById(memberId);
-        if (existing == null) throw new IllegalArgumentException("회원을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("회원을 찾을 수 없습니다.");
 
         String emailHash = emailHasher.hash(form.getEmail());
         if (mapper.existsByEmailHash(emailHash, memberId) > 0) {
@@ -356,7 +357,7 @@ public class MemberServiceImpl extends EgovAbstractServiceImpl implements Member
     public void changePassword(String memberId, MemberPasswordForm form) {
         Objects.requireNonNull(form, "form");
         Member existing = mapper.findById(memberId);
-        if (existing == null) throw new IllegalArgumentException("회원을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("회원을 찾을 수 없습니다.");
 
         if (!passwordEncoder.matches(form.getCurrentPassword(), existing.getPassword())) {
             throw new IllegalArgumentException("현재 비밀번호가 일치하지 않습니다.");
@@ -416,7 +417,7 @@ public class MemberServiceImpl extends EgovAbstractServiceImpl implements Member
         transactionManager = com.gonet.config.datasource.PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void withdraw(String memberId, String reason) {
         Member existing = mapper.findById(memberId);
-        if (existing == null) throw new IllegalArgumentException("이미 탈퇴되었거나 존재하지 않는 회원입니다.");
+        if (existing == null) throw new ResourceNotFoundException("이미 탈퇴되었거나 존재하지 않는 회원입니다.");
 
         // 본인 셀프 탈퇴 경로 — status=USER_REQUEST 고정, reason 은 사용자 자유 텍스트 (선택)
         WithdrawReasons.Normalized n = WithdrawReasons.normalize(
@@ -479,7 +480,7 @@ public class MemberServiceImpl extends EgovAbstractServiceImpl implements Member
         }
         int n = mapper.unlockMember(memberId);
         if (n == 0) {
-            throw new IllegalArgumentException("회원을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("회원을 찾을 수 없습니다.");
         }
     }
 
@@ -498,7 +499,7 @@ public class MemberServiceImpl extends EgovAbstractServiceImpl implements Member
         transactionManager = com.gonet.config.datasource.PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void resetPasswordAndSendMail(String memberId) {
         Member member = mapper.findById(memberId);
-        if (member == null) throw new IllegalArgumentException("회원을 찾을 수 없습니다.");
+        if (member == null) throw new ResourceNotFoundException("회원을 찾을 수 없습니다.");
         String email = member.getEmail();
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("회원 이메일이 등록되어 있지 않아 발송할 수 없습니다.");
@@ -532,7 +533,7 @@ public class MemberServiceImpl extends EgovAbstractServiceImpl implements Member
         transactionManager = com.gonet.config.datasource.PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void adminSoftDelete(String memberId, String reason) {
         Member existing = mapper.findById(memberId);
-        if (existing == null) throw new IllegalArgumentException("회원을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("회원을 찾을 수 없습니다.");
 
         // 관리자 강제 탈퇴 — 사유 자유 텍스트 5자 이상 필수.
         String trimmedReason = reason == null ? "" : reason.trim();

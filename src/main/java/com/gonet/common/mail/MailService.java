@@ -1,5 +1,6 @@
 package com.gonet.common.mail;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.primary.system.mail.dto.MailTemplate;
 import com.gonet.primary.system.mail.service.MailTemplateService;
 import jakarta.mail.MessagingException;
@@ -108,7 +109,7 @@ public class MailService {
     public RenderedMail render(String templateCode, Map<String, Object> model) {
         MailTemplate tpl = templateService.getByCodeActive(templateCode);
         if (tpl == null) {
-            throw new IllegalArgumentException("템플릿을 찾을 수 없습니다: " + templateCode);
+            throw new ResourceNotFoundException("템플릿을 찾을 수 없습니다: " + templateCode);
         }
         return renderOf(tpl, model);
     }

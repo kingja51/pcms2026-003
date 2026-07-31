@@ -1,5 +1,6 @@
 package com.gonet.primary.system.code.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.util.UuidV7Generator;
 import com.gonet.config.cache.CacheConfig;
 import com.gonet.primary.system.code.dto.Code;
@@ -128,7 +129,7 @@ public class CodeServiceImpl extends EgovAbstractServiceImpl implements CodeServ
             throw new IllegalArgumentException("codeId required");
         }
         Code existing = mapper.findById(form.getCodeId());
-        if (existing == null) throw new IllegalArgumentException("코드를 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("코드를 찾을 수 없습니다.");
 
         requireGroup(form.getCodeGroupId());
         String code = form.getCode().trim().toUpperCase();
@@ -154,7 +155,7 @@ public class CodeServiceImpl extends EgovAbstractServiceImpl implements CodeServ
             throw new IllegalArgumentException("codeId required");
         }
         int n = mapper.softDelete(codeId);
-        if (n == 0) throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 코드입니다.");
+        if (n == 0) throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 코드입니다.");
     }
 
     // ------------------------------------------------------------------

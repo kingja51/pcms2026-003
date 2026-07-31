@@ -1,5 +1,6 @@
 package com.gonet.primary.system.mail.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.util.UuidV7Generator;
 import com.gonet.config.cache.CacheConfig;
 import com.gonet.primary.system.mail.dto.MailTemplate;
@@ -93,7 +94,7 @@ public class MailTemplateServiceImpl extends EgovAbstractServiceImpl implements 
             throw new IllegalArgumentException("mailTemplateId required");
         }
         MailTemplate existing = mapper.findById(form.getMailTemplateId());
-        if (existing == null) throw new IllegalArgumentException("템플릿을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("템플릿을 찾을 수 없습니다.");
 
         String code = form.getTemplateCode().trim().toUpperCase();
         if (mapper.existsByCode(code, form.getMailTemplateId()) > 0) {
@@ -120,7 +121,7 @@ public class MailTemplateServiceImpl extends EgovAbstractServiceImpl implements 
             throw new IllegalArgumentException("mailTemplateId required");
         }
         int n = mapper.softDelete(id);
-        if (n == 0) throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 템플릿입니다.");
+        if (n == 0) throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 템플릿입니다.");
     }
 
     private static MailTemplateSearch normalize(MailTemplateSearch s) {

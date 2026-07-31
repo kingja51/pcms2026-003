@@ -1,5 +1,6 @@
 package com.gonet.primary.complaint.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.UuidV7Generator;
@@ -99,7 +100,7 @@ public class ComplaintAnswerServiceImpl extends EgovAbstractServiceImpl
         transactionManager = PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void update(String answerId, ComplaintAnswerSaveForm form) {
         ComplaintAnswer answer = answerMapper.findById(answerId);
-        if (answer == null) throw new IllegalArgumentException("답변을 찾을 수 없습니다.");
+        if (answer == null) throw new ResourceNotFoundException("답변을 찾을 수 없습니다.");
         answer.setContent(form.getContent());
         answer.setIsFinal(form.getIsFinal());
         answerMapper.update(answer);

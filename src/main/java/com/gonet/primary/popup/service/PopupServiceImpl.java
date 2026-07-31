@@ -1,5 +1,6 @@
 package com.gonet.primary.popup.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.html.HtmlSanitizer;
@@ -180,7 +181,7 @@ public class PopupServiceImpl extends EgovAbstractServiceImpl implements PopupSe
         }
         Popup existing = mapper.findById(form.getPopupId());
         if (existing == null) {
-            throw new IllegalArgumentException("팝업을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("팝업을 찾을 수 없습니다.");
         }
         validateRange(form.getShowFrom(), form.getShowTo());
 
@@ -223,7 +224,7 @@ public class PopupServiceImpl extends EgovAbstractServiceImpl implements PopupSe
     public void toggleUse(String popupId, boolean active) {
         Popup existing = mapper.findById(popupId);
         if (existing == null) {
-            throw new IllegalArgumentException("팝업을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("팝업을 찾을 수 없습니다.");
         }
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) return;
@@ -248,7 +249,7 @@ public class PopupServiceImpl extends EgovAbstractServiceImpl implements PopupSe
         }
         Popup existing = mapper.findById(popupId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 팝업입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 팝업입니다.");
         }
         int affected = mapper.softDelete(popupId);
         if (affected == 0) {

@@ -1,5 +1,6 @@
 package com.gonet.primary.system.menu.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.util.UuidV7Generator;
 import com.gonet.config.datasource.PrimaryDataSourceConfig;
 import com.gonet.primary.system.menu.dto.Menu;
@@ -162,7 +163,7 @@ public class MenuServiceImpl extends EgovAbstractServiceImpl implements MenuServ
         }
         Menu existing = mapper.findById(form.getMenuId());
         if (existing == null) {
-            throw new IllegalArgumentException("메뉴를 찾을 수 없습니다: " + form.getMenuId());
+            throw new ResourceNotFoundException("메뉴를 찾을 수 없습니다: " + form.getMenuId());
         }
         if (form.getSiteId() != null && !existing.getSiteId().equals(form.getSiteId())) {
             throw new IllegalArgumentException("메뉴의 사이트는 변경할 수 없습니다.");
@@ -193,7 +194,7 @@ public class MenuServiceImpl extends EgovAbstractServiceImpl implements MenuServ
         }
         Menu target = mapper.findById(menuId);
         if (target == null) {
-            throw new IllegalArgumentException("메뉴를 찾을 수 없습니다: " + menuId);
+            throw new ResourceNotFoundException("메뉴를 찾을 수 없습니다: " + menuId);
         }
         List<Menu> siblings = mapper.findSiblings(target.getSiteId(), target.getParentMenuId());
         int idx = -1;
@@ -230,7 +231,7 @@ public class MenuServiceImpl extends EgovAbstractServiceImpl implements MenuServ
         }
         Menu existing = mapper.findById(menuId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 메뉴입니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 메뉴입니다.");
         }
         int children = mapper.countChildren(menuId);
         if (children > 0) {
@@ -312,7 +313,7 @@ public class MenuServiceImpl extends EgovAbstractServiceImpl implements MenuServ
         if (parentMenuId == null || parentMenuId.isBlank()) return 1;
         Menu parent = mapper.findById(parentMenuId);
         if (parent == null) {
-            throw new IllegalArgumentException("부모 메뉴를 찾을 수 없습니다: " + parentMenuId);
+            throw new ResourceNotFoundException("부모 메뉴를 찾을 수 없습니다: " + parentMenuId);
         }
         return parent.getDepth() + 1;
     }

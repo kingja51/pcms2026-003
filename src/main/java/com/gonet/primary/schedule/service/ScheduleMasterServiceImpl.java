@@ -1,5 +1,6 @@
 package com.gonet.primary.schedule.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.html.HtmlSanitizer;
@@ -95,7 +96,7 @@ public class ScheduleMasterServiceImpl extends EgovAbstractServiceImpl
         validate(form);
         ScheduleMaster existing = mapper.findById(form.getScheduleMasterId());
         if (existing == null) {
-            throw new IllegalArgumentException("일정 마스터를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("일정 마스터를 찾을 수 없습니다.");
         }
         existing.setSiteId(form.getSiteId());
         existing.setMenuId(blankToNull(form.getMenuId()));
@@ -119,7 +120,7 @@ public class ScheduleMasterServiceImpl extends EgovAbstractServiceImpl
     public void toggleUse(String scheduleMasterId, boolean active) {
         ScheduleMaster existing = mapper.findById(scheduleMasterId);
         if (existing == null) {
-            throw new IllegalArgumentException("일정 마스터를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("일정 마스터를 찾을 수 없습니다.");
         }
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) return;
@@ -141,7 +142,7 @@ public class ScheduleMasterServiceImpl extends EgovAbstractServiceImpl
         }
         ScheduleMaster existing = mapper.findById(scheduleMasterId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않습니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않습니다.");
         }
         int affected = mapper.softDelete(scheduleMasterId);
         if (affected == 0) {

@@ -1,5 +1,6 @@
 package com.gonet.primary.complaint.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.util.UuidV7Generator;
@@ -66,7 +67,7 @@ public class ComplaintCategoryServiceImpl extends EgovAbstractServiceImpl
         transactionManager = PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void update(String categoryId, ComplaintCategorySaveForm form) {
         ComplaintCategory cat = mapper.findById(categoryId);
-        if (cat == null) throw new IllegalArgumentException("카테고리를 찾을 수 없습니다.");
+        if (cat == null) throw new ResourceNotFoundException("카테고리를 찾을 수 없습니다.");
         cat.setCategoryName(form.getCategoryName());
         cat.setDescription(form.getDescription());
         cat.setSortOrder(form.getSortOrder());

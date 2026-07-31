@@ -1,5 +1,6 @@
 package com.gonet.primary.survey.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gonet.common.audit.AuditEvent;
@@ -142,7 +143,7 @@ public class SurveyServiceImpl extends EgovAbstractServiceImpl implements Survey
             throw new IllegalArgumentException("surveyId required");
         }
         Survey existing = surveyMapper.findById(form.getSurveyId());
-        if (existing == null) throw new IllegalArgumentException("설문을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("설문을 찾을 수 없습니다.");
         validateRange(form);
 
         existing.setSurveyMasterId(form.getSurveyMasterId());
@@ -170,7 +171,7 @@ public class SurveyServiceImpl extends EgovAbstractServiceImpl implements Survey
         transactionManager = PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void changeStatus(String surveyId, String status) {
         Survey existing = surveyMapper.findById(surveyId);
-        if (existing == null) throw new IllegalArgumentException("설문을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("설문을 찾을 수 없습니다.");
         SurveyStatus next = SurveyStatus.safeParse(status);
         if (next.name().equals(existing.getStatus())) return;
         surveyMapper.updateStatus(surveyId, next.name());
@@ -187,7 +188,7 @@ public class SurveyServiceImpl extends EgovAbstractServiceImpl implements Survey
         transactionManager = PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void toggleUse(String surveyId, boolean active) {
         Survey existing = surveyMapper.findById(surveyId);
-        if (existing == null) throw new IllegalArgumentException("설문을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("설문을 찾을 수 없습니다.");
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) return;
         surveyMapper.updateUseYn(surveyId, next);
@@ -204,7 +205,7 @@ public class SurveyServiceImpl extends EgovAbstractServiceImpl implements Survey
         transactionManager = PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void softDelete(String surveyId) {
         Survey existing = surveyMapper.findById(surveyId);
-        if (existing == null) throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않습니다.");
+        if (existing == null) throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않습니다.");
         int affected = surveyMapper.softDelete(surveyId);
         if (affected == 0) throw new IllegalStateException("삭제 처리 실패: " + surveyId);
 

@@ -1,5 +1,6 @@
 package com.gonet.primary.schedule.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.audit.AuditEvent;
 import com.gonet.common.audit.AuditLogger;
 import com.gonet.common.html.HtmlSanitizer;
@@ -90,7 +91,7 @@ public class ScheduleServiceImpl extends EgovAbstractServiceImpl implements Sche
         }
         // 마스터 존재 확인 (CASCADE 무결성 보장)
         if (masterMapper.findById(masterId) == null) {
-            throw new IllegalArgumentException("선택된 일정 마스터를 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("선택된 일정 마스터를 찾을 수 없습니다.");
         }
 
         String title = form.getScheduleTitle().trim();
@@ -141,7 +142,7 @@ public class ScheduleServiceImpl extends EgovAbstractServiceImpl implements Sche
         }
         Schedule existing = mapper.findById(form.getScheduleId());
         if (existing == null) {
-            throw new IllegalArgumentException("일정을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("일정을 찾을 수 없습니다.");
         }
         validateRange(form.getStartAt(), form.getEndAt());
 
@@ -174,7 +175,7 @@ public class ScheduleServiceImpl extends EgovAbstractServiceImpl implements Sche
     public void toggleUse(String scheduleId, boolean active) {
         Schedule existing = mapper.findById(scheduleId);
         if (existing == null) {
-            throw new IllegalArgumentException("일정을 찾을 수 없습니다.");
+            throw new ResourceNotFoundException("일정을 찾을 수 없습니다.");
         }
         String next = active ? "Y" : "N";
         if (next.equals(existing.getUseYn())) return;
@@ -201,7 +202,7 @@ public class ScheduleServiceImpl extends EgovAbstractServiceImpl implements Sche
         }
         Schedule existing = mapper.findById(scheduleId);
         if (existing == null) {
-            throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않습니다.");
+            throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않습니다.");
         }
         int affected = mapper.softDelete(scheduleId);
         if (affected == 0) {

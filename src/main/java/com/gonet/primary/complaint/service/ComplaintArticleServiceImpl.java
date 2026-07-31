@@ -1,5 +1,6 @@
 package com.gonet.primary.complaint.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gonet.common.audit.AuditEvent;
@@ -158,7 +159,7 @@ public class ComplaintArticleServiceImpl extends EgovAbstractServiceImpl
     public void update(ComplaintMaster master, String articleId, ComplaintArticleSaveForm form,
                        Authentication auth) {
         ComplaintArticle article = mapper.findById(articleId);
-        if (article == null) throw new IllegalArgumentException("민원을 찾을 수 없습니다.");
+        if (article == null) throw new ResourceNotFoundException("민원을 찾을 수 없습니다.");
         if (!isOwnerOrStaff(article, auth)) {
             throw new IllegalArgumentException("본인 민원만 수정할 수 있습니다.");
         }
@@ -195,7 +196,7 @@ public class ComplaintArticleServiceImpl extends EgovAbstractServiceImpl
         transactionManager = PrimaryDataSourceConfig.TRANSACTION_MGR)
     public void close(String articleId, Authentication auth) {
         ComplaintArticle article = mapper.findById(articleId);
-        if (article == null) throw new IllegalArgumentException("민원을 찾을 수 없습니다.");
+        if (article == null) throw new ResourceNotFoundException("민원을 찾을 수 없습니다.");
         if (!isOwnerOrStaff(article, auth)) {
             throw new IllegalArgumentException("본인 민원만 종결할 수 있습니다.");
         }

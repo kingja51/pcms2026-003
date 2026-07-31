@@ -1,5 +1,6 @@
 package com.gonet.primary.system.code.service;
 
+import com.gonet.common.web.ResourceNotFoundException;
 import com.gonet.common.util.UuidV7Generator;
 import com.gonet.config.cache.CacheConfig;
 import com.gonet.primary.system.code.dto.CodeGroup;
@@ -74,7 +75,7 @@ public class CodeGroupServiceImpl extends EgovAbstractServiceImpl implements Cod
             throw new IllegalArgumentException("codeGroupId required");
         }
         CodeGroup existing = mapper.findById(form.getCodeGroupId());
-        if (existing == null) throw new IllegalArgumentException("그룹을 찾을 수 없습니다.");
+        if (existing == null) throw new ResourceNotFoundException("그룹을 찾을 수 없습니다.");
 
         String code = form.getGroupCode().trim().toUpperCase();
         if (mapper.existsByCode(code, form.getCodeGroupId()) > 0) {
@@ -101,7 +102,7 @@ public class CodeGroupServiceImpl extends EgovAbstractServiceImpl implements Cod
                 "이 그룹에 " + items + "개의 코드가 있어 삭제할 수 없습니다. 먼저 하위 코드를 정리하세요.");
         }
         int n = mapper.softDelete(codeGroupId);
-        if (n == 0) throw new IllegalArgumentException("이미 삭제되었거나 존재하지 않는 그룹입니다.");
+        if (n == 0) throw new ResourceNotFoundException("이미 삭제되었거나 존재하지 않는 그룹입니다.");
     }
 
     private static CodeGroupSearch normalize(CodeGroupSearch s) { return s == null ? new CodeGroupSearch() : s; }
