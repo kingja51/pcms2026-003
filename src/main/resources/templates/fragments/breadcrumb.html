@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<!--
+  공통 breadcrumb fragment.
+
+  ★ 정책
+    · 사용자 페이지는 siteCode + menuId 를 항상 가지고 다녀야 한다 (URL ?siteCode=&menuId= 또는
+      controller model.addAttribute 로 menuId 주입).
+    · menuId 가 없으면 fragment 가 아무 것도 출력하지 않는다 (네비게이션 미노출).
+    · siteContext.menuTree + menuId 로 부모 체인을 조립해 "홈 / 부모 / 현재" 형태로 렌더.
+
+  ★ 사용
+    <th:block th:replace="~{fragments/breadcrumb :: trail(leafName=null)}"/>
+    <th:block th:replace="~{fragments/breadcrumb :: trail(leafName=${master.bbsName})}"/>
+-->
+<body>
+
+<!-- 밴드형 breadcrumb — 레이아웃 헤더(메뉴 밴드 바로 아래)용.
+     서브 페이지에서만 노출(trail 과 동일 조건: menuId 해석 성공 시).
+     좌측 홈 아이콘+경로, 우측 유틸(인쇄 — data-action=print, app.js 위임). -->
+<th:block th:fragment="band(leafName)"
+          th:with="resolvedMenuId=${menuId} ?: ${param.menuId},
+                   byMenu=${(resolvedMenuId == null or #strings.isEmpty(resolvedMenuId) or siteContext == null)
+                            ? null
+                            : @breadcrumbResolver.resolveByMenuId(siteContext.menuTree, siteContext.site?.siteCode, resolvedMenuId)},
+                   trailItems=${(byMenu != null and !byMenu.empty)
+                                ? byMenu
+                                : (siteContext == null ? null
+                                   : @breadcrumbResolver.resolveByUrl(siteContext.menuTree, siteContext.site?.siteCode, currentUri))}">
+  <div th:if="${trailItems != null and !trailItems.empty}"
+       class="bg-surface-subtle border-b border-line">
+    <div class="max-w-content mx-auto px-4 py-2 flex items-center justify-between gap-4">
+      <nav aria-label="breadcrumb" class="text-body-sm text-fg-subtle flex items-center flex-wrap min-w-0">
+        <a th:href="@{/{sc}/home(sc=${siteCode})}" class="inline-flex items-center hover:text-fg" aria-label="홈">
+          <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3 2 12h3v8h6v-6h2v6h6v-8h3L12 3z"/></svg>
+        </a>
+        <th:block th:each="c, st : ${trailItems}">
+          <span class="mx-1.5 text-fg-disabled" aria-hidden="true">›</span>
+          <th:block th:if="${st.last}">
+            <span class="text-fg-strong font-medium truncate"
+                  th:text="${leafName != null and !#strings.isEmpty(leafName) ? leafName : c.name}">현재</span>
+          </th:block>
+          <th:block th:unless="${st.last}">
+            <a th:if="${c.url != null}" th:href="${c.url}" th:text="${c.name}" class="hover:underline hover:text-fg">상위</a>
+            <span th:if="${c.url == null}" th:text="${c.name}">상위</span>
+          </th:block>
+        </th:block>
+      </nav>
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" data-action="print" title="현재 페이지 인쇄"
+                class="inline-flex items-center justify-center w-8 h-8 rounded-max bg-gray-30 text-gray-0 hover:bg-gray-50 cursor-pointer border-0">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          <span class="sr-only">현재 페이지 인쇄</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</th:block>
+
+<th:block th:fragment="trail(leafName)"
+          th:with="resolvedMenuId=${menuId} ?: ${param.menuId},
+                   byMenu=${(resolvedMenuId == null or #strings.isEmpty(resolvedMenuId) or siteContext == null)
+                            ? null
+                            : @breadcrumbResolver.resolveByMenuId(siteContext.menuTree, siteContext.site?.siteCode, resolvedMenuId)},
+                   trailItems=${(byMenu != null and !byMenu.empty)
+                                ? byMenu
+                                : (siteContext == null ? null
+                                   : @breadcrumbResolver.resolveByUrl(siteContext.menuTree, siteContext.site?.siteCode, currentUri))}">
+  <nav th:if="${trailItems != null and !trailItems.empty}"
+       aria-label="breadcrumb"
+       class="text-body-sm text-fg-subtle mb-4">
+    <a th:href="@{/{sc}/home(sc=${siteCode})}"
+       class="hover:underline">홈</a>
+    <th:block th:each="c, st : ${trailItems}">
+      <span class="mx-1">/</span>
+      <th:block th:if="${st.last}">
+        <span class="text-fg-strong font-medium"
+              th:text="${leafName != null and !#strings.isEmpty(leafName) ? leafName : c.name}">현재</span>
+      </th:block>
+      <th:block th:unless="${st.last}">
+        <a th:if="${c.url != null}" th:href="${c.url}" th:text="${c.name}" class="hover:underline">상위</a>
+        <span th:if="${c.url == null}" th:text="${c.name}">상위</span>
+      </th:block>
+    </th:block>
+  </nav>
+</th:block>
+
+</body>
+</html>

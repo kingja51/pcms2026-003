@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  File Picker 모듈 — 드래그앤드롭 + 비동기 업로드 + 삭제.
+
+  사용법 (등록/수정/상세 공통):
+    <th:block th:replace="~{fragments/file-picker :: styles}"/>   <!-- <head> -->
+    ...
+    <form ...>
+      <div th:replace="~{fragments/file-picker :: picker(
+          inputName='attachments',         <!-- hidden input 이름 (JSON 배열 value) -->
+          category='ANY',                   <!-- DOC / IMAGE / VIDEO / ANY -->
+          multiple=true,                    <!-- 여러 개 허용 -->
+          existingFiles=${existing},        <!-- List<FileItem>, 수정/상세 시 기존 파일 -->
+          readOnly=false,                   <!-- 상세 보기면 true -->
+          entityType='BBS',                 <!-- 업로드 시 전달될 entityType -->
+          entityId=${board.boardId},        <!-- 상위 엔티티 ID (선택) -->
+          siteId=${siteId},                 <!-- 사이트 ID (선택) -->
+          maxFiles=20                       <!-- 최대 파일 수 -->
+      )}"></div>
+    </form>
+    ...
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>  <!-- </body> 직전 -->
+
+  hidden input value 는 업로드된 파일의 fileId 를 JSON 배열로 담는다:
+    <input type="hidden" name="attachments" value='["019d...","019d..."]'/>
+
+  호스트 서버(게시판 등) 는 이 값을 받아 자체 테이블에 엔티티-파일 매핑 저장.
+  ============================================================================
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!-- ─────────────────────────────────────────────────────────────
+     fragment: styles   (한 번만 include 해도 됨)
+     ───────────────────────────────────────────────────────────── -->
+<th:block th:fragment="styles">
+  <link rel="stylesheet" th:href="@{/css/file-picker.css}"/>
+</th:block>
+
+
+<!-- ─────────────────────────────────────────────────────────────
+     fragment: scripts  (한 번만 include)
+     ───────────────────────────────────────────────────────────── -->
+<th:block th:fragment="scripts">
+  <script th:src="@{/js/file-picker.js}" th:attr="nonce=${cspNonce}"></script>
+</th:block>
+
+
+<!-- ─────────────────────────────────────────────────────────────
+     fragment: picker(inputName, category, multiple, existingFiles,
+                       readOnly, entityType, entityId, siteId, maxFiles)
+     ───────────────────────────────────────────────────────────── -->
+<div th:fragment="picker(inputName, category, multiple, existingFiles, readOnly, entityType, entityId, siteId, maxFiles, fileGroupId)"
+     class="fp-wrapper"
+     th:attr="data-category=${category} ?: 'ANY',
+              data-multiple=${multiple} ?: 'true',
+              data-readonly=${readOnly} ?: 'false',
+              data-entity-type=${entityType} ?: 'ETC',
+              data-entity-id=${entityId} ?: '',
+              data-site-id=${siteId} ?: '',
+			  data-max-files=${maxFiles} ?: '20',
+              data-file-group-id=${fileGroupId} ?: ''">
+
+  <!-- 드롭존 — 클릭 또는 드래그 -->
+  <label class="fp-dropzone"
+         th:classappend="${readOnly} ? ' is-disabled'"
+         aria-label="파일을 여기에 드래그하거나 클릭해서 선택하세요">
+    <svg class="fp-dropzone__icon" xmlns="http://www.w3.org/2000/svg"
+         fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"
+         aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/>
+    </svg>
+    <div class="fp-dropzone__title">
+      <span th:if="${multiple} ?: true">파일을 여기에 드래그하거나 클릭해서 선택하세요</span>
+      <span th:unless="${multiple} ?: true">파일 1개를 드래그하거나 클릭해서 선택하세요</span>
+    </div>
+    <div class="fp-dropzone__hint">
+      카테고리:
+      <code th:text="${category} ?: 'ANY'">ANY</code>
+      · 최대
+      <span th:text="${maxFiles} ?: 20">20</span> 개 · 개당 200MB
+    </div>
+    <input type="file"
+           th:attr="multiple=${multiple} ?: true,
+                    disabled=${readOnly} ?: false"/>
+  </label>
+
+  <!-- 에러 -->
+  <div class="fp-error" role="alert"></div>
+
+  <!-- 파일 리스트 — 기존 파일 (수정/상세 시) + 신규 업로드 카드 -->
+  <ul class="fp-list">
+    <li th:each="f : ${existingFiles}"
+        class="fp-item"
+        th:attr="data-status='existing',
+                 data-client-id='server-' + ${f.fileId},
+                 data-file-id=${f.fileId},
+                 data-file-name=${f.originalName},
+                 data-file-size=${f.sizeBytes}">
+      <div class="fp-item__thumb">
+        <img th:if="${f.isImage() and !#strings.isEmpty(f.thumbnailPath)}"
+             th:src="@{/fileDown/{fid}/thumb(fid=${f.fileId})}"
+             th:alt="${f.originalName}" loading="lazy"
+             data-fp-thumb/>
+        <svg th:unless="${f.isImage() and !#strings.isEmpty(f.thumbnailPath)}"
+             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M13 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V9m-6-6l6 6m-6-6v6h6"/>
+        </svg>
+        <svg th:if="${f.isImage() and !#strings.isEmpty(f.thumbnailPath)}"
+             class="fp-item__thumb-fallback hidden"
+             xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+             stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+        </svg>
+      </div>
+      <div class="fp-item__body">
+        <span class="fp-item__name" th:text="${f.originalName}">file.pdf</span>
+        <span class="fp-item__meta">
+          <span th:text="${f.sizeBytes}">0</span> bytes
+          · <span th:text="${f.virusScanStatus}">CLEAN</span>
+        </span>
+      </div>
+      <div class="fp-item__actions">
+        <!-- 뷰어 — pdf/txt/hwp/hwpx/docx/xlsx/pptx 만 노출.
+             FilePreviewUsrController 가 형식별 분기 후 적절한 뷰어 페이지 렌더.
+             data-viewer-popup: file-viewer-popup.js 가 클릭을 가로채 팝업창으로 연다.
+             href 는 폴백 — JS 비활성/팝업 차단 시 새 탭으로 열림. -->
+        <a th:if="${f.originalName != null
+                   and #strings.toLowerCase(f.originalName) matches '.+[.](pdf|txt|hwp|hwpx|docx|xlsx|pptx)$'}"
+           class="fp-item__btn" target="_blank" rel="noopener"
+           data-viewer-popup
+           th:href="@{/file/preview/{fid}(fid=${f.fileId})}">🔍 뷰어</a>
+        <a class="fp-item__btn" target="_blank" rel="noopener"
+           th:href="@{/fileDown/{fid}(fid=${f.fileId})}">다운로드</a>
+        <button type="button" class="fp-item__btn fp-item__btn--danger"
+                data-action="remove"
+                data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?"
+                th:attr="disabled=${readOnly} ?: false">삭제</button>
+      </div>
+    </li>
+  </ul>
+
+  <!-- 폼 제출용 hidden — fileId 리스트 (JSON 배열) -->
+  <input type="hidden"
+         th:name="${inputName} ?: 'fileIds'"
+         data-fp-target
+         value="[]"/>
+</div>
+
+</body>
+</html>

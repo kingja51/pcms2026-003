@@ -7,6 +7,13 @@
 deploy/tomcat/pcms.env
 **/pcms.env
 
+# ── 로컬 계정·자격증명 메모 (절대 커밋 금지) ──────────────────
+# 저장소가 public 이다. 테스트 계정 비밀번호도 커밋하지 않는다.
+doc/테스트 계정.txt
+doc/*계정*.txt
+**/*credential*
+**/*password*.txt
+
 # ── 빌드 산출물 ────────────────────────────────────────────
 target/
 build/
@@ -26,6 +33,8 @@ npm-debug.log*
 # Tailwind CLI 산출물 (생성물이므로 커밋하지 않는다)
 src/main/resources/static/css/output.css
 src/main/resources/static/css/output.css.map
+# esbuild 에디터 번들 (생성물 — 원본은 src/editor/)
+src/main/resources/static/js/editor/
 
 # ── IDE ───────────────────────────────────────────────────
 .idea/

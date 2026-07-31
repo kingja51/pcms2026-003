@@ -2,13 +2,19 @@
   "name": "pcms2026-003-frontend",
   "version": "1.0.0",
   "private": true,
-  "description": "PCMS 2026-003 Tailwind v4 CSS 빌드 (Spring Boot 정적자원). 입력은 KRDS 토큰 원본 src/krds.css. Node 는 CSS 컴파일 전용 — 런타임 서버가 아니다. CDN 금지이므로 이 빌드는 필수다.",
+  "description": "PCMS 2026-003 프런트 빌드 (Spring Boot 정적자원). Tailwind v4 CSS + esbuild 에디터 번들. Node 는 빌드 전용 — 런타임 서버가 아니다. CDN 금지(strict-dynamic)라 self-host 번들이 필수다.",
   "scripts": {
     "css": "tailwindcss -i src/krds.css -o src/main/resources/static/css/output.css --minify",
-    "css:watch": "tailwindcss -i src/krds.css -o src/main/resources/static/css/output.css --watch"
+    "css:watch": "tailwindcss -i src/krds.css -o src/main/resources/static/css/output.css --watch",
+    "editor": "esbuild src/editor/tiptap_editor.js --bundle --format=esm --minify --target=es2020 --outfile=src/main/resources/static/js/editor/tiptap_editor.js",
+    "editor:watch": "esbuild src/editor/tiptap_editor.js --bundle --format=esm --target=es2020 --outfile=src/main/resources/static/js/editor/tiptap_editor.js --watch",
+    "build": "npm run css && npm run editor"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.0",
+    "@tiptap/core": "^3.29.2",
+    "@tiptap/starter-kit": "^3.29.2",
+    "esbuild": "^0.28.1",
     "tailwindcss": "^4.3.0"
   }
 }

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+  에디터 확인 화면 (P3 DoD).
+
+  확인 항목 3가지:
+    1. 값이 원본 textarea 로 동기화되는가 — 제출 후 서버가 받은 값을 되돌려 보여준다
+    2. 화면 지정(data-editor="tiptap")이 전역 기본보다 우선하는가
+    3. 미등록 엔진 지정 시 평문 폴백으로 떨어지는가
+
+  ※ Namo CrossEditor 4 는 프로젝트 종료 후 도입한다(2026-07-31).
+    지금은 data-editor="namo" 가 미등록 엔진이라 3번 폴백 경로 검증에 그대로 쓴다.
+
+  인라인 핸들러를 쓰지 않는다 — CSP 에 'unsafe-inline' 이 없어 조용히 무시된다.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}">
+<head>
+  <title>에디터 확인</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <h1 class="text-heading-md font-bold mb-2">위지윅 에디터 확인</h1>
+  <p class="text-body-sm text-fg-subtle mb-6">
+    제출하면 서버가 받은 값을 그대로 되돌려 보여준다.
+    편집 결과가 원본 <code>textarea</code> 로 동기화됐는지 눈으로 확인하는 화면이다.
+  </p>
+
+  <!-- 서버가 받은 값 — 동기화 확인의 근거 -->
+  <div th:if="${submitted}" class="mb-6 p-4 border border-line rounded-medium bg-surface-alt">
+    <h2 class="text-heading-sm font-medium mb-2">서버가 받은 값</h2>
+    <dl class="flex flex-col gap-2 text-body-sm">
+      <div th:each="e : ${submitted}">
+        <dt class="font-medium text-fg" th:text="${e.key}">필드</dt>
+        <dd class="whitespace-pre-wrap break-all text-fg-subtle" th:text="${e.value}">값</dd>
+      </div>
+    </dl>
+  </div>
+
+  <form method="post" th:action="@{/admin/system/editor-check}" class="flex flex-col gap-8">
+
+    <!-- ① 화면 지정 — 전역 기본보다 우선 -->
+    <div>
+      <label for="bodyTiptap" class="block text-label-md font-medium mb-1">
+        ① 화면 지정 <code>data-editor="tiptap"</code>
+      </label>
+      <textarea id="bodyTiptap" name="bodyTiptap" data-editor="tiptap"
+                rows="6" class="w-full border border-line rounded-medium p-2"
+                th:text="${bodyTiptap}"></textarea>
+    </div>
+
+    <!-- ② 전역 기본 엔진 -->
+    <div>
+      <label for="bodyDefault" class="block text-label-md font-medium mb-1">
+        ② 전역 기본 <code>data-editor</code> (값 없음)
+      </label>
+      <textarea id="bodyDefault" name="bodyDefault" data-editor
+                rows="6" class="w-full border border-line rounded-medium p-2"
+                th:text="${bodyDefault}"></textarea>
+    </div>
+
+    <!-- ③ 미등록 엔진 → 평문 폴백이어야 정상 -->
+    <div>
+      <label for="bodyNamo" class="block text-label-md font-medium mb-1">
+        ③ 미등록 엔진 <code>data-editor="namo"</code> — 평문 폴백이어야 정상
+      </label>
+      <textarea id="bodyNamo" name="bodyNamo" data-editor="namo"
+                rows="6" class="w-full border border-line rounded-medium p-2"
+                th:text="${bodyNamo}"></textarea>
+    </div>
+
+    <div>
+      <button type="submit"
+              class="px-4 py-2 rounded-medium bg-brand-50 text-white font-medium">
+        제출해서 동기화 확인
+      </button>
+    </div>
+  </form>
+
+</section>
+
+<th:block layout:fragment="scripts">
+  <!-- ESM 번들. CDN 금지(strict-dynamic)라 self-host 한다. nonce 필수. -->
+  <script type="module" th:src="@{/js/editor/tiptap_editor.js}" th:attr="nonce=${cspNonce}"></script>
+</th:block>
+</body>
+</html>

@@ -94,15 +94,23 @@ gopcms:
       ip-fallback-allow: true   # 로컬 초기 세팅 — 운영은 application-prod.yml 에서 false 강제
 
   # --------------------------------------------------------------------------
-  # 로컬 문서 뷰어 변환 활성화.
-  #   · doc/docx/pptx 를 LibreOffice 로 변환해 PDF 뷰어로 표시.
-  #   · Windows 에서 LibreOffice 임시 디렉터리 파일 잠금 충돌이 나면 false 로 되돌릴 것.
-  #   · 비활성 시: pptx → 미지원 페이지, docx → 클라이언트 폴백.
-  #   · LibreOffice 경로는 PCMS_LIBREOFFICE_HOME 으로 주입 (미지정 시 PATH 검색).
+  # 로컬 문서 뷰어 변환 — **비활성**(2026-07-31).
+  #
+  # 001 의 주석이 예고한 Windows 파일 잠금 충돌이 실제로 발생했다:
+  #   Could not delete '...\.jodconverter_socket_host-...\user\extensions\bundled\extensions.pmap'
+  #   → 다른 프로세스가 파일을 사용 중
+  #
+  # 앱이 종료돼도 soffice.bin 프로세스가 남아 프로필 디렉터리를 잡고 있어서,
+  # 다음 기동 때마다 ERROR 스택트레이스가 찍힌다. 기동·health 에는 영향이 없지만
+  # 진짜 오류(예: 포트 충돌)를 가려서 원인 추적을 방해한다 — 실제로 3회 혼동을 유발했다.
+  #
+  # 문서 뷰어는 P4 범위다. 그때 다시 켜고, 잠금이 재발하면
+  # soffice.bin 종료 + 프로필 디렉터리 삭제 후 재기동한다.
+  # 운영(application-prod.yml)은 application.yml 의 true 를 그대로 쓴다 — 로컬만 끈다.
   # --------------------------------------------------------------------------
   file:
     converter:
-      enabled: true
+      enabled: false
 
   # --------------------------------------------------------------------------
   # 라이프사이클 dry-run override — 로컬은 실제 DELETE 를 하지 않는다.

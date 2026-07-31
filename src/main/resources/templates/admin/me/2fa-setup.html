@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>2FA 설정</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-2xl mx-auto">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <span>2FA 설정</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-1">2단계 인증 설정</h1>
+    <p class="text-sm text-fg-subtle mb-4">
+      계정 <strong class="text-fg-strong" th:text="${loginId}">admin01</strong> —
+      <strong>Google Authenticator / Microsoft Authenticator / Authy (3중에 1개 설치 필수)</strong>등에서 아래 정보를 등록 후
+      생성된 6자리 코드를 입력해 검증합니다.
+    </p>
+
+    <a th:href="@{/admin/me/2fa/help}" target="_blank" rel="noopener"
+       class="flex items-start gap-3 mb-6 p-4 rounded-large border border-info-border bg-info-surface hover:bg-brand-10 transition-colors">
+      <span class="text-heading-lg leading-none" aria-hidden="true">📱</span>
+      <span class="flex-1">
+        <span class="block text-sm font-semibold text-info-fg">앱 설치가 처음이신가요?</span>
+        <span class="block text-xs text-info-fg mt-0.5">
+          Authenticator 앱 설치 방법 + QR 스캔 단계별 가이드 + 자주 묻는 질문 보기 →
+        </span>
+      </span>
+    </a>
+
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <section aria-labelledby="setup-heading"
+             class="bg-surface border border-line rounded-large p-6 mb-4">
+      <h2 id="setup-heading"
+          class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">1. Authenticator 등록</h2>
+
+      <div class="space-y-4 text-sm">
+        <div th:if="${qrPngDataUrl}" class="flex flex-col items-center">
+          <p class="text-fg-subtle mb-2">
+            Google Authenticator / Microsoft Authenticator / Authy 앱에서 아래 QR 코드를 스캔하세요.
+          </p>
+          <img th:src="${qrPngDataUrl}" alt="2FA QR Code" width="240" height="240"
+               class="border border-line rounded bg-surface p-2"/>
+        </div>
+        <details class="text-xs text-fg-subtle">
+          <summary class="cursor-pointer hover:text-fg">QR 스캔이 어렵다면? (수동 입력)</summary>
+          <div class="mt-3 space-y-3">
+            <div>
+              <p class="text-fg-subtle mb-1">otpauth URL</p>
+              <code class="block break-all bg-surface-subtle border border-line rounded p-2 font-mono text-xs"
+                    th:text="${otpauth}">otpauth://...</code>
+            </div>
+            <div>
+              <p class="text-fg-subtle mb-1">base32 secret (앱의 "설정 키 입력" 옵션에 붙여넣기)</p>
+              <code class="block break-all bg-surface-subtle border border-line rounded p-2 font-mono text-sm tracking-widest"
+                    th:text="${secret}">ABCDEF...</code>
+              <p class="text-xs text-fg-subtle mt-1">
+                계정 라벨은 <code><span th:text="${@project.nameKo}">관리자</span>:<span th:text="${loginId}">admin01</span></code>,
+                알고리즘 SHA-1, 기간 30s, 자릿수 6.
+              </p>
+            </div>
+          </div>
+        </details>
+      </div>
+    </section>
+
+    <section aria-labelledby="verify-heading"
+             class="bg-surface border border-line rounded-large p-6">
+      <h2 id="verify-heading"
+          class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">2. 코드 검증</h2>
+
+      <form th:action="@{/admin/me/2fa/setup}" method="post" class="flex items-end gap-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <div class="flex-1">
+          <label for="code" class="block text-sm font-medium text-fg mb-1">인증 코드</label>
+          <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code"
+                 pattern="\d{6}" maxlength="6" required autofocus
+                 class="block w-full rounded border border-line px-3 py-2 text-lg font-mono tracking-widest focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"
+                 placeholder="000000"/>
+        </div>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+          활성화
+        </button>
+      </form>
+
+      <p class="text-xs text-fg-subtle mt-4">
+        검증 성공 시 <code>tb_admin.two_factor_enabled_yn='Y'</code> 로 전환되며,
+        다음 로그인부터 <strong>2FA 관문</strong>이 강제됩니다.
+      </p>
+    </section>
+
+  </section>
+</body>
+</html>

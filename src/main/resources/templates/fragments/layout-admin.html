@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<!--
+  관리자 공통 레이아웃 — KRDS × Tailwind v4 (Design.md 기준).
+  드롭다운은 네이티브 <details>/<summary> + admin-nav.js(위임 1회 등록).
+  인라인 스크립트/스타일 금지(CSP nonce + 외부 .js) — 구축가이드 §5.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ko"
+      class="h-full bg-bg">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false}'/>
+  <!-- CSRF — app.js 가 htmx:configRequest 헤더로, file-picker 등이 fetch 헤더로 사용 -->
+  <meta name="_csrf"        th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+  <title layout:title-pattern="$CONTENT_TITLE | $LAYOUT_TITLE"
+         th:text="|${@project.nameKo} 관리자|">관리자</title>
+
+  <link rel="icon"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231e2124'/%3E%3Ctext x='50%25' y='55%25' text-anchor='middle' dominant-baseline='middle' font-family='sans-serif' font-size='16' font-weight='700' fill='%23fff'%3EG%3C/text%3E%3C/svg%3E"/>
+  <link th:href="@{/css/output.css}" rel="stylesheet" />
+  <!-- 고대비 모드 FOUC-free 복원 (nonce 인라인 — CSP 허용). 토글은 app.js. -->
+  <script th:attr="nonce=${cspNonce}">
+    try { if (localStorage.getItem('pcms-hc') === '1') document.documentElement.classList.add('hc'); } catch (e) {}
+  </script>
+</head>
+<body class="h-full flex flex-col bg-bg text-fg antialiased">
+  <a class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-surface focus:outline-2 focus:outline-brand-50 focus:rounded-medium"
+     th:href="@{#main}">본문으로 건너뛰기</a>
+
+  <header role="banner" class="bg-surface border-b border-line shadow-e1">
+    <div class="max-w-content mx-auto px-4 py-3 flex items-center gap-4 flex-wrap">
+      <a th:href="@{/admin}" class="flex items-center gap-2 text-body-lg font-bold text-fg-strong hover:text-brand-60">
+        <span class="inline-flex items-center justify-center size-7 rounded-medium bg-gray-90 text-fg-on text-body-sm font-bold">G</span>
+        <span th:text="${@project.nameKo}">관리자</span>
+      </a>
+      <span class="text-fg-subtle text-body-sm hidden md:inline" th:if="${siteContext}"
+            th:text="|· ${siteContext.site.siteName} (${siteContext.site.siteCode})|"></span>
+
+      <nav aria-label="주 메뉴" class="ml-auto flex items-center gap-1 text-body-sm">
+        <a th:href="@{/admin}"
+           class="px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong">대시보드</a>
+
+        <!-- 사이트 그룹: 사이트 / 템플릿 / 메뉴 -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            사이트
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <a th:href="@{/admin/system/site}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">사이트 관리</a>
+            <a th:href="@{/admin/system/template}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">템플릿</a>
+            <a th:if="${siteContext}"
+               th:href="@{/admin/system/site/{id}/menu(id=${siteContext.site.siteId})}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">메뉴</a>
+            <span th:unless="${siteContext}"
+                  class="block px-3 py-1.5 text-fg-disabled cursor-not-allowed"
+                  title="사이트 컨텍스트가 필요합니다">메뉴</span>
+          </div>
+        </details>
+
+        <!-- 학과 그룹(secondary DB): 학과 마스터 / 교수진 / 교수 실적 / 직원 / 연구실 / 수업계획서 -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            학과
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <a th:href="@{/admin/dept/master}"   class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">학과 마스터</a>
+            <a th:href="@{/admin/dept/faculty}"  class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">교수진</a>
+            <a th:href="@{/admin/dept/faculty-program}" class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">교수 실적</a>
+            <a th:href="@{/admin/dept/staff}"    class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">직원</a>
+            <a th:href="@{/admin/dept/lab}"      class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">연구실</a>
+            <a th:href="@{/admin/dept/syllabus}" class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">수업계획서</a>
+          </div>
+        </details>
+
+        <!-- 콘텐츠 그룹: 콘텐츠 / 게시판 / 신고 / 파일 -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            콘텐츠
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <a th:href="@{/admin/system/content}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">콘텐츠</a>
+            <a th:href="@{/admin/system/board}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">게시판</a>
+            <a th:href="@{/admin/system/board/report}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">신고</a>
+            <a th:href="@{/admin/system/file}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">파일</a>
+            <a th:href="@{/admin/system/popup}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">팝업</a>
+            <a th:href="@{/admin/system/banner}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">배너</a>
+            <a th:href="@{/admin/system/holiday}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">공휴일</a>
+            <a th:href="@{/admin/system/schedule-master}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">일정 마스터</a>
+            <a th:href="@{/admin/system/schedule}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">일정</a>
+            <a th:href="@{/admin/system/survey-master}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">설문 마스터</a>
+            <a th:href="@{/admin/system/survey}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">설문조사</a>
+            <a th:href="@{/admin/system/complaint}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">민원</a>
+            <a th:href="@{/admin/system/search/files}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">Gemini 문서검색</a>
+            <a th:href="@{/admin/system/search/gemini-log}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ AI 질의 로그</a>
+            <a th:href="@{/admin/system/election-voter}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">선거인명부</a>
+            <a th:href="@{/admin/system/code}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">공통코드</a>
+          </div>
+        </details>
+
+        <!-- 외부연동 그룹: 조달청 나라장터 G2B -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            외부연동
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <div class="px-3 py-1 text-body-xs text-fg-subtle uppercase tracking-wide">조달청 G2B</div>
+            <a th:href="@{/admin/system/g2b/order-plan}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">발주계획</a>
+            <a th:href="@{/admin/system/g2b/bid-notice}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">입찰공고</a>
+            <a th:href="@{/admin/system/g2b/opening}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">개찰결과</a>
+            <a th:href="@{/admin/system/g2b/collect-log}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 수집 이력</a>
+          </div>
+        </details>
+
+        <!-- 권한 그룹: 관리자 / 그룹 / 역할 / URL 접근 규칙 -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            권한
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <a th:href="@{/admin/system/admin}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">관리자</a>
+            <a th:href="@{/admin/system/admin-group}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">관리자 그룹</a>
+            <a th:href="@{/admin/system/role}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">역할</a>
+            <a th:href="@{/admin/system/url-access}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">URL 접근 규칙</a>
+          </div>
+        </details>
+
+        <!-- 사용자 그룹: 회원 / 직원 / 부서 / 메일 -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            사용자
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <a th:href="@{/admin/system/member}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">회원</a>
+            <a th:href="@{/admin/system/member/dormant}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 휴면 회원</a>
+            <a th:href="@{/admin/system/member/withdraw}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 탈퇴 회원</a>
+            <a th:href="@{/admin/system/member/oauth}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ OAuth 매핑</a>
+            <a th:href="@{/admin/system/member/password-history}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 비밀번호 이력</a>
+            <a th:href="@{/admin/system/member/consent}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 동의 이력</a>
+            <a th:href="@{/admin/system/member/dormant-notice}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 휴면 안내 이력</a>
+            <a th:href="@{/admin/system/employee}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">직원</a>
+            <a th:href="@{/admin/system/department}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">부서</a>
+            <a th:href="@{/admin/system/mail-template}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">메일 템플릿</a>
+          </div>
+        </details>
+
+        <!-- 모니터링 그룹: 접근 통계 / 로그 -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            모니터링
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <a th:href="@{/admin/system/monitoring}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">운영 모니터링</a>
+            <a th:href="@{/admin/system/monitoring/http}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ HTTP 거래소</a>
+            <a th:href="@{/admin/system/access-stat}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">접근 통계</a>
+            <a th:href="@{/admin/system/access-top20}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ TOP 20</a>
+            <a th:href="@{/admin/system/member-stat}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">회원 통계</a>
+            <a th:href="@{/admin/system/log/access}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">로그</a>
+            <a th:href="@{/admin/system/log/privacy}"
+               class="block px-3 py-1.5 text-info-fg hover:bg-info-surface">🛡 개인정보 접근</a>
+            <a th:href="@{/admin/system/lifecycle}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">라이프사이클</a>
+            <a th:href="@{/admin/notification}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">알림 관리</a>
+          </div>
+        </details>
+
+        <!-- 검색 그룹: 검색 색인 -->
+        <details class="relative admin-nav-group group">
+          <summary class="list-none [&::-webkit-details-marker]:hidden cursor-pointer px-3 py-1.5 rounded-medium text-fg hover:bg-surface-subtle hover:text-fg-strong group-open:bg-surface-subtle group-open:text-fg-strong inline-flex items-center gap-1">
+            검색
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"
+                 class="size-3 opacity-60" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.08l3.71-3.85a.75.75 0 111.08 1.04l-4.25 4.41a.75.75 0 01-1.08 0L5.21 8.27a.75.75 0 01.02-1.06z" clip-rule="evenodd"/>
+            </svg>
+          </summary>
+          <div class="absolute right-0 mt-1 w-48 bg-surface border border-line rounded-large shadow-e2 py-1 z-20">
+            <a th:href="@{/admin/system/search}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">검색 색인</a>
+            <a th:href="@{/admin/system/search/stat}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 검색 통계</a>
+            <a th:href="@{/admin/system/search/index}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 색인 관리</a>
+            <a th:href="@{/admin/system/search/keyword}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 인기검색어 관리</a>
+            <a th:href="@{/admin/system/search/recommend}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 추천검색어 관리</a>
+            <a th:href="@{/admin/system/search/forbidden}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 금지어</a>
+            <a th:href="@{/admin/system/search/synonym}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ 동의어 사전</a>
+            <a th:href="@{/admin/system/search/files}"
+               class="block px-3 py-1.5 text-fg hover:bg-surface-subtle hover:text-fg-strong">Gemini 문서검색</a>
+            <a th:href="@{/admin/system/search/gemini-log}"
+               class="block px-3 py-1.5 pl-6 text-fg-subtle hover:bg-surface-subtle hover:text-fg-strong">└ Gemini AI 질의(비용)</a>
+          </div>
+        </details>
+      </nav>
+
+      <div class="flex items-center gap-3 text-body-sm border-l border-line pl-4">
+        <button type="button" data-action="toggle-contrast" aria-pressed="false"
+                class="krds-btn krds-btn-sm krds-btn-tertiary" title="고대비 모드 전환">
+          <span aria-hidden="true">◐</span>
+          <span class="sr-only">고대비 모드 전환</span>
+        </button>
+        <!-- 알림 종 — 30초 폴링으로 미확인 카운트 갱신 (notification-bell.js) -->
+        <th:block th:replace="~{fragments/notification-bell :: bell(href='/notification')}"/>
+        <div class="leading-tight text-right">
+          <a th:href="@{/admin/mypage}"
+             class="font-medium text-fg-strong hover:text-brand-60 hover:underline block"
+             title="마이페이지">
+            <span sec:authentication="name">user</span>
+          </a>
+          <span sec:authorize="isAuthenticated()"
+                th:with="llog=${#authentication?.principal?.lastLoginAt}"
+                class="block text-body-xs text-fg-subtle"
+                th:text="${llog != null} ? '최근 ' + ${#temporals.format(llog,'yyyy-MM-dd HH:mm')} : '첫 로그인'">
+            최근 2026-04-21 10:00
+          </span>
+        </div>
+        <form th:action="@{/admin/logout}" method="post" class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit" class="krds-btn krds-btn-sm krds-btn-tertiary">로그아웃</button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <!-- 관리자 본문도 시맨틱 토큰(2026-07-06 KRDS 이관 완료) — hc 토글 시 본문까지 다크 전환.
+       color-scheme 은 전역(krds.css)이 라이트/hc 에 맞게 처리하므로 여기서 강제하지 않는다 -->
+  <main id="main" role="main" class="flex-1 bg-bg text-fg">
+    <div class="max-w-content mx-auto px-4 py-6">
+      <section layout:fragment="content">
+        <p class="text-fg-subtle">기본 콘텐츠 영역</p>
+      </section>
+    </div>
+  </main>
+
+  <footer role="contentinfo" class="bg-surface border-t border-line">
+    <div class="max-w-content mx-auto px-4 py-3 text-center text-body-xs text-fg-subtle">
+      &copy; <span th:text="${@project.nameKo}">관리자</span>
+    </div>
+  </footer>
+
+  <script th:src="@{/js/htmx.min.js}" th:attr="nonce=${cspNonce}"></script>
+  <script th:src="@{/js/app.js}" th:attr="nonce=${cspNonce}"></script>
+  <script th:src="@{/js/admin-nav.js}" th:attr="nonce=${cspNonce}"></script>
+  <script th:src="@{/js/notification-bell.js}" th:attr="nonce=${cspNonce}" sec:authorize="isAuthenticated()"></script>
+  <!-- 페이지별 추가 스크립트 슬롯 -->
+  <th:block layout:fragment="scripts"></th:block>
+</body>
+</html>

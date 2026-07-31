@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+    Google reCAPTCHA v3 공통 fragment.
+
+    사용:
+        <th:block th:replace="~{fragments/captcha-v3 :: widget(action='login', formId='loginForm')}"></th:block>
+
+    동작:
+        1. captchaEnabled 가 true 이면 (CaptchaModelAdvice 가 자동 주입)
+           - api.js script + hidden input 렌더
+           - form submit 직전 grecaptcha.execute(siteKey, {action}) 호출
+           - token 을 g-recaptcha-response 에 채우고 form.submit() 재호출
+        2. captchaEnabled=false 면 아무것도 렌더하지 않음 — 폼은 그대로 동작
+
+    파라미터:
+        action  — Google 콘솔 통계용 액션 명. 예: login / register / find_id / write_article
+        formId  — 캡차 토큰을 부착할 <form> 의 id 속성
+-->
+<body>
+<th:block th:fragment="widget(action, formId)" th:if="${captchaEnabled}">
+    <script th:src="|https://www.google.com/recaptcha/api.js?render=${captchaSiteKey}|"
+            th:attr="nonce=${cspNonce}" async defer></script>
+    <input type="hidden" name="g-recaptcha-response" th:attr="data-captcha-action=${action},data-captcha-form=${formId}"/>
+    <script th:attr="nonce=${cspNonce}" th:inline="javascript">
+        (function () {
+            const FORM_ID  = /*[[${formId}]]*/ 'placeholder';
+            const ACTION   = /*[[${action}]]*/ 'placeholder';
+            const SITE_KEY = /*[[${captchaSiteKey}]]*/ '';
+            if (!SITE_KEY) return;
+
+            function attach() {
+                const form = document.getElementById(FORM_ID);
+                if (!form) {
+                    // 폼이 아직 렌더 안 됐을 수 있음 — DOMContentLoaded 까지 대기
+                    document.addEventListener('DOMContentLoaded', attach, { once: true });
+                    return;
+                }
+                if (form.dataset.captchaBound === '1') return;
+                form.dataset.captchaBound = '1';
+
+                form.addEventListener('submit', function (e) {
+                    if (form.dataset.captchaSubmitting === '1') return;     // 재진입 차단
+                    if (typeof grecaptcha === 'undefined') return;          // api.js 미로드 — 그대로 진행
+                    e.preventDefault();
+                    form.dataset.captchaSubmitting = '1';
+                    grecaptcha.ready(function () {
+                        grecaptcha.execute(SITE_KEY, { action: ACTION }).then(function (token) {
+                            const input = form.querySelector('input[name="g-recaptcha-response"]');
+                            if (input) input.value = token;
+                            form.submit();
+                        }).catch(function () {
+                            // grecaptcha 실패 시 그대로 제출 — 서버가 빈 token 으로 fail 처리
+                            form.dataset.captchaSubmitting = '0';
+                            form.submit();
+                        });
+                    });
+                });
+            }
+            attach();
+        })();
+    </script>
+</th:block>
+</body>
+</html>

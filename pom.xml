@@ -791,7 +791,7 @@
                         </configuration>
                     </execution>
                     <execution>
-                        <id>npm-build-css</id>
+                        <id>npm-build-front</id>
                         <phase>generate-resources</phase>
                         <goals>
                             <goal>exec</goal>
@@ -800,7 +800,8 @@
                             <executable>${npm.executable}</executable>
                             <arguments>
                                 <argument>run</argument>
-                                <argument>css</argument>
+                                <!-- css(Tailwind) + editor(esbuild 번들) 통합 진입점 -->
+                                <argument>build</argument>
                             </arguments>
                             <skip>${tailwind.skip}</skip>
                         </configuration>

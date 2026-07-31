@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<!--
+  알림 종 아이콘 fragment — 인증 사용자 헤더에 삽입.
+
+  사용:
+    <th:block th:replace="~{fragments/notification-bell :: bell(href='/notification')}"/>
+
+  파라미터:
+    href — 클릭 시 이동할 인박스 경로. 회원=/notification, 관리자=같은 경로 (회원/직원/관리자
+           모두 같은 인박스 라우트를 쓴다).
+
+  동작:
+    - 비인증이면 렌더 안 됨 (th:if sec:authorize)
+    - 첫 진입 시 미확인 카운트 0 으로 보이다가 polling.js 가 30초 간격 갱신
+    - 카운트 0 이면 빨간 점 숨김
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<body>
+
+<a th:fragment="bell(href)"
+   sec:authorize="isAuthenticated()"
+   th:href="${href}"
+   id="notiBell"
+   class="relative inline-flex items-center justify-center size-9 rounded-medium hover:bg-surface-subtle text-fg"
+   title="알림">
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="1.6" class="size-5"
+       aria-hidden="true">
+    <path stroke-linecap="round" stroke-linejoin="round"
+          d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+  </svg>
+  <span id="notiBellBadge"
+        class="absolute -top-0.5 -right-0.5 hidden min-w-4 h-4 px-1 rounded-max bg-danger-50 text-fg-on text-body-xs font-bold leading-4 text-center">0</span>
+</a>
+
+</body>
+</html>

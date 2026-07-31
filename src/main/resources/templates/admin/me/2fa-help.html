@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>2FA 앱 설치 가이드</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/me/2fa/setup}" class="hover:underline">2FA 설정</a>
+      <span class="mx-1">/</span>
+      <span>앱 설치 가이드</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-1">Authenticator 앱 설치 가이드</h1>
+    <p class="text-sm text-fg-subtle mb-6">
+      관리자 로그인 시 2단계 인증(2FA) 에 필요한 인증 앱을 휴대폰에 설치하는 방법입니다.
+    </p>
+
+    <!-- 0. 2FA 가 뭐예요? -->
+    <section class="bg-info-surface border border-info-border rounded-large p-5 mb-6">
+      <h2 class="text-sm font-semibold text-info-fg mb-2">2FA 가 뭐예요?</h2>
+      <p class="text-sm text-info-fg leading-relaxed">
+        아이디·비밀번호 외에 휴대폰 앱이 30초마다 새로 만들어 주는 <strong>6자리 숫자</strong>를
+        한 번 더 입력하는 것입니다. 비밀번호가 유출되어도 휴대폰이 없으면 로그인이 안 되므로
+        관리자 계정 보안이 크게 강화됩니다.
+      </p>
+    </section>
+
+    <!-- 1. 앱 선택 -->
+    <section aria-labelledby="step1" class="bg-surface border border-line rounded-large p-6 mb-4">
+      <h2 id="step1" class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">1단계 — 앱 선택</h2>
+      <p class="text-sm text-fg mb-4">
+        아래 3가지 앱 중 <strong>아무거나 하나만</strong> 설치하시면 됩니다. 처음이라면 가장 보편적인
+        <strong>Google Authenticator</strong> 를 권장합니다.
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <article class="border border-line rounded p-4">
+          <h3 class="font-semibold text-fg-strong text-sm">Google Authenticator</h3>
+          <p class="text-xs text-fg-subtle mt-1">가장 많이 쓰이는 표준 앱</p>
+          <ul class="text-xs text-fg mt-2 space-y-1 list-disc pl-4">
+            <li>Google 계정으로 백업</li>
+            <li>새 휴대폰에 옮기기 쉬움</li>
+            <li>한국어 지원</li>
+          </ul>
+        </article>
+        <article class="border border-line rounded p-4">
+          <h3 class="font-semibold text-fg-strong text-sm">Microsoft Authenticator</h3>
+          <p class="text-xs text-fg-subtle mt-1">Microsoft 계정 사용자 추천</p>
+          <ul class="text-xs text-fg mt-2 space-y-1 list-disc pl-4">
+            <li>알림(Push) 인증 지원</li>
+            <li>회사 Office 365 와 통합</li>
+            <li>iCloud/Microsoft 백업</li>
+          </ul>
+        </article>
+        <article class="border border-line rounded p-4">
+          <h3 class="font-semibold text-fg-strong text-sm">Authy</h3>
+          <p class="text-xs text-fg-subtle mt-1">여러 기기 동기화 필요 시</p>
+          <ul class="text-xs text-fg mt-2 space-y-1 list-disc pl-4">
+            <li>휴대폰 + 태블릿 + PC 동시</li>
+            <li>전화번호 기반 백업</li>
+            <li>영문 인터페이스</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- 2. 앱 설치 방법 -->
+    <section aria-labelledby="step2" class="bg-surface border border-line rounded-large p-6 mb-4">
+      <h2 id="step2" class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">2단계 — 휴대폰에 앱 설치</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <article class="border border-line rounded p-4">
+          <h3 class="font-semibold text-fg-strong text-sm mb-3">📱 Android (갤럭시·LG 등)</h3>
+          <ol class="text-sm text-fg space-y-2 list-decimal pl-5">
+            <li>홈 화면에서 <strong>Play 스토어</strong> (▶ 모양 아이콘) 열기</li>
+            <li>상단 검색창에 <code class="bg-surface-subtler px-1 rounded">Google Authenticator</code> 입력</li>
+            <li>"Google LLC" 가 만든 앱 옆 <strong>설치</strong> 버튼 탭</li>
+            <li>설치가 끝나면 <strong>열기</strong> 또는 홈 화면 아이콘 탭</li>
+          </ol>
+        </article>
+        <article class="border border-line rounded p-4">
+          <h3 class="font-semibold text-fg-strong text-sm mb-3">🍎 iPhone (아이폰)</h3>
+          <ol class="text-sm text-fg space-y-2 list-decimal pl-5">
+            <li>홈 화면에서 <strong>App Store</strong> (파란 A 아이콘) 열기</li>
+            <li>하단 <strong>검색</strong> 탭 → <code class="bg-surface-subtler px-1 rounded">Google Authenticator</code> 입력</li>
+            <li>"Google LLC" 가 만든 앱 옆 <strong>받기</strong> 버튼 → Face ID/암호 인증</li>
+            <li>설치가 끝나면 <strong>열기</strong> 또는 홈 화면 아이콘 탭</li>
+          </ol>
+        </article>
+      </div>
+
+      <p class="text-xs text-fg-subtle mt-4">
+        ※ Microsoft Authenticator / Authy 도 같은 방식으로 검색해 설치할 수 있습니다.
+      </p>
+    </section>
+
+    <!-- 3. 계정 추가 (QR 스캔) -->
+    <section aria-labelledby="step3" class="bg-surface border border-line rounded-large p-6 mb-4">
+      <h2 id="step3" class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">3단계 — GoPCMS 계정 추가</h2>
+      <p class="text-sm text-fg mb-3">
+        앱이 설치되었으면, <a th:href="@{/admin/me/2fa/setup}" class="text-brand-60 hover:underline font-medium">2FA 설정 페이지</a>
+        를 열고 다음과 같이 진행합니다.
+      </p>
+
+      <ol class="text-sm text-fg space-y-3 list-decimal pl-5">
+        <li>
+          휴대폰의 Authenticator 앱을 열고 화면 오른쪽 아래 <strong>+</strong> 또는
+          <strong>"계정 추가"</strong> 버튼을 탭
+        </li>
+        <li>
+          <strong>"QR 코드 스캔"</strong> 선택 (Microsoft Authenticator 는 "QR 코드", Authy 는 "Scan QR Code")
+        </li>
+        <li>
+          카메라 권한을 허용하고 — PC 화면의 <strong>QR 코드를 휴대폰 카메라로 비춤</strong>
+        </li>
+        <li>
+          앱 화면에 <strong>"GoPCMS:&lt;아이디&gt;"</strong> 항목이 추가되며 <strong>6자리 숫자</strong>가 표시됨
+          (30초마다 자동으로 바뀜)
+        </li>
+        <li>
+          PC 화면 "코드 검증" 입력란에 그 6자리를 입력 → <strong>활성화</strong> 버튼 클릭
+        </li>
+      </ol>
+    </section>
+
+    <!-- 4. 자주 묻는 질문 -->
+    <section aria-labelledby="faq" class="bg-surface border border-line rounded-large p-6 mb-4">
+      <h2 id="faq" class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">자주 묻는 질문</h2>
+
+      <details class="border-b border-line py-3">
+        <summary class="font-medium text-fg-strong cursor-pointer text-sm">
+          QR 코드를 스캔할 수 없어요. 어떻게 하나요?
+        </summary>
+        <p class="text-sm text-fg-subtle mt-2 pl-2">
+          2FA 설정 페이지의 <strong>"QR 스캔이 어렵다면? (수동 입력)"</strong> 영역을 펼쳐 표시되는
+          <strong>base32 secret</strong> 문자열을 복사하세요. 앱에서 "+ → 설정 키 입력" 메뉴를 선택하고
+          계정명에 임의 이름(예: <code>GoPCMS</code>), 키 입력란에 그 문자열을 붙여넣고 "시간 기반(Time-based)"
+          을 선택해 추가하면 됩니다.
+        </p>
+      </details>
+
+      <details class="border-b border-line py-3">
+        <summary class="font-medium text-fg-strong cursor-pointer text-sm">
+          코드를 입력했는데 "코드가 일치하지 않습니다" 가 나와요.
+        </summary>
+        <div class="text-sm text-fg-subtle mt-2 pl-2 space-y-2">
+          <p>대부분 <strong>휴대폰 시간 오차</strong> 때문입니다. 다음을 확인하세요:</p>
+          <ul class="list-disc pl-5 space-y-1">
+            <li>휴대폰 설정 → 일반 → 날짜·시간 → <strong>"자동 설정"</strong> 활성화</li>
+            <li>Google Authenticator 의 경우: 우측 상단 ⋯ → 설정 → "코드 시간 동기화"</li>
+            <li>코드는 30초마다 바뀌므로, 새 코드가 나오면 즉시 입력하세요(끝나기 직전 입력 시 만료될 수 있음)</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="border-b border-line py-3">
+        <summary class="font-medium text-fg-strong cursor-pointer text-sm">
+          휴대폰을 잃어버리거나 바꾸면 어떻게 하나요?
+        </summary>
+        <p class="text-sm text-fg-subtle mt-2 pl-2">
+          GoPCMS 시스템 관리자에게 연락하여 본인 확인 후 2FA 를 초기화 받으세요. 초기화 후 새 휴대폰에서
+          이 페이지의 절차를 다시 진행하면 됩니다.
+          <strong class="text-danger-fg">2FA secret 은 사진 촬영해 보관하지 마세요</strong> — 유출 시 보안 의미가 사라집니다.
+        </p>
+      </details>
+
+      <details class="py-3">
+        <summary class="font-medium text-fg-strong cursor-pointer text-sm">
+          여러 사이트의 2FA 를 같은 앱에 등록해도 되나요?
+        </summary>
+        <p class="text-sm text-fg-subtle mt-2 pl-2">
+          네, 권장됩니다. 한 앱에 회사 Google 계정, GoPCMS, 은행 등 여러 서비스의 2FA 를 같이 등록할 수 있고
+          각각 별도의 6자리 코드가 생성됩니다.
+        </p>
+      </details>
+    </section>
+
+    <!-- 5. 액션 버튼 -->
+    <div class="flex justify-between items-center mt-6">
+      <a th:href="@{/admin}"
+         class="text-sm text-fg-subtle hover:text-fg">← 대시보드로</a>
+      <a th:href="@{/admin/me/2fa/setup}"
+         class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+        2FA 설정 페이지로 이동 →
+      </a>
+    </div>
+
+  </section>
+</body>
+</html>
