@@ -2,6 +2,17 @@
 
 USE `pcms2026-003-primary`;
 
+-- ============================================================================
+-- PCMS 2026-003 primary 스키마
+-- ----------------------------------------------------------------------------
+-- FK forward reference 가 25건 있다(자식 테이블이 아직 생성되지 않은 부모를
+-- 참조). 알파벳 순으로 덤프된 결과이며, 그대로 실행하면 첫 테이블에서
+-- errno 150 으로 실패해 0개만 생성된다.
+-- 아래 SET 으로 생성 중에만 FK 검사를 끄고, 파일 끝에서 원복한다.
+-- 세션 변수라 이 스크립트 밖에는 영향이 없다.
+-- ============================================================================
+SET FOREIGN_KEY_CHECKS = 0;
+
 /*Table structure for table `tb_admin` */
 
 DROP TABLE IF EXISTS `tb_admin`;
@@ -1133,6 +1144,8 @@ CREATE TABLE `tb_member_oauth` (
 
  
 
+DROP TABLE IF EXISTS `tb_member_otp`;
+
 CREATE TABLE `tb_member_otp` (
   `otp_id` varchar(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT 'OTP ID (MOT_ + UUIDv7)',
   `member_id` varchar(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '대상 회원 ID (tb_member 또는 tb_member_dormant)',
@@ -1153,7 +1166,7 @@ CREATE TABLE `tb_member_otp` (
   KEY `idx_otp_member_purpose` (`member_id`,`purpose`,`created_at`),
   KEY `idx_otp_expires` (`expires_at`),
   CONSTRAINT `chk_otp_purpose` CHECK (`purpose` in ('DORMANT_RESTORE','EMAIL_VERIFY','PASSWORD_RESET'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='회원 인증번호(OTP) — 평문 미보관, 시도 횟수는 행에 둔다'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='회원 인증번호(OTP) — 평문 미보관, 시도 횟수는 행에 둔다';
 
 
 
@@ -1571,6 +1584,8 @@ CREATE TABLE `tb_schedule_master` (
 
 
 
+DROP TABLE IF EXISTS `tb_site`;
+
 CREATE TABLE `tb_site` (
   `site_id` varchar(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '사이트 ID (SIT_ + UUIDv7)',
   `site_code` varchar(30) NOT NULL COMMENT '사이트 코드 (URL 경로 식별자 /{siteCode}/… — 소문자·숫자·하이픈)',
@@ -1613,6 +1628,8 @@ CREATE TABLE `tb_site` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='사이트 (멀티사이트 마스터)';
   
   
+DROP TABLE IF EXISTS `tb_template`;
+
 CREATE TABLE `tb_template` (
   `template_id` varchar(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '템플릿 ID (TPL_ + UUIDv7)',
   `template_code` varchar(50) NOT NULL COMMENT '템플릿 코드 (= CSS 파일명 /tmpl/css/{code}.css)',
@@ -1632,7 +1649,9 @@ CREATE TABLE `tb_template` (
   UNIQUE KEY `uk_template_code` (`template_code`),
   KEY `idx_template_layout` (`default_layout_id`),
   CONSTRAINT `fk_template_layout` FOREIGN KEY (`default_layout_id`) REFERENCES `tb_layout` (`layout_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='템플릿 (시각 언어)'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='템플릿 (시각 언어)';
+
+DROP TABLE IF EXISTS `tb_theme`;
 
 CREATE TABLE `tb_theme` (
   `theme_id` varchar(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '테마 ID (THM_ + UUIDv7)',
@@ -1656,6 +1675,8 @@ CREATE TABLE `tb_theme` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='테마 (템플릿별 색 변형)';
 
  
+DROP TABLE IF EXISTS `tb_layout`;
+
 CREATE TABLE `tb_layout` (
   `layout_id` varchar(40) CHARACTER SET ascii COLLATE ascii_bin NOT NULL COMMENT '레이아웃 ID (LAY_ + UUIDv7)',
   `layout_code` varchar(50) NOT NULL COMMENT '레이아웃 코드 (layout-001 … = 뷰 폴더명)',
@@ -1823,20 +1844,23 @@ CREATE TABLE `tb_survey_response` (
  
  
   
-CREATE   VIEW `v_site_menu` AS with recursive menu_tree as (
+CREATE OR REPLACE VIEW `v_site_menu` AS with recursive menu_tree as (
 select `m`.`menu_id` AS `menu_id`,`m`.`parent_menu_id` AS `parent_menu_id`,`m`.`site_id` AS `site_id`,`m`.`menu_name` AS `menu_name`,`m`.`menu_type` AS `menu_type`,`m`.`link_target_id` AS `link_target_id`,`m`.`link_url` AS `link_url`,`m`.`sort_order` AS `sort_order`,`m`.`depth` AS `depth`,`m`.`use_yn` AS `use_yn`,`m`.`auth_required_yn` AS `auth_required_yn`,cast(`m`.`menu_id` as char(2000) charset utf8mb4) AS `root_menu_id`,cast(`m`.`menu_name` as char(2000) charset utf8mb4) AS `breadcrumb_path`,cast(`m`.`menu_id` as char(2000) charset utf8mb4) AS `id_path`,1 AS `path_depth` from `tb_menu` `m` where `m`.`parent_menu_id` is null and `m`.`delete_yn` = 'N' union all select `c`.`menu_id` AS `menu_id`,`c`.`parent_menu_id` AS `parent_menu_id`,`c`.`site_id` AS `site_id`,`c`.`menu_name` AS `menu_name`,`c`.`menu_type` AS `menu_type`,`c`.`link_target_id` AS `link_target_id`,`c`.`link_url` AS `link_url`,`c`.`sort_order` AS `sort_order`,`c`.`depth` AS `depth`,`c`.`use_yn` AS `use_yn`,`c`.`auth_required_yn` AS `auth_required_yn`,`t`.`root_menu_id` AS `root_menu_id`,concat(`t`.`breadcrumb_path`,' > ',`c`.`menu_name`) AS `breadcrumb_path`,concat(`t`.`id_path`,'/',`c`.`menu_id`) AS `id_path`,`t`.`path_depth` + 1 AS `path_depth` from (`tb_menu` `c` join `menu_tree` `t` on(`t`.`menu_id` = `c`.`parent_menu_id`)) where `c`.`delete_yn` = 'N')select `t`.`menu_id` AS `menu_id`,`t`.`parent_menu_id` AS `parent_menu_id`,`t`.`root_menu_id` AS `root_menu_id`,`t`.`site_id` AS `site_id`,`s`.`site_code` AS `site_code`,`s`.`site_name` AS `site_name`,`t`.`menu_name` AS `menu_name`,`t`.`menu_type` AS `menu_type`,`t`.`link_target_id` AS `link_target_id`,`t`.`link_url` AS `link_url`,`t`.`sort_order` AS `sort_order`,`t`.`depth` AS `depth`,`t`.`use_yn` AS `use_yn`,`t`.`auth_required_yn` AS `auth_required_yn`,`ct`.`slug` AS `link_slug`,`ct`.`title` AS `link_content_title`,`bm`.`bbs_code` AS `link_bbs_code`,`bm`.`bbs_name` AS `link_bbs_name`,case ucase(`t`.`menu_type`) when 'CONTENT' then case when `ct`.`slug` is null or `s`.`site_code` is null then NULL else concat('/',`s`.`site_code`,'/',`ct`.`slug`) end when 'BOARD' then case when `bm`.`bbs_code` is null or `s`.`site_code` is null then NULL else concat('/bbs/',`s`.`site_code`,'/',`bm`.`bbs_code`) end when 'URL' then `t`.`link_url` else NULL end AS `canonical_url`,`t`.`breadcrumb_path` AS `breadcrumb_path`,`t`.`id_path` AS `id_path`,`t`.`path_depth` AS `path_depth` from (((`menu_tree` `t` left join `tb_site` `s` on(`s`.`site_id` = `t`.`site_id` and `s`.`delete_yn` = 'N')) left join `tb_content` `ct` on(`ct`.`content_id` = `t`.`link_target_id` and `ct`.`delete_yn` = 'N')) left join `tb_bbs_master` `bm` on(`bm`.`bbs_master_id` = `t`.`link_target_id` and `bm`.`delete_yn` = 'N'));
 
 
 
-CREATE   VIEW `v_file` AS 
+CREATE OR REPLACE VIEW `v_file` AS 
 select  `f`.`file_id` AS `file_id`,  `f`.`file_group_id` AS `file_group_id`,  `g`.`entity_type` AS `entity_type`,  `g`.`entity_id` AS `entity_id`,  `g`.`site_id` AS `site_id`,  `f`.`original_name` AS `original_name`,  `f`.`stored_name` AS `stored_name`,  `f`.`stored_path` AS `stored_path`,  `f`.`thumbnail_path` AS `thumbnail_path`,  `f`.`extension` AS `extension`,  `f`.`mime_detected` AS `mime_detected`,  `f`.`mime_client` AS `mime_client`,  `f`.`size_bytes` AS `size_bytes`,  `f`.`file_hash` AS `file_hash`,  `f`.`is_image_yn` AS `is_image_yn`,  `f`.`reencoded_yn` AS `reencoded_yn`,  `f`.`virus_scan_status` AS `virus_scan_status`,  `f`.`download_count` AS `download_count`,  `f`.`sort_order` AS `sort_order`,  `f`.`created_by` AS `created_by`,  `f`.`created_ip` AS `created_ip`,  `f`.`created_at` AS `created_at`,  `f`.`updated_by` AS `updated_by`,  `f`.`updated_ip` AS `updated_ip`,  `f`.`updated_at` AS `updated_at` from (`tb_file` `f`  join `tb_file_group` `g`  on (`g`.`file_group_id` = `f`.`file_group_id`)) where `f`.`delete_yn` = 'N'  and `g`.`delete_yn` = 'N';
 
 
 
-CREATE   VIEW `v_active_admin` AS 
+CREATE OR REPLACE VIEW `v_active_admin` AS 
 select  `a`.`admin_id` AS `admin_id`,  `a`.`admin_seq` AS `uniq_id`,  `a`.`login_id` AS `login_id`,  `g`.`group_name` AS `group_name`,  `a`.`department_name` AS `department_name`,  `a`.`department_id` AS `department_id`,  `a`.`STATUS` AS `status`,  `a`.`last_login_at` AS `last_login_at`,  `a`.`last_login_ip` AS `last_login_ip`,  `a`.`two_factor_enabled_yn` AS `two_factor_enabled_yn` from (`tb_admin` `a`  join `tb_admin_group` `g`  on (`g`.`admin_group_id` = `a`.`admin_group_id`)) where `a`.`delete_yn` = 'N'  and `a`.`STATUS` = 'ACTIVE';
 
 
 
-CREATE   VIEW `v_user_login` AS 
+CREATE OR REPLACE VIEW `v_user_login` AS 
 select  'MEMBER' AS `user_type`,  `m`.`member_id` AS `user_id`,  `m`.`member_seq` AS `uniq_id`,  `m`.`site_id` AS `site_id`,  NULL AS `group_id`,  `m`.`login_id` AS `login_id`,  `m`.`PASSWORD` AS `password`,  `m`.`STATUS` AS `status`,  `m`.`login_fail_count` AS `login_fail_count`,  `m`.`locked_until` AS `locked_until`,  `m`.`last_login_at` AS `last_login_at`,  `m`.`password_changed_at` AS `password_changed_at`,  `m`.`password_expire_at` AS `password_expire_at`,  'N' AS `two_factor_enabled_yn`,  NULL AS `two_factor_secret`,  NULL AS `ip_whitelist`,  NULL AS `allowed_time_from`,  NULL AS `allowed_time_to`,  `m`.`role_ids` AS `role_ids`,  'ROLE_MEMBER' AS `role_codes`,  `m`.`group_ids` AS `group_ids`,  '' AS `department_id`,  '' AS `department_name`,  `m`.`delete_yn` AS `delete_yn` from `tb_member` `m` where `m`.`delete_yn` = 'N' union all select  'STAFF' AS `user_type`,  `a`.`admin_id` AS `user_id`,  `a`.`admin_seq` AS `uniq_id`,  NULL AS `site_id`,  `a`.`admin_group_id` AS `group_id`,  `a`.`login_id` AS `login_id`,  `a`.`PASSWORD` AS `password`,  `a`.`STATUS` AS `status`,  `a`.`login_fail_count` AS `login_fail_count`,  `a`.`locked_until` AS `locked_until`,  `a`.`last_login_at` AS `last_login_at`,  `a`.`password_changed_at` AS `password_changed_at`,  `a`.`password_expire_at` AS `password_expire_at`,  `a`.`two_factor_enabled_yn` AS `two_factor_enabled_yn`,  `a`.`two_factor_secret` AS `two_factor_secret`,  `a`.`ip_whitelist` AS `ip_whitelist`,  `a`.`allowed_time_from` AS `allowed_time_from`,  `a`.`allowed_time_to` AS `allowed_time_to`,  `a`.`role_ids` AS `role_ids`,  `a`.`role_codes` AS `role_codes`,  `a`.`group_ids` AS `group_ids`,  `a`.`department_id` AS `department_id`,  `a`.`department_name` AS `department_name`,  `a`.`delete_yn` AS `delete_yn`  from `tb_admin` `a`  where `a`.`delete_yn` = 'N';
+
+-- FK 검사 원복 ------------------------------------------------------------
+SET FOREIGN_KEY_CHECKS = 1;

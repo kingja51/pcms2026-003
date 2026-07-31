@@ -116,7 +116,12 @@
       `DataSourceAutoConfiguration` 제외 + `@EnableCaching/@EnableAsync/@EnableScheduling/@EnableTransactionManagement` (2026-07-31)
 - [ ] eGovFrame 설정(`config/egov/`) 이식
 - [ ] **Flyway 도입** — `db/migration/{db}/{vendor}/` 구조, DataSource별 Flyway 빈, `baselineOnMigrate`
-- [ ] 로컬 DB 3종 생성 + 001 DDL 로 스키마 구축 → Flyway 베이스라인 기록
+- [x] **로컬 DB 3종 스키마 구축 완료** (2026-07-31, MariaDB 11.8.3 localhost:3306)
+      — primary **62 테이블 + 4 뷰 + FK 42**, secondary **5**, logging **12**
+      — DDL 3종 **멱등 확인**(반복 실행 exit=0, 객체 수 불변)
+      — FK 42개 전부 실재 테이블 참조 확인(`FOREIGN_KEY_CHECKS=0` 로 생성했으므로 필수 검증)
+      — `@@foreign_key_checks` 세션 원복(=1) 확인
+- [ ] Flyway 베이스라인 기록 (`flyway_schema_history`) — Flyway 빈 구성 후
 
 #### DoD
 
@@ -452,11 +457,14 @@
 | 발견일 | 내용 | 발견 페이즈 | 심각도 | 처리 |
 |---|---|---|---|---|
 | 2026-07-31 | **001 MyBatis 설정이 `_maria.xml` 을 하드코딩**한다(`{Primary,Secondary,Logging}MyBatisConfig` 의 `classpath*:mapper/**/*_maria.xml`). 드라이버 환경변수와 무관하게 maria 만 로드된다 — mysql·postgres XML 84개씩이 실제로는 사용되지 않는 상태 | P0 | 중 | ✅ **해결 2026-07-31** — 003 은 **maria 단일 확정**. 접미사 `_maria` 는 유지. CLAUDE/AGENTS/README/개발가이드 §2·§3·§6-2·§6-4·§6-5·§15, PLAN 상시게이트 4·P4·§8 반영 |
-| 2026-07-31 | **`sql/` 덤프에 뷰 5개 미반입** — 라이브 `pcms2026_primary` 에 뷰 9개인데 덤프는 4개. 누락: `v_bbs_article_search`·`v_content_published`·`v_file_search`·`v_menu_search`·`v_schedule_search` | P0 | 중 | 미정 |
+| 2026-07-31 | **`sql/` 덤프에 뷰 5개 미반입** — 라이브 `pcms2026_primary` 에 뷰 9개인데 덤프는 4개 | P0 | 중 | **부분 해결 2026-07-31** — 검색 뷰 **4종**(`v_bbs_article_search`·`v_file_search`·`v_menu_search`·`v_schedule_search`) **미반입 확정**(D10 검색 외부 분리). 003 DDL·DB 양쪽에 부재 확인. **`v_content_published` 는 별건 — 아래 행 참조** |
+| 2026-07-31 | **`v_content_published` 미반입** — 001 실측 정의는 검색과 무관한 **콘텐츠 게시 필터 뷰**다(`delete_yn='N'` + `STATUS='PUBLISHED'` + `published_at<=now` + `unpublish_at>now`). 사용자 화면에서 게시중 콘텐츠만 노출하는 용도라 **P4 콘텐츠 도메인에 필요할 가능성이 높다** | P4 | 중 | 미정 — P4 착수 시 이식 여부 결정. 이식하면 반복 마이그레이션 `R__` 로 관리 |
 | 2026-07-31 | **secondary 덤프 7테이블 누락** — 라이브 10 vs 덤프 3. `tb_g2b_*` 4종 + `tb_lab`·`tb_staff`·`tb_syllabus`. 003 이식 대상인지 미결 | P0 | 중 | **부분 해결 2026-07-31** — `tb_g2b_*` 4종은 **미이식 확정**(`g2b` yml 블록·`PCMS_G2B_SERVICE_KEY`·키 인벤토리 항목 제거). `tb_lab`·`tb_staff`·`tb_syllabus` 3종은 **여전히 미정** |
 | 2026-07-31 | **`sql/` 구조가 개발가이드 §3 과 불일치** — 가이드는 `sql/{mariadb,mysql,postgres}/`, 실제는 플랫 3파일 MariaDB 전용 | P0 | 중 | 미정 |
-| 2026-07-31 | **primary DDL 실행 불가 2건** — ① `tb_member_otp`(1307행)·`tb_template`(1992행) 종결 세미콜론 누락 ② FK forward reference 26건으로 `SET FOREIGN_KEY_CHECKS=0` 헤더 필요. 실측: 원본 그대로면 첫 테이블에서 errno 150, 0/74 생성 | P0 | **높음** | 미정 |
-| 2026-07-31 | **`DROP TABLE IF EXISTS` 누락 5건** — `tb_member_otp`·`tb_site`·`tb_template`·`tb_theme`·`tb_layout`. 나머지 69개는 있어 재실행이 안 된다 | P0 | 중 | 미정 |
+| 2026-07-31 | **primary DDL 실행 불가 2건** — ① `tb_member_otp`·`tb_template` 종결 세미콜론 누락 ② FK forward reference 로 `SET FOREIGN_KEY_CHECKS=0` 헤더 필요. 원본 그대로면 첫 테이블에서 errno 150 | P0 | **높음** | ✅ **해결 2026-07-31** — 세미콜론 2건 추가, 파일 앞뒤에 `SET FOREIGN_KEY_CHECKS = 0/1` 추가(사유 주석 포함). forward reference 실측 **25건**(기록의 26건은 부정확). secondary·logging 은 forward reference 0건이라 헤더 불필요 |
+| 2026-07-31 | **`DROP TABLE IF EXISTS` 누락 5건** — `tb_member_otp`·`tb_site`·`tb_template`·`tb_theme`·`tb_layout`. 나머지는 있어 재실행이 안 된다 | P0 | 중 | ✅ **해결 2026-07-31** — 5건 추가. primary 62개 테이블 전부 `DROP TABLE IF EXISTS` 보유 → 재실행 가능 |
+| 2026-07-31 | **뷰 4종에 `DROP VIEW IF EXISTS` 가 없어 재실행 실패** — 테이블만 고치고 실측했더니 2회차에서 `ERROR 1050: Table 'v_site_menu' already exists`. 정적 검사로는 안 잡히고 실행해야 드러난다 | P0 | 중 | ✅ **해결 2026-07-31** — `CREATE VIEW` → **`CREATE OR REPLACE VIEW`** 4건. DROP 추가보다 간결하고 멱등 |
+| 2026-07-31 | **logging 세미콜론 누락은 오탐** — 검사 스크립트가 `) ENGINE=` 줄만 보고 `log_access`·`log_error` 를 오탐했다. 실제로는 `PARTITION BY RANGE` 절이 뒤따르고 `);` 로 정상 종결된다. 파티션 테이블을 검사할 때 주의 | P0 | 낮음 | ✅ 확인만 — 수정 불요 |
 | 2026-07-31 | **참조 테이블 20개의 `site_code` 가 비인덱스·비FK·nullable 중복** — 모든 유니크·인덱스는 `site_id` 선두. `v_site_menu` 조차 `tb_site` 를 조인해 `s.site_code` 를 쓴다. 제거 또는 복합 FK+CASCADE 중 택1 | P4 | 중 | 결정 대기 |
 | 2026-07-31 | **`tb_site` 를 참조하는 FK 부재** — 20개 테이블이 `site_id` 를 갖지만 `REFERENCES tb_site` 가 하나도 없다(자기참조 `fk_site_parent` 만 존재). 의도인지 누락인지 확인 필요 | P4 | 중 | 미정 |
 | 2026-07-31 | **`tb_layout`·`tb_theme` 가 문서에 없음** — 개발가이드 §5-1 인벤토리와 PLAN P4 미반영. P4 는 아직 "`tb_site.theme` 연동" 으로 적혀 있으나 실제는 `tb_template`→`tb_layout`/`tb_theme`→`tb_site` 3단 구조 | P4 | 중 | 미정 |
@@ -468,7 +476,7 @@
 | 2026-07-31 | **[eGov 호환성] Spring Boot 버전 상한** — 5.0 실행환경 기준선은 **3.5.6**(Spring 6.2.11 / Security 6.5.5 / MyBatis 3.5.19). 현 지정 **3.5.9** 는 규칙 1-② 예외("패치 버전 한해 최신 허용")로 **적법**하나, minor 상향 시 즉시 위반 | P0 | 중 | ▶ P0 작업에 상한 고정 항목 추가 |
 | 2026-07-31 | **[eGov 호환성] R3 Service 예외가 규칙 4("예외 없음")와 충돌** — 개발가이드 R3 의 "모니터링·AI 캐시 등 eGov 계층 무관 기술 서비스" 예외는 회색지대. 규칙 4 권장안은 `EgovAbstractServiceImpl` 상속 **공통 추상 서비스** 경유 | P1 | 중 | ▶ P1 작업에 반영 |
 | 2026-07-31 | **[eGov 호환성] 001 의 `Egov` 접두 클래스 이식 시 위반** — 규칙 6-② 상 실행환경 클래스를 상속한 클래스는 `Egov` 로 시작할 수 없다. 그대로 복사하면 위반 | 전 페이즈 | 중 | ▶ §2 진행 규칙 7 로 승격 |
-| 2026-07-31 | **001 yml 에 비밀값 평문이 다수 커밋돼 있다** — `application-dev.yml` 의 DB 비밀번호 3개(`kingja51`), `application.yml` 의 지도 API 키 3종 실제값(Kakao appkey·Naver client-id·Google `AIzaSy…`), Gmail 발신 주소, 개발자 개인 ngrok 도메인 4곳. **003 은 전량 기본값 없는 `${VAR}` 로 전환**했다 | P0 | **높음** | ✅ **처리 2026-07-31** — 이식 시 제거. 001 저장소 자체의 키 회수·폐기 여부는 별건 |
+| 2026-07-31 | **001 yml 에 비밀값 평문이 다수 커밋돼 있다** — `application-dev.yml` 의 DB 비밀번호 3개(평문 기본값), `application.yml` 의 지도 API 키 3종 실제값(Kakao appkey·Naver client-id·Google Maps key), Gmail 발신 주소, 개발자 개인 ngrok 도메인 4곳. **값 자체는 이 문서에 적지 않는다** — 001 저장소를 직접 확인할 것. **003 은 전량 기본값 없는 `${VAR}` 로 전환**했다 | P0 | **높음** | ✅ **처리 2026-07-31** — 이식 시 제거. 001 저장소 자체의 키 회수·폐기 여부는 별건 |
 | 2026-07-31 | **001 pom 은 `egovframe-rte-fdl-logging` 을 전 모듈에서 exclusion** — log4j2↔SLF4J 양방향 브리지 충돌(`log4j-slf4j2-impl cannot be present with log4j-to-slf4j`) 회피가 목적이었으나, **호환성 규칙 2-① 필수 4종 위반**이다. 003 은 모듈을 살리고 `log4j-core`/`log4j-slf4j2-impl` 만 제외 | P0 | **높음** | ✅ **해결 2026-07-31** — pom 이식 시 반영 후 `dependency:tree` 로 실측 확인. `log4j-to-slf4j:2.24.3` + `log4j-api:2.24.3` 만 존재하고 `log4j-slf4j2-impl`·`log4j-core` 는 0건. (`log4j-over-slf4j` 는 log4j **1.x** 브리지라 세대가 달라 충돌 대상 아님) |
 | 2026-07-31 | **`egovframe-rte-psl-dataaccess` 의 JPA transitive** — JPA 금지 프로젝트인데 무엇이 딸려오는지 미확인이었다 | P0 | 낮음 | ✅ **해결 2026-07-31** — 실측 결과 `hibernate-core`(ORM 본체)는 **유입되지 않는다**. `jakarta.persistence-api:3.1.0` + `spring-orm:6.2.15` 만 들어오며 둘 다 API·추상화라 **exclusion 불필요**(제외하면 rte 클래스 로딩 시 NoClassDefFoundError 위험). JPA 미사용은 ArchUnit 규약으로 강제한다. `hibernate-validator` 는 Bean Validation 구현체로 JPA 무관 |
 | 2026-07-31 | **`lucene-analysis-nori` 이식 제외** — 001 실측상 `primary/search/` 전용(`KoreanTokenizer`·`SearchIndexServiceImpl`). 검색이 외부 엔진으로 나가 소비자가 없다 | P0 | 낮음 | ✅ **처리 2026-07-31** — pom 에서 제외 |
