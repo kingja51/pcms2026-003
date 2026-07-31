@@ -50,7 +50,7 @@ public class CustomUserDetails implements UserDetails {
     /** 직전 로그인 일시 — 로그인 SuccessHandler 가 tb_*.last_login_at 을 덮어쓰기 전의 값. */
     private final LocalDateTime lastLoginAt;
     private final String roleIds;
-    /** v_user_login.role_codes CSV — 예: "ROLE_ADMIN,ROLE_STAFF,ROLL_EDITOR".
+    /** v_user_login.role_codes CSV — 예: "ROLE_ADMIN,ROLE_STAFF,ROLL_MANAGER".
      *  DynamicAuthorizationManager 의 allowed_user_types 매칭이 user_type 외에도 role_code 를 인식. */
     private final String roleCodes;
     private final String groupIds;

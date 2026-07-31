@@ -5,7 +5,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.Locale;
 
 /**
@@ -28,11 +27,9 @@ public class EmailHasher {
     private final SecretKeySpec key;
 
     public EmailHasher(PiiCryptoProperties props) {
-        String raw = props.getHmacKey();
-        if (raw == null || raw.isBlank()) {
-            throw new IllegalStateException("gopcms.crypto.pii.hmac-key 가 필요합니다.");
-        }
-        byte[] keyBytes = Base64.getDecoder().decode(raw);
+        // 형식 오류 시 어느 프로퍼티가 왜 틀렸는지까지 알려 준다 — PiiKeys 주석 참조.
+        byte[] keyBytes = PiiKeys.decode32(
+            props.getHmacKey(), "gopcms.crypto.pii.hmac-key", "PCMS_PII_HMAC_KEY");
         this.key = new SecretKeySpec(keyBytes, ALGO);
     }
 

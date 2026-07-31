@@ -230,10 +230,10 @@ public class DynamicAuthorizationManager implements AuthorizationManager<Request
      *   <li>결과 = {@code userTypeHit || roleCodeHit}</li>
      * </ol>
      *
-     * <p>예: 사용자 userType=STAFF, roleCodes="ROLE_ADMIN,ROLE_STAFF,ROLL_EDITOR".
-     *  · allowed='EMPLOYEE,ADMIN'       → ROLE_ADMIN 정규화→ADMIN 매칭 → ALLOW
-     *  · allowed='STAFF,EMPLOYEE'       → userType STAFF 일치 → ALLOW
-     *  · allowed='ROLL_EDITOR'          → roleCodes 안에 일치 → ALLOW (역할 코드 기반 fine grain)
+     * <p>예: 사용자 userType=STAFF, roleCodes="ROLE_ADMIN,ROLE_STAFF,ROLL_MANAGER".
+     *  · allowed='ADMIN'                → ROLE_ADMIN 정규화→ADMIN 매칭 → ALLOW
+     *  · allowed='STAFF,MEMBER'         → userType STAFF 일치 → ALLOW
+     *  · allowed='ROLL_MANAGER'         → roleCodes 안에 일치 → ALLOW (역할 코드 기반 fine grain)
      *  · allowed='USER'                 → 어디에도 없음 → DENY
      */
     private boolean userTypeAllowed(RoleUrlAccessRule rule, Authentication auth) {

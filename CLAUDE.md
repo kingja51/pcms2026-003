@@ -128,6 +128,8 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 
 - **KRDS 시맨틱 토큰만**: `bg-surface`·`text-fg-subtle`·`border-line`·`bg-brand-50`.
   **raw hex·Tailwind 기본색(`bg-blue-500`)·기본 타이포(`text-xl`) 금지.**
+  단 **`gray` 는 KRDS 색**이다(3색 원칙 Brand + Point + Gray) — `bg-gray-90` 은 정상 토큰이다.
+  krds.css 가 `--color-gray-0…100` 을 정의한다. §15 grep 도 gray 를 제외한다.
   타이포는 `text-{display|heading|body|label}-*`, **굵기 400/500/700만**(600 금지), radius 최대 12px.
   예외: 메일 템플릿은 raw hex 허용(이메일 클라이언트가 CSS 변수 미지원).
 - **htmx + 순수 자바스크립트만 — JS 프레임워크 금지.** 이벤트 위임(document 1회 등록 + `closest('[data-action]')`),

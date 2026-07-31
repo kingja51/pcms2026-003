@@ -31,16 +31,9 @@ public class AesGcmCipher {
     private final SecretKeySpec key;
 
     public AesGcmCipher(PiiCryptoProperties props) {
-        String raw = props.getMasterKey();
-        if (raw == null || raw.isBlank()) {
-            throw new IllegalStateException(
-                "gopcms.crypto.pii.master-key 가 설정되지 않았습니다. "
-              + "환경변수 PCMS_PII_MASTER_KEY 또는 Vault 경유로 32바이트(base64) 키를 주입하세요.");
-        }
-        byte[] keyBytes = Base64.getDecoder().decode(raw);
-        if (keyBytes.length != 32) {
-            throw new IllegalStateException("PII master key 는 32바이트(AES-256) 이어야 합니다.");
-        }
+        // 형식 오류 시 어느 프로퍼티가 왜 틀렸는지까지 알려 준다 — PiiKeys 주석 참조.
+        byte[] keyBytes = PiiKeys.decode32(
+            props.getMasterKey(), "gopcms.crypto.pii.master-key", "PCMS_PII_MASTER_KEY");
         this.key = new SecretKeySpec(keyBytes, "AES");
     }
 
