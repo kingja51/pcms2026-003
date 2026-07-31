@@ -47,7 +47,7 @@
 
 | 페이즈 | 내용 | 산출물 | 상태 |
 |---|---|---|---|
-| **P0** | 프로젝트 골격 — 빌드·3DB·기동·Flyway | 기동되는 빈 앱 | ⬜ |
+| **P0** | 프로젝트 골격 — 빌드·3DB·기동·Flyway | 기동되는 빈 앱 | 🟡 fail-fast 항목만 잔여 |
 | **P1** | 공통 기반 계층 + ArchUnit 게이트 | `common/` 전체 | ⬜ |
 | **P2** | 보안·인증 기반 | 로그인·인가 동작 | ⬜ |
 | **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ⬜ |
@@ -87,48 +87,56 @@
       — **log4j 브리지 단일화 확인**: `log4j-to-slf4j` + `log4j-api` 만 존재,
         `log4j-slf4j2-impl`·`log4j-core` **0건** → 001 의 부팅 실패 조건 해소
       — postgresql · lucene · genai **0건**
-- [ ] **`pom.xml` 이식 시 `com.google.genai:google-genai` 제외**(2026-07-31 결정) —
-      `google-genai.version` property 도 함께 제거. AI 기능은 추후 context 방식으로 별도 개발한다.
-      연동 코드(`GeminiFileService*`, `GeminiFileRenewScheduler`)도 이식하지 않는다
+- [x] **`com.google.genai:google-genai` 이식 제외 완료** (2026-07-31) — property 포함 미반입.
+      `lucene-analysis-nori`·`postgresql`·`testcontainers-postgresql` 도 함께 제외.
+      AI 기능은 추후 context 방식으로 별도 개발한다
 - [x] `lib/` 로컬 의존 jar 배치(NiceID 등) + pom system-scope 확인 (2026-07-31, 사용자 배치)
 - [x] `.env.example` 작성 — **키 이름 + `__CHANGE_ME__`**. 비밀 아닌 값(경로·드라이버·localhost URL)만 예시값
       — 001 실측 57종 전량. 키 인벤토리는 `.env.key.example`(용도·발급처·페이즈·[S]/[P] 구분) 로 분리
 - [x] `application.yml` + `application-{local,dev,prod}.yml` 이식 (2026-07-31)
       — 한글 주석(운영 정책) 보존, **비밀값 평문 fallback 전량 제거**
-      — 포트 분리: base **8083** / local **8082** (001 은 8081/8080 — 동시 기동 가능)
+      — 포트 분리: base **8083** / local **8084** (001 은 8081/8080 — 동시 기동 가능)
+        ※ local 은 8082 로 잡았다가 개발 PC 의 다른 java 프로세스와 충돌해 8084 로 변경(실측)
       — `gopcms.flyway.*` 신설(local 만 기본 활성, dev/prod 는 D1 결정 전까지 false)
       — 제거: `ai.gemini.*` 전체 · `gopcms.search.stopwords` · retention buckets 의 `tb_search_*` 4종
       — `g2b` 블록 전체 제거 (tb_g2b_* 4종 미이식 확정 — 2026-07-31)
 - [x] `.env.example` 키 정합 (2026-07-31) — yml 요구 58종 = 템플릿 58종.
       `PCMS_MAIL_{HOST,PORT,USERNAME}`·`PCMS_OAUTH2_*_ENABLED`·`PCMS_FLYWAY_ENABLED`·
       `PCMS_CONTENT_HTML_ROOT` 추가, `GEMINI_*` 6종·`PCMS_SEARCH_STOPWORDS_ENABLED` 삭제
-- [ ] `logback-spring.xml` 이식
-- [ ] **3-DB 구성** — `config/datasource/`: `GopcmsDataSourceProperties`, `DataSourceFactory`,
-      `PrimaryDataSourceConfig`, `SecondaryDataSourceConfig`, `LoggingDataSourceConfig`
-- [ ] **MyBatis 구성** — `config/mybatis/`: `MyBatisDefaults`, DB별 `*MyBatisConfig`
-      (SqlSessionFactory·매퍼 스캔·`classpath*:mapper/{db}/**/*_maria.xml`)
-- [ ] **eGov 호환성 — 매퍼 스캔을 `MapperConfigurer` 로 전환** (호환성 가이드 규칙 5-①-2)
-      MyBatis `@MapperScan` 대신 표준프레임워크 `MapperConfigurer` 빈을 **DataSource 3개별로** 구성
-      (`basePackage` + `sqlSessionFactoryBeanName`). 애노테이션은 `@Mapper` → **`@EgovMapper`**
-      — `@Mapper` 는 실행환경 v4.3 이하 표기라 5.0 기준 **위반**
-      — FQN(`org.egovframe.rte.psl.dataaccess.mapper.EgovMapper` 추정)은 **실제 5.0 jar 로 확인**
+- [x] `logback-spring.xml` 이식 (2026-07-31) — STDOUT/FILE/AUDIT_JSON/SQL 4채널.
+      001 의 `${/data/gopcms2026/logs}` 오타(logback 미정의 키 → `..._IS_UNDEFINED` 디렉터리 생성)를 `:-` 기본값 문법으로 교정
+- [x] **3-DB 구성** — `config/datasource/` 5개 클래스 (2026-07-31). 기동 시 **HikariPool 3개 생성 확인**
+- [x] **MyBatis 구성** — `config/mybatis/` 4개 (2026-07-31).
+      **`MapperConfigurer` + `@EgovMapper`**(호환성 규칙 5) — 001 의 `@MapperScan`+`@Mapper` 를 대체.
+      `annotationClass=EgovMapper.class` 필터로 basePackage 를 도메인별 열거 없이 광역 지정.
+      `MapperConfigurer` 는 `static @Bean`(BeanDefinitionRegistryPostProcessor), 팩토리는 빈 이름으로 연결
+- [x] **eGov 호환성 — 매퍼 스캔 `MapperConfigurer` 전환 완료** (2026-07-31)
+      FQN 을 5.0 jar 로 **실측 확인**: `org.egovframe.rte.psl.dataaccess.mapper.MapperConfigurer`
+      (`MapperScannerConfigurer` 상속) · `...mapper.EgovMapper`(`value()` 보유 애노테이션).
+      기동 로그에서 3개 DataSource 각각 스캔 동작 확인
 - [x] 진입점 — **`com.gonet.Pcms2026Application`**(`main()` + `SpringBootServletInitializer` 이중 진입점),
       `DataSourceAutoConfiguration` 제외 + `@EnableCaching/@EnableAsync/@EnableScheduling/@EnableTransactionManagement` (2026-07-31)
-- [ ] eGovFrame 설정(`config/egov/`) 이식
-- [ ] **Flyway 도입** — `db/migration/{db}/{vendor}/` 구조, DataSource별 Flyway 빈, `baselineOnMigrate`
+- [x] eGovFrame 설정 `config/egov/EgovCommonConfig` 이식 (2026-07-31) — `leaveaTrace` 빈.
+      `EgovAbstractServiceImpl` 이 이름으로 주입받으므로 빈 이름 고정 필수
+- [x] **Flyway 도입** (2026-07-31) — `config/flyway/` 2개(`FlywayConfig`, `GopcmsFlywayProperties`),
+      `db/migration/{primary,secondary,logging}/mariadb/` 생성, DataSource별 빈 3개.
+      `enabled=false` 면 `migrate()` 호출 없이 빈만 만든다(운영 = DBA CLI 집행, D1 ③)
 - [x] **로컬 DB 3종 스키마 구축 완료** (2026-07-31, MariaDB 11.8.3 localhost:3306)
       — primary **62 테이블 + 4 뷰 + FK 42**, secondary **5**, logging **12**
       — DDL 3종 **멱등 확인**(반복 실행 exit=0, 객체 수 불변)
       — FK 42개 전부 실재 테이블 참조 확인(`FOREIGN_KEY_CHECKS=0` 로 생성했으므로 필수 검증)
       — `@@foreign_key_checks` 세션 원복(=1) 확인
-- [ ] Flyway 베이스라인 기록 (`flyway_schema_history`) — Flyway 빈 구성 후
+- [x] **Flyway 베이스라인 기록 완료** (2026-07-31) — 3개 DB 전부 `flyway_schema_history` 에
+      `version=0 / << Flyway Baseline >> / BASELINE / success=1` 1행씩 생성 확인
 
 #### DoD
 
 - `./mvnw -o compile -DskipTests -Dtailwind.skip=true` **BUILD SUCCESS**
 - 로컬 기동 성공 · **HikariPool 3개** 기동 로그(`HikariPrimary`/`HikariSecondary`/`HikariLogging`)
 - `/actuator/health` **UP**
-- 환경변수 미주입 시 **fail-fast 부팅 실패** 확인
+- 환경변수 미주입 시 **fail-fast 부팅 실패** — ⚠️ **부분 충족**(2026-07-31 실측, §7 참조).
+  `gopcms.datasource.*` 처럼 **바인딩되는** 키는 부팅이 실패하지만, 아직 바인딩 빈이 없는 키
+  (`PCMS_PII_MASTER_KEY` 등)는 미주입해도 정상 기동한다. P1 에서 검증 방식을 확정한다
 - `flyway_schema_history` 에 베이스라인 행 생성 확인
 - `git status` 에 `.env` 가 나타나지 않음
 - **eGov 호환성** — `./mvnw dependency:tree` 로 확인:
@@ -152,6 +160,9 @@
       `RandomPasswordGenerator`, `Fmt`, `CsvUtils`, `QrCodeGenerator`
 - [ ] `common/dto` — `PageRequest`(unbounded 지원 포함), `PageResponse`, `ApiResponse`, `ExcelDownloadRequest`
 - [ ] `common/crypto` — `AesGcmCipher`, `@Encrypt`, `PiiCryptoProperties`, `EmailHasher`
+      — **`PiiCryptoProperties` 에 `hmacKey` 필드 추가**(D11). `EmailHasher` 는 `masterKey` 가 아니라
+        **`hmacKey`** 를 쓴다. 001 코드를 그대로 가져오면 재사용 상태가 되니 이 지점만 교체한다
+      — 두 키가 같은 값이면 기동 시 거부하는 검증을 넣을지 P1 에서 판단(fail-fast 방식 확정과 함께)
 - [ ] `config/interceptor/EncryptInterceptor` — MyBatis PII 투명 암복호(**DTO 오염 복원·필드단위 복호화 격리** 포함)
 - [ ] `common/audit` — `AuditLogger`, `AuditContext`, `AuditEvent`, `PrivacyAccess`+Aspect
 - [ ] `config/interceptor/AuditInterceptor` — 감사컬럼 6종 자동 주입
@@ -425,7 +436,7 @@
 4. **매퍼 XML 은 `*_maria.xml` 단일** — 다른 접미사 파일 0건 · `${}` 0건
 5. 화면 작업 시 **인라인 핸들러 0건 · raw hex 0건**(개발가이드 §15 grep)
 6. **커밋 전 `.env` 스테이징 여부 확인**
-7. 페이즈 완료 = 체크박스 갱신 + 커밋
+7. 페이즈 완료 = 체크박스 갱신 + **[RESULT.md](RESULT.md) 에 결과 추가** + 커밋
 8. 적용된 Flyway 마이그레이션 파일은 **수정하지 않는다**(새 버전 추가)
 
 ---
@@ -440,6 +451,7 @@
 | D2 | **Flyway 적용 범위** | ① 3개 DB 전부 ② primary 만 | **P0** | ✅ 2026-07-31 — **① 3개 DB 전부**. DataSource별 Flyway 빈 3개 명시 구성 |
 | D3 | **git 원격 저장소** — 사용 여부 및 URL | | **P0** | ✅ 2026-07-31 — `https://github.com/kingja51/pcms2026-003` (public). 기본 브랜치 `main` |
 | D4 | **로컬 DB·데이터 경로** — 001과 공유할지 분리할지(스키마명, 업로드/로그 경로) | | **P0** | ✅ 2026-07-31 — 001과 **분리**. MariaDB 11.8.3 `pcms2026-003-{primary,logging,secondary}` (업로드·로그 경로 미정) |
+| D11 | **PII HMAC 키 분리** — 001 은 `*_hash` 산출에 AES `master-key` 를 재사용했다("별도 키 관리 간소화") | ① 001 대로 재사용 ② **HMAC 전용 키 분리** | **P1** | ✅ 2026-07-31 — **② 분리**. `gopcms.crypto.pii.hmac-key` / `PCMS_PII_HMAC_KEY` 신설. key separation 원칙 준수 + 감사 대응. 회전 비용이 master-key 보다 큰 점은 키 인벤토리에 명시 |
 | D9 | **`tb_search_gemini_file`·`tb_search_gemini_keyword` 처리** — SDK 를 빼면서 이 2종을 쓰는 코드가 사라진다 | ① DDL 에서 삭제 ② 남겨 두고 미사용 | P6 | ✅ 2026-07-31 — **① 삭제**. 검색 테이블 7종 전량 삭제로 흡수(D10) |
 | D10 | **검색 기능 배치** — 검색엔진을 어디에 둘지 | ① 앱 내장(`tb_search_*` 색인) ② **외부 검색엔진 `contextPath=/search`** | **P0** | ✅ 2026-07-31 — **② 외부 엔진**. `tb_search_*` 7종 삭제, P6 검색 항목·DoD 제거. 앱은 색인·검색어 수집을 하지 않는다 |
 | D8 | **`tb_election_voter`·`tb_election_voter_import_job` 배치 DB** | ① primary ② **secondary(개별프로그램)** | **P0** | ✅ 2026-07-31 — **② secondary**. FK 없어 이동에 제약 변경 없음. `site_id` 는 primary `tb_site` 를 가리키지만 DB 분리로 조인 불가 → 사이트 필터는 `SiteContext` 로 |
@@ -476,6 +488,9 @@
 | 2026-07-31 | **[eGov 호환성] Spring Boot 버전 상한** — 5.0 실행환경 기준선은 **3.5.6**(Spring 6.2.11 / Security 6.5.5 / MyBatis 3.5.19). 현 지정 **3.5.9** 는 규칙 1-② 예외("패치 버전 한해 최신 허용")로 **적법**하나, minor 상향 시 즉시 위반 | P0 | 중 | ▶ P0 작업에 상한 고정 항목 추가 |
 | 2026-07-31 | **[eGov 호환성] R3 Service 예외가 규칙 4("예외 없음")와 충돌** — 개발가이드 R3 의 "모니터링·AI 캐시 등 eGov 계층 무관 기술 서비스" 예외는 회색지대. 규칙 4 권장안은 `EgovAbstractServiceImpl` 상속 **공통 추상 서비스** 경유 | P1 | 중 | ▶ P1 작업에 반영 |
 | 2026-07-31 | **[eGov 호환성] 001 의 `Egov` 접두 클래스 이식 시 위반** — 규칙 6-② 상 실행환경 클래스를 상속한 클래스는 `Egov` 로 시작할 수 없다. 그대로 복사하면 위반 | 전 페이즈 | 중 | ▶ §2 진행 규칙 7 로 승격 |
+| 2026-07-31 | **fail-fast 가 설계된 동작이 아니라 우연한 부수효과다** — 실측: `PCMS_PII_MASTER_KEY` 를 미주입해도 앱이 정상 기동했다. yml 에 `${VAR}`(기본값 없음)를 써도, 그 프로퍼티를 바인딩하는 `@ConfigurationProperties` 빈이 없으면 Spring 은 placeholder 해석 자체를 시도하지 않는다. 바인딩되는 `gopcms.datasource.*` 조차 부팅은 실패하되 메시지가 `Driver claims to not accept jdbcUrl, ${PCMS_DB_PRIMARY_URL}` 로 **원인이 드러나지 않는다**(placeholder 문자열이 Hikari 까지 그대로 전달) | P0 | **높음** | 미정 — 후보: ① Properties 클래스에 `@Validated`+`@NotBlank` ② 기동 시 필수 환경변수 목록을 검사하는 `EnvironmentPostProcessor`. **P1 에서 방식을 확정**하고 그때 전 Properties 에 일괄 적용 |
+| 2026-07-31 | **JODConverter 가 기동 때마다 ERROR 를 남긴다** — `Could not delete '...\.jodconverter_socket_host-...'`. 001 의 `application-local.yml` 주석이 예고한 Windows 파일 잠금 충돌이 실제로 발생. 부팅·health 에는 영향 없고 문서 뷰어(P4) 기능에만 관계된다 | P4 | 낮음 | 미정 — 소음이 거슬리면 local 에서 `gopcms.file.converter.enabled=false` |
+| 2026-07-31 | **Flyway 11.7.2 가 MariaDB 11.8 을 공식 지원하지 않는다** — 기동 시 `Flyway upgrade recommended: MariaDB 11.8 is newer than this version of Flyway... latest supported version is 11.2` WARN. 베이스라인 생성·검증은 정상 동작했다 | P0 | 낮음 | 미정 — 실제 마이그레이션 적용 시 재확인. 문제되면 Flyway 버전 상향(Spring Boot BOM override) |
 | 2026-07-31 | **001 yml 에 비밀값 평문이 다수 커밋돼 있다** — `application-dev.yml` 의 DB 비밀번호 3개(평문 기본값), `application.yml` 의 지도 API 키 3종 실제값(Kakao appkey·Naver client-id·Google Maps key), Gmail 발신 주소, 개발자 개인 ngrok 도메인 4곳. **값 자체는 이 문서에 적지 않는다** — 001 저장소를 직접 확인할 것. **003 은 전량 기본값 없는 `${VAR}` 로 전환**했다 | P0 | **높음** | ✅ **처리 2026-07-31** — 이식 시 제거. 001 저장소 자체의 키 회수·폐기 여부는 별건 |
 | 2026-07-31 | **001 pom 은 `egovframe-rte-fdl-logging` 을 전 모듈에서 exclusion** — log4j2↔SLF4J 양방향 브리지 충돌(`log4j-slf4j2-impl cannot be present with log4j-to-slf4j`) 회피가 목적이었으나, **호환성 규칙 2-① 필수 4종 위반**이다. 003 은 모듈을 살리고 `log4j-core`/`log4j-slf4j2-impl` 만 제외 | P0 | **높음** | ✅ **해결 2026-07-31** — pom 이식 시 반영 후 `dependency:tree` 로 실측 확인. `log4j-to-slf4j:2.24.3` + `log4j-api:2.24.3` 만 존재하고 `log4j-slf4j2-impl`·`log4j-core` 는 0건. (`log4j-over-slf4j` 는 log4j **1.x** 브리지라 세대가 달라 충돌 대상 아님) |
 | 2026-07-31 | **`egovframe-rte-psl-dataaccess` 의 JPA transitive** — JPA 금지 프로젝트인데 무엇이 딸려오는지 미확인이었다 | P0 | 낮음 | ✅ **해결 2026-07-31** — 실측 결과 `hibernate-core`(ORM 본체)는 **유입되지 않는다**. `jakarta.persistence-api:3.1.0` + `spring-orm:6.2.15` 만 들어오며 둘 다 API·추상화라 **exclusion 불필요**(제외하면 rte 클래스 로딩 시 NoClassDefFoundError 위험). JPA 미사용은 ArchUnit 규약으로 강제한다. `hibernate-validator` 는 Bean Validation 구현체로 JPA 무관 |

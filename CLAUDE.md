@@ -38,9 +38,13 @@ Java 21(Virtual Threads) / Spring Boot 3.5.9 / MyBatis 전용(JPA 금지) / Thym
 |---|---|
 | [doc/개발가이드.md](doc/개발가이드.md) | 아키텍처·규약·보안·DB·코드 골격. **규약 질문은 여기부터.** |
 | [doc/PLAN.md](doc/PLAN.md) | 페이즈별 작업·DoD·진행 추적·결정 대기·발견 사항 |
+| [doc/RESULT.md](doc/RESULT.md) | **페이즈 완료 결과 누적.** 실측 검증치·001 대비 변경·미해결 |
 | [README.md](README.md) | 빌드·실행·구조 요약 |
 
 **정본 md 외 `.md` 임의 생성 금지** — 사용자 명시 요청 시만.
+
+**페이즈가 끝나면 [RESULT.md](doc/RESULT.md) 에 결과를 추가한다** (최신이 위로).
+실측만 적고, 통과하지 못한 DoD 항목은 숨기지 않는다. 001 대비 달라진 점은 사유와 함께 남긴다.
 
 ## 빌드 / 검증
 

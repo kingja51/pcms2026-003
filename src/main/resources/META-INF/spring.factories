@@ -1,0 +1,4 @@
+# Spring Boot 3 에서도 EnvironmentPostProcessor 는 spring.factories 로 등록한다.
+# (META-INF/spring/*.imports 는 @AutoConfiguration 전용이라 이 인터페이스에는 동작하지 않는다)
+org.springframework.boot.env.EnvironmentPostProcessor=\
+com.gonet.config.env.RequiredPropertyValidator

@@ -813,12 +813,21 @@
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
+                <!--
+                  ⚠️ 확장자 화이트리스트다. 여기 없는 파일은 war 에 들어가지 않는다.
+                    새 리소스 종류를 추가하면 이 목록도 함께 갱신할 것.
+                    실제 사고: META-INF/spring/*.imports 누락으로 EnvironmentPostProcessor 가
+                    등록되지 않아 fail-fast 검증기가 조용히 동작하지 않았다(2026-07-31).
+                -->
                 <includes>
                     <include>**/*.yml</include>
                     <include>**/*.yaml</include>
                     <include>**/*.properties</include>
                     <include>**/*.xml</include>
                     <include>**/*.sql</include>
+                    <!-- Spring Boot 3 자동설정/EnvironmentPostProcessor 등록 파일 -->
+                    <include>**/*.imports</include>
+                    <include>**/*.factories</include>
                     <include>**/*.html</include>
                     <include>**/*.css</include>
                     <include>**/*.js</include>
