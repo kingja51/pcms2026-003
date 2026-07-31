@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.logging.log.mapper.AuditLogMapper">
+
+  <insert id="insert" parameterType="com.gonet.logging.log.dto.AuditLog">
+    INSERT INTO log_audit (
+      actor_user_id, actor_user_type, actor_login_id,
+      action, target_entity, target_id,
+      request_uri, http_method, client_ip, user_agent,
+      before_json, after_json,
+      result, trace_id, logged_at,
+      created_by, created_ip, created_at
+    ) VALUES (
+      #{actorUserId}, #{actorUserType}, #{actorLoginId},
+      #{action}, #{targetEntity}, #{targetId},
+      #{requestUri}, #{httpMethod}, #{clientIp}, #{userAgent},
+      #{beforeJson}, #{afterJson},
+      COALESCE(#{result},'SUCCESS'), #{traceId}, COALESCE(#{loggedAt}, CURRENT_TIMESTAMP),
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <sql id="viewerCols">
+    log_audit_id,
+    actor_user_id, actor_user_type, actor_login_id,
+    action, target_entity, target_id,
+    request_uri, http_method, client_ip, user_agent,
+    before_json, after_json,
+    result, trace_id, logged_at,
+    created_by, created_ip, created_at
+  </sql>
+
+  <sql id="recentFilter">
+    WHERE logged_at &gt;= #{search.dateFrom}
+      AND logged_at &lt;  DATE_ADD(#{search.dateTo}, INTERVAL 1 DAY)
+    <if test="search.keyword != null">
+      AND (
+            action         LIKE CONCAT('%', #{search.keyword}, '%')
+         OR target_entity  LIKE CONCAT('%', #{search.keyword}, '%')
+         OR target_id      LIKE CONCAT('%', #{search.keyword}, '%')
+         OR actor_login_id LIKE CONCAT('%', #{search.keyword}, '%')
+         OR client_ip      LIKE CONCAT('%', #{search.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="findRecent" resultType="com.gonet.logging.log.dto.AuditLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_audit
+    <include refid="recentFilter"/>
+     ORDER BY logged_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countRecent" resultType="long">
+    SELECT COUNT(1)
+      FROM log_audit
+    <include refid="recentFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.logging.log.dto.AuditLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_audit
+     WHERE log_audit_id = #{id}
+     LIMIT 1
+  </select>
+
+  <select id="findByTraceId" resultType="com.gonet.logging.log.dto.AuditLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_audit
+     WHERE trace_id = #{traceId}
+     ORDER BY logged_at ASC
+     LIMIT 200
+  </select>
+
+</mapper>

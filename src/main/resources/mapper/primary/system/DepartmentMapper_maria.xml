@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_department CRUD. Mng 화면(/admin/system/department) + Employee 드롭다운 공유.
+  감사컬럼 6종은 AuditInterceptor 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.system.department.mapper.DepartmentMapper">
+
+  <sql id="deptColumns">
+    d.department_id        AS departmentId,
+    d.parent_department_id AS parentDepartmentId,
+    d.department_code      AS departmentCode,
+    d.department_name      AS departmentName,
+    d.depth                AS depth,
+    d.sort_order           AS sortOrder,
+    d.manager_employee_id  AS managerEmployeeId,
+    d.description          AS description,
+    d.use_yn               AS useYn,
+    d.delete_yn            AS deleteYn,
+    d.created_by           AS createdBy,
+    d.created_ip           AS createdIp,
+    d.created_at           AS createdAt,
+    d.updated_by           AS updatedBy,
+    d.updated_ip           AS updatedIp,
+    d.updated_at           AS updatedAt
+  </sql>
+
+  <sql id="searchFilter">
+    WHERE d.delete_yn = 'N'
+    <if test="search.useYn != null and search.useYn != ''">
+      AND d.use_yn = #{search.useYn}
+    </if>
+    <if test="search.parentDepartmentId != null and search.parentDepartmentId == 'ROOT'">
+      AND d.parent_department_id IS NULL
+    </if>
+    <if test="search.parentDepartmentId != null and search.parentDepartmentId != '' and search.parentDepartmentId != 'ROOT'">
+      AND d.parent_department_id = #{search.parentDepartmentId}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (d.department_code LIKE CONCAT('%', #{search.keyword}, '%')
+        OR d.department_name LIKE CONCAT('%', #{search.keyword}, '%')
+        OR d.description     LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <!--
+    트리 DFS 정렬용 재귀 CTE. 각 노드에 조상들의 sort_order 를 zero-pad 로 연결한
+    tree_path 를 부여. tree_path 로 ORDER BY 하면 "자기 → 하위 → 다음 형제" 순.
+    예: HQ(sort=1) → 0000000001
+        ├ IT_DIV(sort=1) → 0000000001/0000000001
+        │  └ DEV_TEAM(sort=1) → 0000000001/0000000001/0000000001
+        └ MGMT_DIV(sort=2) → 0000000001/0000000002
+        HDM(sort=200) → 0000000200  (HQ 하위 전체 이후에 정렬됨)
+  -->
+  <sql id="treeCte">
+    WITH RECURSIVE dept_tree AS (
+      SELECT d.department_id, d.parent_department_id, d.department_code, d.department_name,
+             d.depth, d.sort_order, d.manager_employee_id, d.description,
+             d.use_yn, d.delete_yn,
+             d.created_by, d.created_ip, d.created_at,
+             d.updated_by, d.updated_ip, d.updated_at,
+             CAST(LPAD(CAST(d.sort_order AS CHAR), 10, '0') AS CHAR(2000)) AS tree_path
+        FROM tb_department d
+       WHERE d.parent_department_id IS NULL
+         AND d.delete_yn = 'N'
+      UNION ALL
+      SELECT c.department_id, c.parent_department_id, c.department_code, c.department_name,
+             c.depth, c.sort_order, c.manager_employee_id, c.description,
+             c.use_yn, c.delete_yn,
+             c.created_by, c.created_ip, c.created_at,
+             c.updated_by, c.updated_ip, c.updated_at,
+             CAST(CONCAT(p.tree_path, '/', LPAD(CAST(c.sort_order AS CHAR), 10, '0')) AS CHAR(2000)) AS tree_path
+        FROM tb_department c
+        JOIN dept_tree p ON c.parent_department_id = p.department_id
+       WHERE c.delete_yn = 'N'
+    )
+  </sql>
+
+  <!-- ============================================================ -->
+  <!-- 읽기 (직원 폼 공유)                                             -->
+  <!-- ============================================================ -->
+
+  <select id="findActiveOptions"
+          resultType="com.gonet.primary.system.department.dto.DepartmentOption">
+    SELECT department_id        AS departmentId,
+           department_code      AS departmentCode,
+           department_name      AS departmentName,
+           depth                AS depth,
+           parent_department_id AS parentDepartmentId
+      FROM tb_department
+     WHERE use_yn    = 'Y'
+       AND delete_yn = 'N'
+     ORDER BY depth ASC, sort_order ASC, department_name ASC
+  </select>
+
+  <select id="findById"
+          resultType="com.gonet.primary.system.department.dto.Department">
+    SELECT <include refid="deptColumns"/>
+      FROM tb_department d
+     WHERE d.department_id = #{departmentId}
+       AND d.delete_yn     = 'N'
+  </select>
+
+  <!-- ============================================================ -->
+  <!-- Mng 목록·중복·자식                                              -->
+  <!-- ============================================================ -->
+
+  <select id="findList"
+          resultType="com.gonet.primary.system.department.dto.Department">
+    <include refid="treeCte"/>
+    SELECT <include refid="deptColumns"/>
+      FROM dept_tree d
+    <include refid="searchFilter"/>
+    ORDER BY d.tree_path ASC, d.department_name ASC
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_department d
+    <include refid="searchFilter"/>
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_department
+     WHERE department_code = #{departmentCode}
+       AND delete_yn       = 'N'
+    <if test="excludeDepartmentId != null and excludeDepartmentId != ''">
+      AND department_id &lt;&gt; #{excludeDepartmentId}
+    </if>
+  </select>
+
+  <select id="countChildren" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_department
+     WHERE parent_department_id = #{departmentId}
+       AND delete_yn            = 'N'
+  </select>
+
+  <select id="findChildDepartments"
+          resultType="com.gonet.primary.system.department.dto.Department">
+    SELECT <include refid="deptColumns"/>
+      FROM tb_department d
+     WHERE d.parent_department_id = #{parentDepartmentId}
+       AND d.delete_yn            = 'N'
+     ORDER BY d.sort_order ASC, d.department_name ASC
+  </select>
+
+  <!--
+    조상 부서 체인 (자기 자신 포함) — Gemini 문서검색 가시성 필터.
+    Recursive CTE. chain_depth &lt; 20 안전장치 — 이론상 부서 트리 깊이 최대치.
+    결과 정렬: 자기 자신(chain_depth=0) → 부모 → ... → root 순서.
+  -->
+  <select id="findAncestorDepartments"
+          resultType="com.gonet.primary.system.department.dto.Department">
+    WITH RECURSIVE ancestors AS (
+      SELECT d.*, 0 AS chain_depth
+        FROM tb_department d
+       WHERE d.department_id = #{departmentId} AND d.delete_yn = 'N'
+      UNION ALL
+      SELECT p.*, a.chain_depth + 1
+        FROM ancestors a
+        JOIN tb_department p ON p.department_id = a.parent_department_id
+       WHERE p.delete_yn = 'N' AND a.chain_depth &lt; 20
+    )
+    SELECT <include refid="deptColumns"/>
+      FROM ancestors d
+     ORDER BY d.chain_depth ASC
+  </select>
+
+  <update id="updateDepth">
+    UPDATE tb_department
+       SET depth      = #{depth},
+           updated_at = CURRENT_TIMESTAMP
+     WHERE department_id = #{departmentId}
+       AND delete_yn     = 'N'
+  </update>
+
+  <select id="countEmployees" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_employee
+     WHERE department_id = #{departmentId}
+       AND delete_yn     = 'N'
+  </select>
+
+  <!-- ============================================================ -->
+  <!-- CUD                                                           -->
+  <!-- ============================================================ -->
+
+  <insert id="insert" parameterType="com.gonet.primary.system.department.dto.Department">
+    INSERT INTO tb_department (
+      department_id, parent_department_id,
+      department_code, department_name,
+      depth, sort_order,
+      manager_employee_id, description,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{departmentId}, #{parentDepartmentId},
+      #{departmentCode}, #{departmentName},
+      #{depth}, COALESCE(#{sortOrder}, 0),
+      #{managerEmployeeId}, #{description},
+      COALESCE(#{useYn}, 'Y'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.system.department.dto.Department">
+    UPDATE tb_department SET
+      <if test="parentDepartmentId != null and parentDepartmentId != ''">parent_department_id=#{parentDepartmentId},</if>
+      <if test="departmentCode != null and departmentCode != ''">department_code=#{departmentCode},</if>
+      <if test="departmentName != null and departmentName != ''">department_name=#{departmentName},</if>
+      <if test="depth != null">depth=#{depth},</if>
+      sort_order=COALESCE(#{sortOrder}, sort_order),
+      <if test="description != null and description != ''">description=#{description},</if>
+      use_yn=COALESCE(#{useYn}, use_yn),
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE department_id = #{departmentId}
+       AND delete_yn     = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_department
+       SET delete_yn  = 'Y',
+           use_yn     = 'N',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE department_id = #{departmentId}
+       AND delete_yn     = 'N'
+  </update>
+
+  <update id="updateManager">
+    UPDATE tb_department
+       SET manager_employee_id = #{managerEmployeeId},
+           updated_at           = CURRENT_TIMESTAMP
+     WHERE department_id = #{departmentId}
+       AND delete_yn     = 'N'
+  </update>
+
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_department
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+</mapper>

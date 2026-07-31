@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.logging.privacy.mapper.PrivacyAccessLogMapper">
+
+  <insert id="insert" parameterType="com.gonet.logging.privacy.dto.PrivacyAccessLog">
+    INSERT INTO log_privacy_access (
+      actor_user_id, actor_user_type, actor_login_id,
+      client_ip, user_agent, session_id, request_uri, http_method, trace_id,
+      target_entity, target_user_type, target_id, target_count,
+      pii_fields, access_action, access_reason,
+      result, fail_reason,
+      accessed_at,
+      created_by, created_ip, created_at
+    ) VALUES (
+      #{actorUserId}, #{actorUserType}, #{actorLoginId},
+      #{clientIp}, #{userAgent}, #{sessionId}, #{requestUri}, #{httpMethod}, #{traceId},
+      #{targetEntity}, #{targetUserType}, #{targetId}, COALESCE(#{targetCount}, 1),
+      #{piiFields}, #{accessAction}, #{accessReason},
+      COALESCE(#{result}, 'SUCCESS'), #{failReason},
+      COALESCE(#{accessedAt}, CURRENT_TIMESTAMP),
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <sql id="viewerCols">
+    log_privacy_access_id,
+    actor_user_id, actor_user_type, actor_login_id,
+    client_ip, user_agent, session_id, request_uri, http_method, trace_id,
+    target_entity, target_user_type, target_id, target_count,
+    pii_fields, access_action, access_reason,
+    result, fail_reason,
+    accessed_at,
+    created_by, created_ip, created_at
+  </sql>
+
+  <sql id="recentFilter">
+    WHERE accessed_at &gt;= #{search.dateFrom}
+      AND accessed_at &lt;  DATE_ADD(#{search.dateTo}, INTERVAL 1 DAY)
+    <if test="search.keyword != null">
+      AND (
+            access_action  LIKE CONCAT('%', #{search.keyword}, '%')
+         OR target_entity  LIKE CONCAT('%', #{search.keyword}, '%')
+         OR target_id      LIKE CONCAT('%', #{search.keyword}, '%')
+         OR actor_login_id LIKE CONCAT('%', #{search.keyword}, '%')
+         OR client_ip      LIKE CONCAT('%', #{search.keyword}, '%')
+         OR pii_fields     LIKE CONCAT('%', #{search.keyword}, '%')
+         OR access_reason  LIKE CONCAT('%', #{search.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="findRecent" resultType="com.gonet.logging.privacy.dto.PrivacyAccessLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_privacy_access
+    <include refid="recentFilter"/>
+     ORDER BY accessed_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countRecent" resultType="long">
+    SELECT COUNT(1)
+      FROM log_privacy_access
+    <include refid="recentFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.logging.privacy.dto.PrivacyAccessLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_privacy_access
+     WHERE log_privacy_access_id = #{id}
+     LIMIT 1
+  </select>
+
+  <select id="findByTraceId" resultType="com.gonet.logging.privacy.dto.PrivacyAccessLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_privacy_access
+     WHERE trace_id = #{traceId}
+     ORDER BY accessed_at ASC
+     LIMIT 200
+  </select>
+
+</mapper>

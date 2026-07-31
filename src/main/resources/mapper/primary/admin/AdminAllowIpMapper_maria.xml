@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.admin.mapper.AdminAllowIpMapper">
+
+  <select id="findActiveByAdminId" resultType="com.gonet.primary.admin.dto.AdminAllowIp">
+    SELECT ip_id, admin_id, ip_address, ip_type, ip_start, ip_end,
+           description, access_count, last_access_at, expires_at,
+           use_yn, delete_yn,
+           created_by, created_ip, created_at,
+           updated_by, updated_ip, updated_at
+      FROM tb_admin_allow_ip
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+       AND use_yn    = 'Y'
+       AND (expires_at IS NULL OR expires_at &gt; CURRENT_TIMESTAMP)
+  </select>
+
+  <select id="findAllActive" resultType="com.gonet.primary.admin.dto.AdminAllowIp">
+    SELECT ip_id, admin_id, ip_address, ip_type, ip_start, ip_end,
+           description, access_count, last_access_at, expires_at,
+           use_yn, delete_yn
+      FROM tb_admin_allow_ip
+     WHERE delete_yn = 'N'
+       AND use_yn    = 'Y'
+       AND (expires_at IS NULL OR expires_at &gt; CURRENT_TIMESTAMP)
+  </select>
+
+  <update id="touchAccess">
+    UPDATE tb_admin_allow_ip
+       SET access_count   = COALESCE(access_count, 0) + 1,
+           last_access_at = CURRENT_TIMESTAMP,
+           updated_at     = CURRENT_TIMESTAMP
+     WHERE ip_id = #{ipId}
+  </update>
+
+</mapper>

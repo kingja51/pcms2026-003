@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.logging.log.mapper.LoginLogMapper">
+
+  <insert id="insert" parameterType="com.gonet.logging.log.dto.LoginLog">
+    INSERT INTO log_login (
+      user_id, user_type, login_id, client_ip, user_agent,
+      result, fail_reason, session_id, logged_at,
+      created_by, created_ip, created_at
+    ) VALUES (
+      #{userId}, #{userType}, #{loginId}, #{clientIp}, #{userAgent},
+      #{result}, #{failReason}, #{sessionId}, COALESCE(#{loggedAt}, CURRENT_TIMESTAMP),
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <sql id="viewerCols">
+    log_login_id,
+    user_id, user_type, login_id, client_ip, user_agent,
+    result, fail_reason, session_id, logged_at,
+    created_by, created_ip, created_at
+  </sql>
+
+  <sql id="recentFilter">
+    WHERE logged_at &gt;= #{search.dateFrom}
+      AND logged_at &lt;  DATE_ADD(#{search.dateTo}, INTERVAL 1 DAY)
+    <if test="search.keyword != null">
+      AND (
+            login_id     LIKE CONCAT('%', #{search.keyword}, '%')
+         OR client_ip    LIKE CONCAT('%', #{search.keyword}, '%')
+         OR result       LIKE CONCAT('%', #{search.keyword}, '%')
+         OR fail_reason  LIKE CONCAT('%', #{search.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="findRecent" resultType="com.gonet.logging.log.dto.LoginLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_login
+    <include refid="recentFilter"/>
+     ORDER BY logged_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countRecent" resultType="long">
+    SELECT COUNT(1)
+      FROM log_login
+    <include refid="recentFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.logging.log.dto.LoginLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_login
+     WHERE log_login_id = #{id}
+     LIMIT 1
+  </select>
+</mapper>

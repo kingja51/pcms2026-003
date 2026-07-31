@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_admin + tb_admin_role + tb_admin_password_history + tb_admin_withdraw.
+  감사컬럼 6종은 AuditInterceptor 자동 주입, PII 는 EncryptInterceptor 자동 암복호화.
+-->
+<mapper namespace="com.gonet.primary.admin.mapper.AdminMapper">
+
+  <sql id="adminColumns">
+    a.admin_id, a.admin_seq, a.admin_group_id,
+    a.login_id, a.password, a.password_changed_at, a.password_expire_at,
+    a.role_ids, a.role_codes, a.group_ids,
+    a.admin_name, a.email, a.email_hash, a.phone,
+    a.department_id, a.department_name,
+    a.two_factor_enabled_yn, a.two_factor_secret,
+    a.ip_whitelist, a.allowed_time_from, a.allowed_time_to,
+    a.status, a.login_fail_count, a.locked_until,
+    a.last_login_at, a.last_login_ip, a.last_access_at,
+    a.remarks, a.delete_yn,
+    a.created_by, a.created_ip, a.created_at,
+    a.updated_by, a.updated_ip, a.updated_at,
+    g.group_name AS admin_group_name
+  </sql>
+
+  <sql id="searchFilter">
+    WHERE a.delete_yn = 'N'
+    <if test="search.status != null and search.status != ''">
+      AND a.status = #{search.status}
+    </if>
+    <if test="search.adminGroupId != null and search.adminGroupId != ''">
+      AND a.admin_group_id = #{search.adminGroupId}
+    </if>
+    <if test="search.emailExact != null and search.emailExact != ''">
+      AND a.email_hash = #{search.emailExact}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (a.login_id        LIKE CONCAT('%', #{search.keyword}, '%')
+        OR a.department_name LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.admin.dto.Admin">
+    SELECT <include refid="adminColumns"/>
+      FROM tb_admin a
+      LEFT JOIN tb_admin_group g ON g.admin_group_id = a.admin_group_id
+    <include refid="searchFilter"/>
+    ORDER BY a.created_at DESC, a.login_id ASC
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_admin a
+    <include refid="searchFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.admin.dto.Admin">
+    SELECT <include refid="adminColumns"/>
+      FROM tb_admin a
+      LEFT JOIN tb_admin_group g ON g.admin_group_id = a.admin_group_id
+     WHERE a.admin_id  = #{adminId}
+       AND a.delete_yn = 'N'
+  </select>
+
+  <select id="existsByLoginId" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_admin
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+    <if test="excludeAdminId != null and excludeAdminId != ''">
+      AND admin_id &lt;&gt; #{excludeAdminId}
+    </if>
+  </select>
+
+  <select id="existsByEmailHash" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_admin
+     WHERE email_hash = #{emailHash}
+       AND delete_yn  = 'N'
+    <if test="excludeAdminId != null and excludeAdminId != ''">
+      AND admin_id &lt;&gt; #{excludeAdminId}
+    </if>
+  </select>
+
+  <select id="findRoleIdsByAdminId" resultType="string">
+    SELECT role_id
+      FROM tb_admin_role
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+    ORDER BY role_id
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.admin.dto.Admin">
+    INSERT INTO tb_admin (
+      admin_id, admin_group_id, login_id, password,
+      password_changed_at, password_expire_at,
+      role_ids, role_codes, group_ids,
+      admin_name, email, email_hash, phone,
+      department_id, department_name,
+      two_factor_enabled_yn, two_factor_secret,
+      ip_whitelist, allowed_time_from, allowed_time_to,
+      status, login_fail_count, locked_until,
+      last_login_at, last_login_ip, last_access_at,
+      remarks, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{adminId}, #{adminGroupId}, #{loginId}, #{password},
+      #{passwordChangedAt}, #{passwordExpireAt},
+      #{roleIds}, #{roleCodes}, #{groupIds},
+      #{adminName}, #{email}, #{emailHash}, #{phone},
+      #{departmentId}, #{departmentName},
+      COALESCE(#{twoFactorEnabledYn},'N'), #{twoFactorSecret},
+      #{ipWhitelist}, #{allowedTimeFrom}, #{allowedTimeTo},
+      COALESCE(#{status},'ACTIVE'), COALESCE(#{loginFailCount}, 0), #{lockedUntil},
+      #{lastLoginAt}, #{lastLoginIp}, #{lastAccessAt},
+      #{remarks}, 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.admin.dto.Admin">
+    UPDATE tb_admin SET
+      <if test="adminGroupId != null and adminGroupId != ''">admin_group_id=#{adminGroupId},</if>
+      <if test="adminName != null and adminName != ''">admin_name=#{adminName},</if>
+      <if test="email != null and email != ''">email=#{email},</if>
+      <if test="emailHash != null and emailHash != ''">email_hash=#{emailHash},</if>
+      <if test="phone != null and phone != ''">phone=#{phone},</if>
+      <if test="departmentId != null and departmentId != ''">department_id=#{departmentId},</if>
+      <if test="departmentName != null and departmentName != ''">department_name=#{departmentName},</if>
+      two_factor_enabled_yn=COALESCE(#{twoFactorEnabledYn}, two_factor_enabled_yn),
+      <if test="ipWhitelist != null and ipWhitelist != ''">ip_whitelist=#{ipWhitelist},</if>
+      status=COALESCE(#{status}, status),
+      <if test="remarks != null and remarks != ''">remarks=#{remarks},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updateSelfProfile" parameterType="com.gonet.primary.admin.dto.Admin">
+    UPDATE tb_admin
+       SET admin_name = #{adminName},
+           email      = #{email},
+           email_hash = #{emailHash},
+           phone      = #{phone},
+           department_id   = #{departmentId},
+           department_name = #{departmentName},
+           updated_by  = #{updatedBy},
+           updated_ip  = #{updatedIp},
+           updated_at  = CURRENT_TIMESTAMP
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updatePassword">
+    UPDATE tb_admin
+       SET password            = #{password},
+           password_changed_at = #{passwordChangedAt},
+           password_expire_at  = #{passwordExpireAt},
+           login_fail_count    = 0,
+           locked_until        = NULL,
+           updated_at          = CURRENT_TIMESTAMP
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updateTwoFactor">
+    UPDATE tb_admin
+       SET two_factor_secret     = #{twoFactorSecret},
+           two_factor_enabled_yn = #{twoFactorEnabledYn},
+           updated_at            = CURRENT_TIMESTAMP
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updateLastLogin">
+    UPDATE tb_admin
+       SET last_login_at    = #{lastLoginAt},
+           last_login_ip    = #{lastLoginIp},
+           login_fail_count = 0,
+           locked_until     = NULL
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <!--
+    로그인 실패 카운터 +1 및 임계값 초과 시 자동 잠금 (원자적).
+    - threshold 예: 5 (5회째 실패 시 lock)
+    - lockMinutes 예: 10 (10분 후 자동 만료)
+
+    Lazy reset: locked_until 이 과거(만료) 인 상태로 다시 실패한 경우,
+    별도 스케줄러 없이 같은 UPDATE 안에서 카운터를 1 로 리셋하고 locked_until=NULL 로
+    해제. 다음 5회 실패 전까지 다시 잠기지 않음.
+  -->
+  <update id="incrementLoginFailAndMaybeLock">
+    UPDATE tb_admin
+       SET login_fail_count = CASE
+             WHEN locked_until IS NOT NULL AND locked_until &lt; CURRENT_TIMESTAMP
+               THEN 1
+             ELSE COALESCE(login_fail_count, 0) + 1
+           END,
+           locked_until = CASE
+             WHEN locked_until IS NOT NULL AND locked_until &lt; CURRENT_TIMESTAMP
+               THEN NULL
+             WHEN COALESCE(login_fail_count, 0) + 1 &gt;= #{threshold}
+               THEN DATE_ADD(CURRENT_TIMESTAMP, INTERVAL #{lockMinutes} MINUTE)
+             ELSE locked_until
+           END
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+  </update>
+
+  <select id="findLoginFailCountByLoginId" resultType="java.lang.Integer">
+    SELECT COALESCE(login_fail_count, 0)
+      FROM tb_admin
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="findLockedUntilByLoginId" resultType="java.time.LocalDateTime">
+    SELECT locked_until
+      FROM tb_admin
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <update id="unlockAdmin">
+    UPDATE tb_admin
+       SET login_fail_count = 0,
+           locked_until     = NULL
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="setCaptchaRequiredByLoginId">
+    UPDATE tb_admin
+       SET captcha_required_yn = #{yn}
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+  </update>
+
+  <select id="findCaptchaRequiredByLoginId" resultType="java.lang.String">
+    SELECT captcha_required_yn
+      FROM tb_admin
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <update id="softDelete">
+    UPDATE tb_admin
+       SET delete_yn  = 'Y',
+           status     = 'INACTIVE',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="clearRoles">
+    UPDATE tb_admin_role
+       SET delete_yn  = 'Y',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE admin_id  = #{adminId}
+       AND delete_yn = 'N'
+  </update>
+
+  <insert id="insertRole">
+    INSERT INTO tb_admin_role (admin_role_id, admin_id, role_id, delete_yn)
+    VALUES (#{adminRoleId}, #{adminId}, #{roleId}, 'N')
+    ON DUPLICATE KEY UPDATE delete_yn='N', updated_at=CURRENT_TIMESTAMP
+  </insert>
+
+  <insert id="insertPasswordHistory">
+    INSERT INTO tb_admin_password_history
+      (pwd_history_id, admin_id, password_hash, changed_at)
+    VALUES
+      (#{pwdHistoryId}, #{adminId}, #{passwordHash}, #{changedAt})
+  </insert>
+
+  <select id="findRecentPasswordHashes" resultType="java.lang.String">
+    SELECT password_hash
+      FROM tb_admin_password_history
+     WHERE admin_id = #{adminId}
+     ORDER BY changed_at DESC
+     LIMIT #{limit}
+  </select>
+
+  <insert id="insertWithdraw">
+    INSERT INTO tb_admin_withdraw (
+      admin_id, admin_seq, admin_group_id,
+      login_id, email_hash, department_id, department_name,
+      withdraw_at, withdraw_reason,
+      last_login_at, last_login_ip,
+      retention_expire_at, withdrawn_by
+    ) VALUES (
+      #{admin.adminId}, #{admin.adminSeq}, #{admin.adminGroupId},
+      #{admin.loginId}, #{admin.emailHash}, #{admin.departmentId}, #{admin.departmentName},
+      CURRENT_TIMESTAMP, #{reason},
+      #{admin.lastLoginAt}, #{admin.lastLoginIp},
+      #{retentionExpireAt}, #{withdrawnBy}
+    )
+  </insert>
+
+  <update id="callRebuildRoleCsv" statementType="CALLABLE">
+    { CALL sp_rebuild_admin_role_csv(#{adminId, mode=IN, jdbcType=VARCHAR}) }
+  </update>
+
+  <!-- role_ids CSV 재계산 후 role_codes CSV 도 동기화 (tb_role.role_code JOIN) -->
+  <update id="updateRoleCodes">
+    UPDATE tb_admin a
+       SET a.role_codes = (
+         SELECT GROUP_CONCAT(DISTINCT r.role_code ORDER BY r.role_code SEPARATOR ',')
+           FROM tb_role r
+          WHERE FIND_IN_SET(r.role_id, a.role_ids) > 0
+            AND r.delete_yn = 'N'
+       )
+     WHERE a.admin_id  = #{adminId}
+       AND a.delete_yn = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_admin
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+    <!-- 탈퇴 만료 영구 삭제 — WithdrawPurgeScheduler 가 매일 호출 (retention_expire_at &lt;= now) -->
+    <delete id="purgeExpiredWithdraw">
+        DELETE FROM tb_admin_withdraw
+         WHERE retention_expire_at &lt;= #{now}
+    </delete>
+
+    <select id="countExpiredWithdraw" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_admin_withdraw
+         WHERE retention_expire_at &lt;= #{now}
+    </select>
+
+</mapper>

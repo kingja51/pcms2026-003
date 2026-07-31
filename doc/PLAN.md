@@ -49,7 +49,7 @@
 |---|---|---|---|
 | **P0** | 프로젝트 골격 — 빌드·3DB·기동·Flyway | 기동되는 빈 앱 | ✅ 2026-07-31 |
 | **P1** | 공통 기반 계층 + ArchUnit 게이트 | `common/` 전체 | ✅ 2026-07-31 |
-| **P2** | 보안·인증 기반 | 로그인·인가 동작 | ⬜ |
+| **P2** | 보안·인증 기반 | 로그인·인가 동작 | 🟡 2026-07-31 — 화면(P3) 대기로 부분 |
 | **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ⬜ |
 | **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | ⬜ |
 | **P5** | 회원 · 인증 연동 | 회원 생명주기 | ⬜ |
@@ -202,31 +202,44 @@
 
 #### 작업
 
-- [ ] `config/security/SecurityConfig` — **다중 SecurityFilterChain**(admin 10 / member 20 / default 100)
-- [ ] `SecurityProperties` + `SecurityPropertiesConfig` — 정책 외부화
-- [ ] 세션 — `PCMS_SID`, `changeSessionId()`, `maximumSessions(1)`
+- [x] `config/security/SecurityConfig` — **admin(10) + default(100)** (2026-07-31).
+      **member(20) 체인은 P5 로 이월** — 핸들러가 `MemberMapper`(로그인 잠금 카운터)에 의존하는데
+      회원 도메인이 P5 범위다. 제외해도 `/member/**` 는 default 체인 → 무매칭 DENY 로 안전하다
+- [x] `SecurityProperties` + `SecurityPropertiesConfig` (2026-07-31)
+- [x] 세션 — `PCMS_SID`, `changeSessionId()`, `maximumSessions(1)` (2026-07-31)
 - [ ] **정적 자원 permitAll** — `/css/**`, `/js/**`, **`/fonts/**`**, `/img/**`, `/tmpl/**`
       (001에서 `/fonts/**` 누락으로 폰트가 조용히 폴백된 이력 — 반드시 포함)
-- [ ] `config/access/` — `tb_role_url_access` + `DynamicAuthorizationManager`(priority ASC, **무매칭 DENY**)
-- [ ] `PublicEndpoint` / `PublicEndpointRegistry` — 공개 엔드포인트 선언
-- [ ] 관리자 로그인 — `primary/system/login`, 2FA(secret **암호화 저장**), `AdminLoginIpGateFilter`
-- [ ] `TwoFactorEnforcementInterceptor`
-- [ ] 로그인 잠금(5회/30분), `config/filter/RateLimitFilter`(Bucket4j)
-- [ ] `LoginFormatValidationFilter`, `SuspiciousRequestFilter`, `HttpFirewallConfig`, `TrustedProxiesConfig`
-- [ ] `config/filter/CspNonceFilter` — nonce 발급 + CSP 헤더(개발가이드 §9-2), HTML `no-store`
-- [ ] `CspReportController` — 위반 리포트 수집
-- [ ] CSRF — 쿠키 방식 + htmx 헤더 주입
-- [ ] `AuthExceptionHandlers` — **htmx 요청 분기**(미인증 `HX-Redirect`+401, 인가거부 `HX-Reswap:none`)
-- [ ] `tb_role_url_access` 기본 규칙 시드(참조 데이터 → 마이그레이션 포함)
+- [x] `config/access/DynamicAuthorizationManager` (2026-07-31) — **무매칭 DENY 실측 확인**
+      (`/nonexistent-page` → 302). 001 은 `primary/system/access/service` 에 두었으나
+      개발가이드 §4-1·PLAN 이 지정한 `config/access/` 로 옮겼다 — §7 기록
+- [x] `PublicEndpoint` / `PublicEndpointRegistry` (2026-07-31)
+- [x] 관리자 로그인 — `primary/system/login` (2026-07-31). 2FA(`TotpService`·`TwoFactorSession`·
+      `TwoFactorUsrController`), `AdminLoginIpGateFilter`. **화면 렌더는 P3**(템플릿 미존재로 현재 500)
+- [x] `TwoFactorEnforcementInterceptor` (2026-07-31)
+- [x] 로그인 잠금(5회/30분), `config/filter/RateLimitFilter`(Bucket4j) (2026-07-31)
+- [x] `LoginFormatValidationFilter`, `SuspiciousRequestFilter`, `HttpFirewallConfig`, `TrustedProxiesConfig` (2026-07-31)
+      — `LoginFormatValidationFilter` 의 captcha 확인은 **admin 만**. member 는 P5, employee 는 D7 로 영구 제외
+- [x] `config/filter/CspNonceFilter` (2026-07-31) — 실측: `script-src 'self' 'nonce-…' 'strict-dynamic'`,
+      **`'unsafe-inline'` 없음 확인**
+- [x] `CspReportController` (2026-07-31)
+- [x] CSRF — 쿠키 방식 (2026-07-31). htmx 헤더 주입은 **P3**(`app.js`)
+- [x] `AuthExceptionHandlers` (2026-07-31)
+- [x] **첫 Flyway 마이그레이션** `V2026073101__seed_role_and_url_access.sql` (2026-07-31)
+      — `tb_role` 7종(ROLE_EMPLOYEE 제외, D7) + `tb_role_url_access` 6종.
+      실기동에서 적용 확인(`Successfully applied 1 migration`), `flyway_schema_history` 2행
 
 #### DoD
 
-- 관리자 로그인 → 2FA → 관리자 화면 진입
-- **접근 규칙 없는 URL 이 DENY** 되는 것 확인
-- 응답 헤더에 CSP nonce 확인 · `script-src` 에 `'unsafe-inline'` **없음** 확인
-- 로그인 5회 실패 시 잠금 · 잠금 해제 동작
-- 2FA secret 이 DB에 `{AG}` 암호문으로 저장되는 것 확인
-- 정적 자원이 **익명으로 200** (302 아님)
+- 관리자 로그인 → 2FA → 관리자 화면 진입 — ⏸ **P3 대기**. 백엔드는 완성이나 Thymeleaf 템플릿이
+  없어 `/admin/login` 이 500 이다(템플릿은 P3 범위). 화면이 생기면 이 항목만 재검증한다
+- **접근 규칙 없는 URL 이 DENY** — ✅ `/nonexistent-page` → 302 (2026-07-31)
+- CSP nonce · `script-src` 에 `'unsafe-inline'` **없음** — ✅
+  실측 `script-src 'self' 'nonce-…' 'strict-dynamic' 'wasm-unsafe-eval' …`
+- 로그인 5회 실패 시 잠금 · 잠금 해제 — ⏸ P3 대기(로그인 폼 필요)
+- 2FA secret 이 `{AG}` 암호문으로 저장 — ⏸ P3 대기
+- 정적 자원이 **익명으로 200** (302 아님) — ✅ 통과 확인.
+  `/css/**`·`/fonts/**` 가 **404**(파일 미생성, Tailwind 빌드는 P3)이고 302 가 아니다 —
+  차단됐다면 302 로 로그인 리다이렉트가 떴을 것이다
 
 **범위 밖** — 회원 가입/소셜 로그인/본인인증(P5), 도메인 화면.
 
@@ -494,6 +507,9 @@
 | 2026-07-31 | **[eGov 호환성] Spring Boot 버전 상한** — 5.0 실행환경 기준선은 **3.5.6**(Spring 6.2.11 / Security 6.5.5 / MyBatis 3.5.19). 현 지정 **3.5.9** 는 규칙 1-② 예외("패치 버전 한해 최신 허용")로 **적법**하나, minor 상향 시 즉시 위반 | P0 | 중 | ▶ P0 작업에 상한 고정 항목 추가 |
 | 2026-07-31 | **[eGov 호환성] R3 Service 예외가 규칙 4("예외 없음")와 충돌** — 개발가이드 R3 의 "모니터링·AI 캐시 등 eGov 계층 무관 기술 서비스" 예외는 회색지대. 규칙 4 권장안은 `EgovAbstractServiceImpl` 상속 **공통 추상 서비스** 경유 | P1 | 중 | ▶ P1 작업에 반영 |
 | 2026-07-31 | **[eGov 호환성] 001 의 `Egov` 접두 클래스 이식 시 위반** — 규칙 6-② 상 실행환경 클래스를 상속한 클래스는 `Egov` 로 시작할 수 없다. 그대로 복사하면 위반 | 전 페이즈 | 중 | ▶ §2 진행 규칙 7 로 승격 |
+| 2026-07-31 | **`DynamicAuthorizationManager` 위치가 001 실측과 003 문서에서 다르다** — 001 은 `primary/system/access/service`, 003 개발가이드 §4-1·PLAN P2 는 `config/access/`. 문서 2곳이 일치하므로 **문서를 따랐다**. 패키지 이동으로 같은 패키지였던 `RoleUrlAccessService` 임포트 1줄이 추가됐다 | P2 | 낮음 | ✅ 처리 — `config/access/` 채택. 되돌리려면 §7 에 기록 후 결정 |
+| 2026-07-31 | **역할 코드에 `ROLE_` 오타 3건** — 001 실측 `ROLL_EDITOR`·`ROLL_MANAGER`·`ROLL_PRIVACY`. P2 시드 마이그레이션에 **실측 그대로** 넣었다(원칙 6). 데이터가 쌓이기 전인 지금이 고치는 비용이 가장 싸지만, `tb_admin.role_codes` CSV 와 인가 매칭에 쓰이는 데이터 계약이라 임의로 바꾸지 않았다. **적용된 마이그레이션은 수정 불가**이므로 바꾸려면 새 버전 파일이 필요하다 | P2 | 중 | **결정 대기** |
+| 2026-07-31 | **인가 거부 시 `/member/login` 으로 리다이렉트하는데 그 화면이 없다** — default 체인의 로그인 페이지 설정(001 설계). member 체인·회원 화면이 P5 라 그때까지 404 가 된다. 관리자는 `/admin/login` 으로 정상 이동 | P5 | 낮음 | 미정 |
 | 2026-07-31 | **fail-fast 가 설계된 동작이 아니라 우연한 부수효과다** — 실측: `PCMS_PII_MASTER_KEY` 를 미주입해도 앱이 정상 기동했다. yml 에 `${VAR}`(기본값 없음)를 써도, 그 프로퍼티를 바인딩하는 `@ConfigurationProperties` 빈이 없으면 Spring 은 placeholder 해석 자체를 시도하지 않는다. 바인딩되는 `gopcms.datasource.*` 조차 부팅은 실패하되 메시지가 `Driver claims to not accept jdbcUrl, ${PCMS_DB_PRIMARY_URL}` 로 **원인이 드러나지 않는다**(placeholder 문자열이 Hikari 까지 그대로 전달) | P0 | **높음** | 미정 — 후보: ① Properties 클래스에 `@Validated`+`@NotBlank` ② 기동 시 필수 환경변수 목록을 검사하는 `EnvironmentPostProcessor`. **P1 에서 방식을 확정**하고 그때 전 Properties 에 일괄 적용 |
 | 2026-07-31 | **JODConverter 가 기동 때마다 ERROR 를 남긴다** — `Could not delete '...\.jodconverter_socket_host-...'`. 001 의 `application-local.yml` 주석이 예고한 Windows 파일 잠금 충돌이 실제로 발생. 부팅·health 에는 영향 없고 문서 뷰어(P4) 기능에만 관계된다 | P4 | 낮음 | 미정 — 소음이 거슬리면 local 에서 `gopcms.file.converter.enabled=false` |
 | 2026-07-31 | **Flyway 11.7.2 가 MariaDB 11.8 을 공식 지원하지 않는다** — 기동 시 `Flyway upgrade recommended: MariaDB 11.8 is newer than this version of Flyway... latest supported version is 11.2` WARN. 베이스라인 생성·검증은 정상 동작했다 | P0 | 낮음 | 미정 — 실제 마이그레이션 적용 시 재확인. 문제되면 Flyway 버전 상향(Spring Boot BOM override) |

@@ -12,6 +12,90 @@
 ---
 
 ```
+================ 2026.7.31 19:52:30 =======================
+```
+
+## P2 — 보안 · 인증 기반 🟡 부분 완료 (화면 P3 대기)
+
+**완료**: 2026-07-31 19:52:30
+**목표**: 인증·인가 체계가 서고, 무매칭 DENY 가 실제로 동작한다.
+
+### DoD 검증 결과
+
+| 항목 | 결과 |
+|---|---|
+| **접근 규칙 없는 URL 이 DENY** | ✅ `/nonexistent-page` → 302 |
+| CSP `script-src` 에 `'unsafe-inline'` 없음 | ✅ `'self' 'nonce-…' 'strict-dynamic' 'wasm-unsafe-eval'` |
+| 정적 자원 익명 통과 | ✅ `/css/**`·`/fonts/**` **404**(파일 미생성)이고 302 아님 |
+| Flyway 시드 적용 | ✅ `Successfully applied 1 migration` · history 2행 |
+| ArchUnit | ✅ 10 규칙 · 전체 테스트 20건 |
+| 기동 | ✅ `Started in 5.868 seconds` |
+| 관리자 로그인 → 2FA → 화면 진입 | ⏸ **P3 대기** |
+| 로그인 5회 잠금 / 2FA secret `{AG}` 저장 | ⏸ **P3 대기** |
+
+**⏸ 3항목은 백엔드가 완성됐지만 Thymeleaf 템플릿이 없어 검증할 수 없다.**
+`/admin/login` 이 500 인 이유가 이것이다(템플릿은 P3 범위). 화면이 생기면 이 항목만 재검증한다.
+
+### 첫 Flyway 마이그레이션
+
+`V2026073101__seed_role_and_url_access.sql` — P2 에서 처음으로 베이스라인이 아닌 마이그레이션을 썼다.
+
+- `tb_role` **7종** — 001 의 8종에서 `ROLE_EMPLOYEE` 제외(D7)
+- `tb_role_url_access` **6종** — 로그인 진입점·2FA 화면·CSP 리포트·관리자 포괄 규칙.
+  001 라이브 265건 중 P2 에 필요한 최소만. 도메인 추가 시 해당 페이즈에서 규칙을 더한다(상시 게이트 3)
+- `allowed_user_types` 에서 EMPLOYEE 제거 — `v_user_login` 은 MEMBER·STAFF 2종
+
+정적 자원은 **규칙 테이블에 넣지 않았다.** SecurityConfig 의 permitAll 로 처리한다 —
+인가 판단 이전에 통과해야 한다. 무매칭 DENY 도 `DynamicAuthorizationManager` 의 기본 동작이라
+fallback 행(priority 9999)을 두지 않았다(001 라이브에도 없다).
+
+### 001 대비 범위 조정
+
+| 대상 | 처리 | 사유 |
+|---|---|---|
+| **member 체인(Order 20)** | **P5 로 이월** | 핸들러가 `MemberMapper`(로그인 잠금 카운터)에 의존. 회원 도메인은 P5. 제외해도 `/member/**` 는 default 체인 → 무매칭 DENY 로 안전 |
+| `MemberLogin*Handler`, `MemberUserDetailsService`, `MemberLogoutSuccessHandler` | P5 | 위와 동일 |
+| `AuthUsrController` | P4 | `system.site.service` 의존 |
+| `LastLoginTracker` 의 MEMBER 분기 | P5 | `MemberMapper`·`DormantMapper` 의존 |
+| **`LastLoginTracker`·`AdminLoginSuccessHandler`·`LoginFormatValidationFilter` 의 EMPLOYEE 분기** | **영구 삭제** | 직원은 로그인 주체가 아니다(D7) |
+| `DynamicAuthorizationManager` 패키지 | `primary/system/access/service` → **`config/access/`** | 개발가이드 §4-1·PLAN P2 가 지정한 위치. 문서 2곳이 일치 |
+
+### 산출물
+
+자바 소스 **78 → 156개**, 매퍼 XML **8 → 11개**.
+
+| 패키지 | 내용 |
+|---|---|
+| `config/security` | `SecurityConfig`(2체인), `SecurityProperties`(+Config), `PublicEndpoint`(+Registry), `HttpFirewallConfig`, `TrustedProxiesConfig`, `AuthExceptionHandlers`, `CspReportController` |
+| `config/access` | `DynamicAuthorizationManager` — priority ASC, 무매칭 DENY |
+| `config/filter` | `CspNonceFilter`, `RateLimitFilter`(Bucket4j), `AdminLoginIpGateFilter`, `LoginFormatValidationFilter`, `SuspiciousRequestFilter` |
+| `config/interceptor` | `TwoFactorEnforcementInterceptor` |
+| `primary/system/login` | 관리자 인증 — 핸들러·`AdminUserDetailsService`·`AdminLoginGuard`·`TotpService`·`TwoFactorSession`·`UserLoginMapper` |
+| `primary/system/access` | `RoleUrlAccessRule`·`Mapper`·`Service` |
+| `primary/admin` | dto/mapper/service — 2FA secret 저장·로그인 가드에 필요한 범위 |
+| `primary/system/department` | dto/mapper — `AdminServiceImpl` 의존 |
+| `common/captcha` | 7종 — `CaptchaGuard`·`GoogleRecaptchaV3Service`·`NoOp` 등 |
+| `logging/security`, `logging/log` | 보안 이벤트·로그인 로그 적재 |
+
+### 호환성 유지 확인
+
+| 검사 | 결과 |
+|---|---|
+| `@Mapper` 잔존 | **0건** — 신규 유입 매퍼 9종을 `@EgovMapper` 로 전환 |
+| `Egov` 접두 클래스 | 0건 |
+| 매퍼 `${}` (SQLi) | 0건 |
+| ArchUnit R4b(`@Mapper` 0건) | 통과 |
+
+### 실행 메모
+
+- `/admin/login` 500 은 템플릿 미존재다. 보안 체인은 정상 동작한다
+- **정적 자원 검증은 404 여야 정상이다.** 차단이면 302 로 로그인 리다이렉트가 뜬다.
+  200 을 기대하면 안 된다 — Tailwind 빌드(P3) 전이라 파일 자체가 없다
+- 인가 거부 리다이렉트가 `/member/login` 으로 가는데 그 화면은 P5 다(§7 기록)
+
+---
+
+```
 ================ 2026.7.31 19:28:40 =======================
 ```
 

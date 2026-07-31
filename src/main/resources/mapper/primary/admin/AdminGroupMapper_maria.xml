@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.admin.mapper.AdminGroupMapper">
+
+  <select id="findActiveOptions" resultType="com.gonet.primary.admin.dto.AdminGroupOption">
+    SELECT admin_group_id, group_code, group_name
+      FROM tb_admin_group
+     WHERE delete_yn = 'N' AND use_yn = 'Y'
+     ORDER BY group_code ASC
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.admin.dto.AdminGroupOption">
+    SELECT admin_group_id, group_code, group_name
+      FROM tb_admin_group
+     WHERE admin_group_id = #{adminGroupId}
+       AND delete_yn      = 'N'
+  </select>
+
+</mapper>
