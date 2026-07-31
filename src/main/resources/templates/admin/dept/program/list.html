@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head><title>교수 실적 관리</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span> <span>교수 실적</span>
+    </nav>
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div><h1 class="text-heading-lg font-bold text-fg-strong">교수 실적 관리</h1>
+        <p class="text-sm text-fg-subtle mt-1">논문·저서·연구과제·학술활동·지식재산권·수상 — 총 <strong th:text="${list != null ? #lists.size(list) : 0}">0</strong> 건</p></div>
+      <a th:href="@{/admin/dept/faculty-program/new(facultyId=${facultyId}, programType=${programType})}"
+         class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">+ 새 실적</a>
+    </div>
+    <form method="get" class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-[170px_220px_140px_minmax(160px,1fr)_auto] gap-3 items-end">
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">학과 선택</label>
+          <select name="siteCode" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">전체 학과</option>
+            <option th:each="d : ${depts}" th:value="${d.siteCode}" th:text="${d.deptName} + ' (' + ${d.siteCode} + ')'"
+                    th:selected="${d.siteCode == siteCode}">학과</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">교수</label>
+          <select name="facultyId" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">전체 교수</option>
+            <option th:each="f : ${faculties}" th:value="${f.facultyId}"
+                    th:text="'[' + ${f.siteCode} + '] ' + ${f.nameKo} + (${f.position} != null ? ' · ' + ${f.position} : '')"
+                    th:selected="${f.facultyId == facultyId}">교수</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">유형</label>
+          <select name="programType" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">전체</option>
+            <option th:each="t : ${types}" th:value="${t.name()}" th:text="${t.labelKo}"
+                    th:selected="${t.name() == programType}">유형</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">검색어 (명칭/기관/역할/교수명)</label>
+          <input name="keyword" type="text" th:value="${keyword}" maxlength="100" class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">검색</button>
+          <a th:href="@{/admin/dept/faculty-program}" class="inline-flex items-center px-4 py-2 rounded border border-line text-fg text-sm hover:bg-surface-subtle">초기화</a>
+        </div>
+      </div>
+    </form>
+    <div class="bg-surface border border-line rounded-large overflow-x-auto">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <thead class="bg-surface-subtle text-fg-subtle"><tr>
+          <th class="px-4 py-3 text-left font-medium">학과</th>
+          <th class="px-4 py-3 text-left font-medium">교수</th>
+          <th class="px-4 py-3 text-left font-medium">유형</th>
+          <th class="px-4 py-3 text-left font-medium">명칭</th>
+          <th class="px-4 py-3 text-left font-medium">기관/역할</th>
+          <th class="px-4 py-3 text-left font-medium">일자/기간</th>
+          <th class="px-4 py-3 text-right font-medium">관리</th>
+        </tr></thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="p : ${list}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-3 whitespace-nowrap font-mono text-fg-subtle" th:text="${p.facultySiteCode}">me</td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <a th:href="@{/admin/dept/faculty/{id}(id=${p.facultyId})}" class="font-medium text-fg-strong hover:text-brand-60 hover:underline" th:text="${p.facultyName}">교수명</a></td>
+            <td class="px-4 py-3 whitespace-nowrap"
+                th:with="t=${T(com.gonet.secondary.dept.program.dto.FacultyProgramType).from(p.programType)}"
+                th:text="${t != null ? t.labelKo : p.programType}">유형</td>
+            <td class="px-4 py-3"><span th:text="${p.title}">명칭</span>
+              <span class="text-fg-disabled text-xs font-mono" th:if="${p.regNo}" th:text="${p.regNo}">등록번호</span>
+              <span class="text-fg-disabled text-xs" th:if="${p.category}" th:text="'[' + ${p.category} + ']'">[구분]</span></td>
+            <td class="px-4 py-3 whitespace-nowrap text-fg-subtle"
+                th:with="org=${p.organization} ?: ${p.roleDesc}"
+                th:attr="title=${org}"
+                th:text="${org != null and #strings.length(org) > 20 ? #strings.substring(org, 0, 20) + '...' : org}">기관</td>
+            <td class="px-4 py-3 whitespace-nowrap text-fg-subtle" th:text="${p.displayDate}">일자</td>
+            <td class="px-4 py-3 whitespace-nowrap text-right">
+              <a th:href="@{/admin/dept/faculty-program/{id}/edit(id=${p.programId})}" class="inline-flex items-center justify-center w-7 h-7 rounded border border-line bg-surface align-middle text-brand-60 hover:bg-surface-subtle mr-1" title="수정">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                <span class="sr-only">수정</span></a>
+              <form th:action="@{/admin/dept/faculty-program/{id}/delete(id=${p.programId})}" method="post" class="inline-block align-middle" data-confirm="삭제하시겠습니까?">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="inline-flex items-center justify-center w-7 h-7 rounded border border-line bg-surface align-middle text-danger-fg hover:bg-danger-surface" title="삭제"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span class="sr-only">삭제</span></button></form>
+            </td>
+          </tr>
+          <tr th:if="${list == null or #lists.isEmpty(list)}"><td colspan="7" class="px-4 py-10 text-center text-fg-subtle">등록된 실적이 없습니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</body>
+</html>

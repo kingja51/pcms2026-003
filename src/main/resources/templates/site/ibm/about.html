@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<!-- IBM 데모 — 회사 소개 서브 페이지. Carbon 통계 밴드 + 본문. -->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/IBM/ibm'}__}"
+      lang="ko">
+<head>
+  <title>About</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div class="lg:col-span-7">
+        <p class="cds-tag mb-4">About</p>
+        <h1 class="cds-heading-01">Think.</h1>
+        <p class="cds-body-01 cds-text-secondary mt-4">
+          이 페이지는 PCMS 멀티사이트 데모입니다. 관리자·기본 사이트는 KRDS 디자인 시스템을,
+          이 사이트는 IBM Carbon Design System 을 사용합니다 — <strong class="cds-body-02">같은 백엔드, 다른 디자인 언어</strong>.
+        </p>
+        <p class="cds-body-01 cds-text-secondary mt-4">
+          색·타이포·컴포넌트는 전부 <span class="cds-mono">--cds-*</span> 토큰과 <span class="cds-mono">.cds-*</span>
+          클래스로 정의되어 마크업에 raw hex 가 없고, IBM Plex 는 self-host, 스크립트는 CSP nonce 로 로드됩니다.
+        </p>
+      </div>
+      <div class="lg:col-span-5 grid grid-cols-2 gap-0.5">
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02">0</p>
+          <p class="cds-caption">border-radius (px)</p>
+        </div>
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02 cds-mono">Plex</p>
+          <p class="cds-caption">self-host font</p>
+        </div>
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02 cds-text-accent">1</p>
+          <p class="cds-caption">accent color</p>
+        </div>
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02">8px</p>
+          <p class="cds-caption">grid base</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cds-band cds-band--layer">
+    <div class="cds-band__inner">
+      <h2 class="cds-heading-03 mb-4">엔지니어링 규약 (전 사이트 공통)</h2>
+      <ul class="cds-body-01 cds-text-secondary space-y-2 cds-measure">
+        <li>· 색은 시맨틱 토큰(CSS 변수)로만 — 마크업 raw hex 0건</li>
+        <li>· 인라인 스타일·이벤트 핸들러 금지 → 외부 CSS/JS + CSP nonce</li>
+        <li>· htmx + 순수 JavaScript · 이벤트 위임 · 접근성(대비 4.5:1·aria·포커스링)</li>
+        <li>· 웹폰트 self-host (CDN 금지)</li>
+      </ul>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

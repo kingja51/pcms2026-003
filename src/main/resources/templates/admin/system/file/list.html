@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>파일 관리</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <span>파일</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">파일 관리</h1>
+        <p class="text-sm text-fg-subtle mt-1">업로드 6중 방어 스택 통과 이력 · 총
+          <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/file/new}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">+ 파일 등록 (한개)</a>
+        <a th:href="@{/admin/system/file/new/bulk}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">+ 파일 등록 (여러개)</a>
+        <a th:href="@{/admin/system/file/demo}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm font-medium hover:bg-surface-subtle"
+           title="Thymeleaf 모듈 — 게시판·콘텐츠 등에서 include 해서 재사용">
+          + 파일 등록 (드래그앤드롭)
+        </a>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:action="@{/admin/system/file}" method="get"
+          role="search" aria-label="파일 검색"
+          class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_180px_180px_auto_auto] gap-3 items-end">
+        <div>
+          <label for="keyword" class="block text-xs font-medium text-fg-subtle mb-1">원본 파일명</label>
+          <input id="keyword" name="keyword" type="text"
+                 th:value="${search?.keyword}" maxlength="100"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label for="entityType" class="block text-xs font-medium text-fg-subtle mb-1">엔티티</label>
+          <select id="entityType" name="entityType" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="" th:selected="${search?.entityType == null or search?.entityType == ''}">전체</option>
+            <option value="BBS"   th:selected="${search?.entityType == 'BBS'}">게시판</option>
+            <option value="CNT"   th:selected="${search?.entityType == 'CNT'}">콘텐츠</option>
+            <option value="MBR"   th:selected="${search?.entityType == 'MBR'}">회원</option>
+            <option value="POPUP" th:selected="${search?.entityType == 'POPUP'}">팝업</option>
+            <option value="MAIL"  th:selected="${search?.entityType == 'MAIL'}">메일</option>
+            <option value="ETC"   th:selected="${search?.entityType == 'ETC'}">기타</option>
+          </select>
+        </div>
+        <div>
+          <label for="virusScanStatus" class="block text-xs font-medium text-fg-subtle mb-1">ClamAV 상태</label>
+          <select id="virusScanStatus" name="virusScanStatus"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="" th:selected="${search?.virusScanStatus == null or search?.virusScanStatus == ''}">전체</option>
+            <option th:each="st : ${scanStatuses}" th:value="${st.name()}"
+                    th:text="${st.name()}" th:selected="${search?.virusScanStatus == st.name()}">PENDING</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">검색</button>
+          <a th:href="@{/admin/system/file}" class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">초기화</a>
+        </div>
+      </div>
+    </form>
+
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <caption class="sr-only">파일 목록</caption>
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+            <th scope="col" class="px-4 py-3">원본명</th>
+            <th scope="col" class="px-4 py-3">확장자</th>
+            <th scope="col" class="px-4 py-3">MIME (Tika)</th>
+            <th scope="col" class="px-4 py-3 text-right">크기</th>
+            <th scope="col" class="px-4 py-3">재인코딩</th>
+            <th scope="col" class="px-4 py-3">검사상태</th>
+            <th scope="col" class="px-4 py-3">엔티티</th>
+            <th scope="col" class="px-4 py-3">업로드일시</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-2.5">
+              <a th:href="@{/admin/system/file/{fid}(fid=${row.fileId})}"
+                 class="text-brand-60 hover:underline font-medium" th:text="${row.originalName}">파일.pdf</a>
+            </td>
+            <td class="px-4 py-2.5 font-mono text-xs text-fg" th:text="${row.extension}">pdf</td>
+            <td class="px-4 py-2.5 font-mono text-xs text-fg-subtle" th:text="${row.mimeDetected}">application/pdf</td>
+            <td class="px-4 py-2.5 text-right font-mono text-xs" th:text="${row.sizeBytes}">0</td>
+            <td class="px-4 py-2.5 text-center">
+              <span th:if="${row.isReencoded()}"
+                    class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-success-surface text-success-fg">✓</span>
+              <span th:unless="${row.isReencoded()}" class="text-fg-disabled text-xs">—</span>
+            </td>
+            <td class="px-4 py-2.5">
+              <span th:class="|inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                ${row.virusScanStatus == 'CLEAN'    ? 'bg-success-surface text-success-fg' :
+                  row.virusScanStatus == 'INFECTED' ? 'bg-danger-surface text-danger-fg' :
+                  row.virusScanStatus == 'ERROR'    ? 'bg-warning-surface text-warning-fg' :
+                                                       'bg-surface-subtler text-fg-subtle'}|"
+                    th:text="${row.virusScanStatus}">PENDING</span>
+            </td>
+            <td class="px-4 py-2.5 font-mono text-xs text-fg" th:text="${row.entityType}">CNT</td>
+            <td class="px-4 py-2.5 font-mono text-xs text-fg-subtle" th:text="${@fmt.dt(row.createdAt)}">-</td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(page.content)}">
+            <td colspan="8" class="px-4 py-10 text-center text-fg-subtle">업로드된 파일이 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/admin/system/file(page=${p}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, entityType=${search.entityType}, virusScanStatus=${search.virusScanStatus})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                       : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

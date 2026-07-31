@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>대금지급 상세조회</title></head>
+<body>
+<section layout:fragment="content" class="program-page">
+
+  <h1 class="text-lg font-bold text-fg-strong mb-3">대금지급 상세조회</h1>
+
+  <!-- 대금지급 현황 -->
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <h2 class="text-sm font-bold text-fg mb-3 pb-2 border-b border-line">대금지급 현황</h2>
+    <dl class="grid grid-cols-1 gap-y-2 text-sm">
+      <div><dt class="text-fg-subtle">계약명</dt><dd th:text="${row.ctrtNm}"></dd></div>
+      <div><dt class="text-fg-subtle">관서명</dt><dd th:text="${row.ctrtGovNm}"></dd></div>
+      <div><dt class="text-fg-subtle">계약상대자</dt><dd th:text="${row.custNm}"></dd></div>
+      <div><dt class="text-fg-subtle">계약금액</dt><dd th:insert="~{front/contract/fragments :: won(${row.ctrtAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">선금</dt><dd th:insert="~{front/contract/fragments :: won(${row.prePayAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">기성금</dt><dd th:insert="~{front/contract/fragments :: won(${row.giPayAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">준공금</dt><dd th:insert="~{front/contract/fragments :: won(${row.endPayAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">지급액총계</dt><dd th:insert="~{front/contract/fragments :: won(${row.payTotalAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">대금잔액</dt><dd th:insert="~{front/contract/fragments :: won(${row.payOriAmt})}"></dd></div>
+    </dl>
+  </div>
+
+  <!-- 대금지급 상세 -->
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <h2 class="text-sm font-bold text-fg mb-3 pb-2 border-b border-line">대금지급 상세</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-fg-subtle">
+            <th class="px-3 py-2">지급종류</th>
+            <th class="px-3 py-2 text-right">지급액</th>
+            <th class="px-3 py-2">지급일</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="b : ${bills}" class="border-t border-line">
+            <td class="px-3 py-2" th:text="${b.payKindFg}"></td>
+            <td class="px-3 py-2 text-right" th:insert="~{front/contract/fragments :: num(${b.payAmt})}">0</td>
+            <td class="px-3 py-2 text-xs text-fg-subtle" th:text="${b.reqYmd}"></td>
+          </tr>
+          <tr th:if="${bills == null or bills.isEmpty()}">
+            <td colspan="3" class="px-3 py-6 text-center text-fg-disabled">대금지급 내역이 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="text-center mt-4">
+    <a th:href="@{|/contract/${siteCode}/payment|}"
+       class="inline-flex px-4 py-2 rounded border border-line bg-surface text-fg text-sm font-semibold hover:bg-surface-subtle">목록으로</a>
+  </div>
+</section>
+</body>
+</html>

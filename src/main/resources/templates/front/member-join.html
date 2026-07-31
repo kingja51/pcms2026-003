@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>회원가입</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-xl mx-auto">
+
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6 md:p-8">
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-900">회원가입</h1>
+        <p class="text-sm text-slate-500 mt-1">필수 동의 후 계정을 생성합니다.</p>
+      </div>
+
+      <div th:if="${error}" role="alert"
+           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+           th:text="${error}"></div>
+      <div th:if="${errors}" role="alert"
+           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <ul class="list-disc pl-5">
+          <li th:each="e : ${errors}" th:text="${e.defaultMessage}">error</li>
+        </ul>
+      </div>
+
+      <form id="memberJoinForm" th:action="@{/member/join}" method="post" th:object="${form}" class="space-y-4"
+            data-validate-password-policy novalidate>
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" th:field="*{userType}"/>
+        <th:block th:replace="~{fragments/site-context :: hiddenSiteCode}"/>
+        <th:block th:replace="~{fragments/captcha-v3 :: widget(action='member_join', formId='memberJoinForm')}"/>
+
+        <!-- 본인확인(CI) 완료 상태 배너 — CHILD 면 부모 인증 정보 표시 -->
+        <div th:if="${joinSess}"
+             class="mb-2 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          ✅ <strong>본인확인 완료</strong>
+          <span th:if="${joinSess.userType == 'CHILD'}"> — 법정대리인(부모)</span>
+          · 이름: <strong th:text="${joinSess.verifiedName}">홍길동</strong>
+          <span th:if="${joinSess.verifiedPhone}">
+            · 휴대폰: <strong th:text="${joinSess.verifiedPhone}">010-0000-0000</strong>
+          </span>
+
+          <a th:href="@{/member/identity/nice(userType=${joinSess.userType})}"
+             class="ml-2 text-xs text-emerald-700 underline">다시 인증</a>
+        </div>
+
+        <!-- CHILD 모드 부모 이름 섹션 — 세션에서 prefill, readOnly 권장이나 수정 허용 -->
+        <div th:if="${userType == 'CHILD'}" class="p-3 rounded border border-amber-300 bg-amber-50">
+          <label for="parentName" class="block text-sm font-medium text-amber-900 mb-1">
+            법정대리인(부모) 이름 <span class="text-red-600">*</span>
+          </label>
+          <input id="parentName" type="text" th:field="*{parentName}"
+                 required maxlength="100"
+                 class="block w-full rounded border border-amber-300 px-3 py-2 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 focus:outline-none bg-white"/>
+          <p class="text-xs text-amber-800 mt-1">
+            본인인증에서 확인된 이름이 자동 입력되었습니다. 필요 시 수정 가능합니다.
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="loginId" class="block text-sm font-medium text-slate-700 mb-1">
+              아이디 <span class="text-red-600">*</span>
+            </label>
+            <div class="flex gap-2">
+              <input id="loginId" type="text" th:field="*{loginId}" required
+                     minlength="8" maxlength="50" pattern="^[a-z][a-z0-9_]+$" autocomplete="username"
+                     aria-describedby="loginIdErr"
+                     class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+              <button type="button"
+                      hx-get="/member/join/check-login-id"
+                      hx-include="#loginId"
+                      hx-target="#loginIdCheckResult"
+                      hx-swap="innerHTML"
+                      class="shrink-0 whitespace-nowrap inline-flex items-center px-3 py-2 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+                중복확인
+              </button>
+            </div>
+            <p id="loginIdErr" data-err="loginId" class="hidden mt-1 text-xs text-red-600" role="alert"></p>
+            <div id="loginIdCheckResult" aria-live="polite"></div>
+          </div>
+
+          <div>
+            <label for="nickname" class="block text-sm font-medium text-slate-700 mb-1">닉네임</label>
+            <input id="nickname" type="text" th:field="*{nickname}" maxlength="100"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+          </div>
+
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-700 mb-1">
+              비밀번호 <span class="text-red-600">*</span>
+            </label>
+            <input id="password" type="password" th:field="*{password}" required
+                   minlength="8" maxlength="100" autocomplete="new-password"
+                   aria-describedby="passwordErr passwordHelp"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+            <p id="passwordHelp" class="text-xs text-slate-500 mt-1">
+              8자 이상(영문 대/소문자·숫자·특수기호 중 3종) 또는 10자 이상(2종 이상) 조합
+            </p>
+            <p id="passwordErr" data-err="password" class="hidden mt-1 text-xs text-red-600" role="alert"></p>
+          </div>
+
+          <div>
+            <label for="passwordConfirm" class="block text-sm font-medium text-slate-700 mb-1">
+              비밀번호 확인 <span class="text-red-600">*</span>
+            </label>
+            <input id="passwordConfirm" type="password" th:field="*{passwordConfirm}" required
+                   minlength="8" maxlength="100" autocomplete="new-password"
+                   aria-describedby="passwordConfirmErr"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+            <p id="passwordConfirmErr" data-err="passwordConfirm" class="hidden mt-1 text-xs text-red-600" role="alert"></p>
+          </div>
+
+          <div>
+            <label for="memberName" class="block text-sm font-medium text-slate-700 mb-1">
+              <span th:if="${userType == 'CHILD'}">자녀 이름</span>
+              <span th:unless="${userType == 'CHILD'}">이름</span>
+              <span class="text-red-600">*</span>
+            </label>
+            <input id="memberName" type="text" th:field="*{memberName}" required maxlength="100"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+            <p th:if="${userType == 'CHILD'}" class="text-xs text-slate-500 mt-1">
+              가입 대상 자녀의 실명을 입력하세요.
+            </p>
+          </div>
+
+          <div>
+            <label for="email" class="block text-sm font-medium text-slate-700 mb-1">
+              이메일 <span class="text-red-600">*</span>
+            </label>
+            <input id="email" type="email" th:field="*{email}" required maxlength="255"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+          </div>
+
+          <div>
+            <label for="phone" class="block text-sm font-medium text-slate-700 mb-1">전화번호</label>
+            <input id="phone" type="tel" th:field="*{phone}" maxlength="20"
+                   placeholder="010-1234-5678"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              생년월일 <span class="text-red-600">*</span>
+            </label>
+            <!-- 년/월/일 3 select 로 분리 입력. JS 가 hidden birthDate(yyyyMMdd) 로 합성. -->
+            <div class="flex gap-2" aria-describedby="birthDateErr birthDateHelp">
+              <select id="birthYearSelect" required
+                      class="flex-1 rounded border border-slate-300 px-2 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none">
+                <option value="">년</option>
+              </select>
+              <select id="birthMonthSelect" required
+                      class="flex-1 rounded border border-slate-300 px-2 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none">
+                <option value="">월</option>
+              </select>
+              <select id="birthDaySelect" required
+                      class="flex-1 rounded border border-slate-300 px-2 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none">
+                <option value="">일</option>
+              </select>
+            </div>
+            <input id="birthDate" type="hidden" th:field="*{birthDate}"
+                   th:attr="data-child-required=${userType == 'CHILD' ? 'true' : 'false'}"/>
+            <p th:if="${userType == 'CHILD'}" id="birthDateHelp" class="text-xs text-slate-500 mt-1">
+              만 14세 미만의 자녀 생년월일만 입력할 수 있습니다.
+            </p>
+            <p id="birthDateErr" class="hidden mt-1 text-xs text-red-600" role="alert"></p>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              성별 <span class="text-red-600">*</span>
+            </label>
+            <div class="flex gap-4 text-sm">
+              <label class="inline-flex items-center gap-1">
+                <input type="radio" th:field="*{gender}" value="M" required class="accent-blue-600"/> 남성
+              </label>
+              <label class="inline-flex items-center gap-1">
+                <input type="radio" th:field="*{gender}" value="F" required class="accent-blue-600"/> 여성
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 약관 동의는 Step 2 에서 이미 완료 — 세션값을 hidden 으로 전송 -->
+        <input type="hidden" th:field="*{termsAgreeYn}"/>
+        <input type="hidden" th:field="*{privacyAgreeYn}"/>
+        <input type="hidden" th:field="*{marketingAgreeYn}"/>
+        <input type="hidden" th:field="*{smsAgreeYn}"/>
+        <input type="hidden" th:field="*{emailAgreeYn}"/>
+
+        <div class="rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          ✅ <strong>약관 동의 완료</strong>
+          <span class="text-xs text-slate-500 ml-1">
+            (이용약관·개인정보 필수 동의
+            <span th:if="${form.marketingAgreeYn == 'Y'}"> · 마케팅</span>
+            <span th:if="${form.smsAgreeYn == 'Y'}"> · SMS</span>
+            <span th:if="${form.emailAgreeYn == 'Y'}"> · 이메일</span>)
+          </span>
+          <a th:href="@{/member/join/agree(userType=${userType})}"
+             class="ml-2 text-xs text-slate-600 underline">다시 선택</a>
+        </div>
+
+        <button type="submit"
+                class="w-full rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200">
+          가입하기
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-sm text-slate-500">
+        이미 계정이 있으신가요?
+        <a th:href="@{/member/login}" class="text-blue-600 hover:underline font-medium">로그인</a>
+      </p>
+    </div>
+
+    <script th:src="@{/js/login-validate.js}" th:attr="nonce=${cspNonce}"></script>
+
+    <!--
+      가입하기 버튼 클릭 시 — 누락/형식 오류를 한번에 alert 으로 모아 보여 준다.
+      기존 인라인 에러(<p data-err=...>) 는 그대로 유지되며, 제출 시점 종합 안내만 추가.
+    -->
+    <script th:attr="nonce=${cspNonce}">
+      (function () {
+        'use strict';
+        var form = document.querySelector('form[data-validate-password-policy]');
+        if (!form) return;
+
+        var userType = (form.querySelector('input[name="userType"]') || {}).value || 'ADULT';
+
+        function val(name) {
+          var el = form.querySelector('[name="' + name + '"]');
+          return el ? (el.value || '').trim() : '';
+        }
+        function checked(name) {
+          var el = form.querySelector('[name="' + name + '"]');
+          return !!(el && el.checked);
+        }
+        function ageFromYmd(s) {
+          var y = parseInt(s.substring(0, 4), 10);
+          var m = parseInt(s.substring(4, 6), 10);
+          var d = parseInt(s.substring(6, 8), 10);
+          var birth = new Date(y, m - 1, d);
+          if (birth.getFullYear() !== y || birth.getMonth() !== m - 1 || birth.getDate() !== d) return -1;
+          var t = new Date(); t.setHours(0, 0, 0, 0);
+          if (birth > t) return -2;
+          var age = t.getFullYear() - y;
+          var passed = (t.getMonth() > m - 1) || (t.getMonth() === m - 1 && t.getDate() >= d);
+          if (!passed) age--;
+          return age;
+        }
+
+        function collectErrors() {
+          var errs = [];
+
+          if (userType === 'CHILD' && !val('parentName')) {
+            errs.push('• 법정대리인(부모) 이름을 입력해 주세요.');
+          }
+
+          var loginId = val('loginId');
+          if (!loginId) errs.push('• 아이디를 입력해 주세요.');
+          else if (loginId.length < 8) errs.push('• 아이디는 8자 이상이어야 합니다.');
+          else if (!/^[a-z][a-z0-9_]+$/.test(loginId))
+            errs.push('• 아이디는 영소문자/숫자/언더스코어만 가능합니다 (첫 글자 영소문자).');
+
+          var pw = val('password');
+          var pwTypes = (/[A-Z]/.test(pw) ? 1 : 0) + (/[a-z]/.test(pw) ? 1 : 0)
+                      + (/[0-9]/.test(pw) ? 1 : 0) + (/[^A-Za-z0-9]/.test(pw) ? 1 : 0);
+          if (!pw) errs.push('• 비밀번호를 입력해 주세요.');
+          else if (pw.length < 8) errs.push('• 비밀번호는 8자 이상이어야 합니다.');
+          else if (pw.length < 10 && pwTypes < 3)
+            errs.push('• 8~9자 비밀번호는 영문 대/소문자·숫자·특수기호 중 3종 이상 조합해야 합니다.');
+          else if (pw.length >= 10 && pwTypes < 2)
+            errs.push('• 10자 이상 비밀번호는 2종 이상 문자 조합이 필요합니다.');
+
+          var pwc = val('passwordConfirm');
+          if (!pwc) errs.push('• 비밀번호 확인을 입력해 주세요.');
+          else if (pw && pwc !== pw) errs.push('• 비밀번호가 일치하지 않습니다.');
+
+          if (!val('memberName')) {
+            errs.push(userType === 'CHILD' ? '• 자녀 이름을 입력해 주세요.' : '• 이름을 입력해 주세요.');
+          }
+
+          var email = val('email');
+          if (!email) errs.push('• 이메일을 입력해 주세요.');
+          else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+            errs.push('• 이메일 형식이 올바르지 않습니다.');
+
+          var phone = val('phone');
+          if (phone && !/^\d{2,3}-?\d{3,4}-?\d{4}$/.test(phone))
+            errs.push('• 전화번호 형식이 올바르지 않습니다 (010-1234-5678).');
+
+          var bd = val('birthDate');
+          if (!bd) {
+            errs.push('• 생년월일을 선택해 주세요. (년/월/일 모두)');
+          } else if (!/^\d{8}$/.test(bd)) {
+            errs.push('• 생년월일을 올바르게 선택해 주세요.');
+          } else {
+            var age = ageFromYmd(bd);
+            if (age === -1) errs.push('• 존재하지 않는 생년월일입니다.');
+            else if (age === -2) errs.push('• 생년월일에 미래 날짜는 입력할 수 없습니다.');
+            else if (userType === 'CHILD' && age >= 14)
+              errs.push('• 만 14세 이상은 일반(성인) 가입으로 진행해 주세요.');
+          }
+
+          // 성별 — radio 필수 (M / F)
+          var genderEl = form.querySelector('input[name="gender"]:checked');
+          var genderVal = genderEl ? genderEl.value : '';
+          if (genderVal !== 'M' && genderVal !== 'F') {
+            errs.push('• 성별을 선택해 주세요. (남성/여성)');
+          }
+
+          if (val('termsAgreeYn') !== 'Y') errs.push('• 이용약관 동의가 필요합니다. (Step 2 에서 다시 동의)');
+          if (val('privacyAgreeYn') !== 'Y') errs.push('• 개인정보 수집·이용 동의가 필요합니다. (Step 2 에서 다시 동의)');
+
+          return errs;
+        }
+
+        // capture phase 로 등록 — 다른 submit 리스너보다 먼저 실행되어 alert 노출
+        form.addEventListener('submit', function (e) {
+          var errs = collectErrors();
+          if (errs.length > 0) {
+            e.preventDefault();
+            e.stopPropagation();
+            alert('아래 항목을 확인해 주세요.\n\n' + errs.join('\n'));
+          }
+        }, true);
+      })();
+    </script>
+
+    <!-- 년/월/일 3 select → hidden birthDate(yyyyMMdd) 합성 -->
+    <script th:attr="nonce=${cspNonce}">
+      (function () {
+        'use strict';
+        var ySel  = document.getElementById('birthYearSelect');
+        var mSel  = document.getElementById('birthMonthSelect');
+        var dSel  = document.getElementById('birthDaySelect');
+        var hidden = document.getElementById('birthDate');
+        if (!ySel || !mSel || !dSel || !hidden) return;
+
+        function pad2(n) { return (n < 10 ? '0' : '') + n; }
+        function makeOption(value, label) {
+          var o = document.createElement('option');
+          o.value = value; o.textContent = label;
+          return o;
+        }
+
+        // 년 옵션 — 현재년도 ~ 1900
+        var now = new Date();
+        var thisYear = now.getFullYear();
+        for (var y = thisYear; y >= 1900; y--) {
+          ySel.appendChild(makeOption(String(y), y + '년'));
+        }
+        // 월 옵션
+        for (var m = 1; m <= 12; m++) {
+          mSel.appendChild(makeOption(pad2(m), m + '월'));
+        }
+
+        function rebuildDays() {
+          var yv = parseInt(ySel.value, 10);
+          var mv = parseInt(mSel.value, 10);
+          var maxDay = 31;
+          if (!isNaN(yv) && !isNaN(mv)) {
+            maxDay = new Date(yv, mv, 0).getDate();    // mv 의 마지막 날 (윤년 처리)
+          }
+          var keep = dSel.value;
+          while (dSel.options.length > 1) dSel.remove(1);
+          for (var d = 1; d <= maxDay; d++) {
+            dSel.appendChild(makeOption(pad2(d), d + '일'));
+          }
+          if (keep && parseInt(keep, 10) <= maxDay) dSel.value = keep; else dSel.value = '';
+          sync();
+        }
+        function sync() {
+          if (ySel.value && mSel.value && dSel.value) {
+            hidden.value = ySel.value + mSel.value + dSel.value;
+          } else {
+            hidden.value = '';
+          }
+        }
+        ySel.addEventListener('change', rebuildDays);
+        mSel.addEventListener('change', rebuildDays);
+        dSel.addEventListener('change', sync);
+
+        // 서버 prefill 또는 validation 실패 복원
+        if (hidden.value && /^\d{8}$/.test(hidden.value)) {
+          ySel.value = hidden.value.substring(0, 4);
+          mSel.value = hidden.value.substring(4, 6);
+          rebuildDays();
+          dSel.value = hidden.value.substring(6, 8);
+          sync();
+        } else {
+          rebuildDays();
+        }
+      })();
+    </script>
+
+    <script th:attr="nonce=${cspNonce}">
+      (function () {
+        'use strict';
+        var bd = document.getElementById('birthDate');
+        if (!bd || bd.getAttribute('data-child-required') !== 'true') return;
+
+        var errEl = document.getElementById('birthDateErr');
+        var form  = bd.closest('form');
+
+        function showError(msg) {
+          if (!errEl) return;
+          errEl.textContent = msg;
+          errEl.classList.remove('hidden');
+          bd.setAttribute('aria-invalid', 'true');
+        }
+        function clearError() {
+          if (!errEl) return;
+          errEl.textContent = '';
+          errEl.classList.add('hidden');
+          bd.removeAttribute('aria-invalid');
+        }
+
+        // 만 14세 미만 검증 — 14번째 생일에 도달했으면 거부
+        function validate(value) {
+          if (!value) return { ok: false, msg: '생년월일을 입력해 주세요. (YYYYMMDD)' };
+          if (!/^\d{8}$/.test(value)) return { ok: false, msg: '생년월일은 YYYYMMDD 8자리입니다.' };
+          var y = parseInt(value.substring(0, 4), 10);
+          var m = parseInt(value.substring(4, 6), 10);
+          var d = parseInt(value.substring(6, 8), 10);
+          var birth = new Date(y, m - 1, d);
+          if (birth.getFullYear() !== y || birth.getMonth() !== m - 1 || birth.getDate() !== d) {
+            return { ok: false, msg: '존재하지 않는 날짜입니다.' };
+          }
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+          if (birth > today) return { ok: false, msg: '미래 날짜는 입력할 수 없습니다.' };
+          // 만 나이 = 올해 생일이 지났으면 (올해 - 출생연도), 안 지났으면 -1
+          var age = today.getFullYear() - y;
+          var passedBirthday =
+            (today.getMonth() > m - 1) ||
+            (today.getMonth() === m - 1 && today.getDate() >= d);
+          if (!passedBirthday) age--;
+          if (age >= 14) {
+            return { ok: false, msg: '만 14세 이상은 일반(성인) 가입으로 진행해 주세요.' };
+          }
+          return { ok: true };
+        }
+
+        bd.addEventListener('blur', function () {
+          var r = validate(bd.value.trim());
+          if (r.ok) clearError(); else showError(r.msg);
+        });
+
+        if (form) {
+          form.addEventListener('submit', function (e) {
+            var r = validate(bd.value.trim());
+            if (!r.ok) {
+              e.preventDefault();
+              showError(r.msg);
+              bd.focus();
+            }
+          });
+        }
+      })();
+    </script>
+
+  </section>
+</body>
+</html>

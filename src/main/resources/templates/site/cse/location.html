@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<!-- ME 오시는길 — 콘텐츠 페이지 + 구글맵 embed(CSP frame-src www.google.com 허용). 메뉴 CONTENT /me/location. -->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/IBM/ibm'}__}"
+      lang="ko">
+<head>
+  <title>오시는 길</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner">
+      <p class="cds-tag mb-4">Location</p>
+      <h1 class="cds-heading-01">오시는 길</h1>
+      <p class="cds-body-01 cds-text-secondary mt-4">44919 울산광역시 울주군 언양읍 유니스트길 50 제3공학관(106동)</p>
+    </div>
+  </div>
+
+  <div class="cds-band cds-band--layer">
+    <div class="cds-band__inner grid grid-cols-1 lg:grid-cols-12 gap-0.5">
+      <!-- 지도 -->
+      <div class="lg:col-span-8 cds-tile bg-white p-0 overflow-hidden">
+        <iframe title="오시는 길 지도"
+                src="https://www.google.com/maps?q=44919 울산광역시 울주군 언양읍 유니스트길 50 제3공학관(106동)&output=embed&hl=ko"
+                width="100%" height="420" style="border:0" loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+      <!-- 주소/교통 -->
+      <div class="lg:col-span-4 cds-tile bg-white">
+        <h2 class="cds-heading-04 mb-3">주소 및 교통</h2>
+        <dl class="cds-body-short cds-text-secondary space-y-3">
+          <div>
+            <dt class="cds-body-02">주소</dt>
+            <dd>44919 울산광역시 울주군 언양읍 유니스트길 50 제3공학관(106동)</dd>
+          </div>
+          <div>
+            <dt class="cds-body-02">지도에서 열기</dt>
+            <dd>
+              <a class="cds-link"
+                 th:href="'https://www.google.com/maps/search/?api=1&query=' + ${#uris.escapeQueryParam('44919 울산광역시 울주군 언양읍 유니스트길 50 제3공학관(106동)')}"
+                 target="_blank" rel="noopener noreferrer">Google 지도 →</a>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

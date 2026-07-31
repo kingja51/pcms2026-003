@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>파일 등록 (드래그앤드롭) — 모듈 데모</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/file}" class="hover:underline">파일</a>
+      <span class="mx-1">/</span>
+      <span>드래그앤드롭 모듈</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">파일 등록 모듈 (드래그앤드롭)</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          게시판·콘텐츠·팝업 등 다른 화면에서 Thymeleaf fragment 로 include 해서 재사용하는 공통 모듈
+        </p>
+      </div>
+      <a th:href="@{/admin/system/file}"
+         class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">← 파일 목록</a>
+    </div>
+
+    <div th:if="${submittedAttachments}" role="status"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg">
+      <p class="font-semibold mb-1">폼 제출 결과 (데모 서버 에코백)</p>
+      <dl class="text-xs space-y-1">
+        <div><dt class="inline text-success-fg">title: </dt>
+             <dd class="inline font-mono" th:text="${submittedTitle} ?: '(없음)'"></dd></div>
+        <div><dt class="inline text-success-fg">attachments: </dt>
+             <dd class="inline font-mono break-all" th:text="${submittedAttachments}"></dd></div>
+      </dl>
+    </div>
+
+    <!-- ====================================================================
+         모드 선택 허브
+         ==================================================================== -->
+    <section th:if="${mode == 'hub'}" class="space-y-6">
+
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-base font-semibold text-fg-strong mb-2">기능 설명</h2>
+        <ul class="text-sm text-fg space-y-1 list-disc pl-5">
+          <li>드래그앤드롭 또는 파일 선택 다이얼로그로 <strong>여러 파일 업로드</strong></li>
+          <li>업로드는 백그라운드에서 <code class="font-mono">/api/v1/file/upload</code> 로 비동기 전송</li>
+          <li>업로드 완료된 파일의 <code class="font-mono">fileId</code> 를 hidden input(JSON 배열)에 누적</li>
+          <li>개별 파일 <strong>삭제 버튼</strong> — UI 에서 제거 + hidden input 갱신</li>
+          <li>이미지는 썸네일 자동 표시 (서버가 비동기 생성 완료 시)</li>
+          <li>업로드 진행률·성공·실패 상태 실시간 표시</li>
+          <li>읽기 전용 모드 — 상세 보기에서 드롭존 숨김·삭제 버튼 비활성</li>
+          <li>CSRF 자동 처리 (<code class="font-mono">&lt;meta name="_csrf"&gt;</code> 읽기)</li>
+        </ul>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <a th:href="@{/admin/system/file/demo/create}"
+           class="block bg-surface border border-line rounded-large p-5 hover:border-brand-40 hover:shadow-sm transition">
+          <div class="text-xs font-mono text-brand-60 mb-1">CREATE</div>
+          <div class="font-semibold text-fg-strong">등록 폼 샘플</div>
+          <p class="text-xs text-fg-subtle mt-1">빈 상태에서 드래그앤드롭으로 파일 추가·제거·제출</p>
+        </a>
+        <a th:href="@{/admin/system/file/demo/edit}"
+           class="block bg-surface border border-line rounded-large p-5 hover:border-brand-40 hover:shadow-sm transition">
+          <div class="text-xs font-mono text-brand-60 mb-1">EDIT</div>
+          <div class="font-semibold text-fg-strong">수정 폼 샘플</div>
+          <p class="text-xs text-fg-subtle mt-1">최근 파일 3건이 사전 주입된 상태. 삭제·추가 테스트</p>
+        </a>
+        <a th:href="@{/admin/system/file/demo/view}"
+           class="block bg-surface border border-line rounded-large p-5 hover:border-brand-40 hover:shadow-sm transition">
+          <div class="text-xs font-mono text-brand-60 mb-1">VIEW</div>
+          <div class="font-semibold text-fg-strong">상세 보기 샘플</div>
+          <p class="text-xs text-fg-subtle mt-1">읽기 전용 — 드롭존 숨김, 다운로드만</p>
+        </a>
+      </div>
+
+      <!-- 다른 프로그램 재사용 가이드 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-base font-semibold text-fg-strong mb-3">다른 화면에서 재사용하기</h2>
+        <p class="text-sm text-fg mb-3">
+          게시판/콘텐츠 등 다른 Thymeleaf 페이지의 등록·수정·상세 폼에서 아래처럼 include:
+        </p>
+
+<pre class="text-xs font-mono bg-gray-90 text-gray-10 rounded p-4 overflow-auto">&lt;!-- &lt;head&gt; --&gt;
+&lt;th:block th:replace="~{fragments/file-picker :: styles}"/&gt;
+
+&lt;!-- &lt;body&gt; 폼 내부 --&gt;
+&lt;form th:action="@{/board/save}" method="post"&gt;
+  ...
+  &lt;div th:replace="~{fragments/file-picker :: picker(
+      inputName='attachments',
+      category='ANY',
+      multiple=true,
+      existingFiles=${existing},
+      readOnly=false,
+      entityType='BBS',
+      entityId=${board.boardId},
+      siteId=${site.siteId},
+      maxFiles=20,
+      fileGroupId=${board.fileGroupId}
+  )}"&gt;&lt;/div&gt;
+  ...
+&lt;/form&gt;
+
+&lt;!-- &lt;/body&gt; 직전 --&gt;
+&lt;th:block th:replace="~{fragments/file-picker :: scripts}"/&gt;</pre>
+
+        <p class="text-sm text-fg mt-3 mb-1">서버 Controller 는:</p>
+<pre class="text-xs font-mono bg-gray-90 text-gray-10 rounded p-4 overflow-auto">@PostMapping("/board/save")
+public String save(@RequestParam("attachments") String attachmentsJson, ...) {
+    // attachmentsJson = ["019d...","019d..."]
+    List&lt;String&gt; fileIds = new ObjectMapper().readValue(
+        attachmentsJson, new TypeReference&lt;List&lt;String&gt;&gt;(){});
+    // 자체 테이블 (예: tb_bbs_attach) 에 게시글 ID + fileId 매핑 저장
+    ...
+}</pre>
+
+        <h3 class="text-sm font-semibold text-fg mt-4 mb-2">파라미터</h3>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-xs border border-line">
+            <thead class="bg-surface-subtle">
+              <tr class="text-left">
+                <th class="px-2 py-1 border-b">이름</th>
+                <th class="px-2 py-1 border-b">타입</th>
+                <th class="px-2 py-1 border-b">기본값</th>
+                <th class="px-2 py-1 border-b">설명</th>
+              </tr>
+            </thead>
+            <tbody class="text-fg">
+              <tr><td class="px-2 py-1 font-mono">inputName</td>     <td class="px-2 py-1">String</td>  <td class="px-2 py-1">fileIds</td>   <td class="px-2 py-1">hidden input 의 name (폼 제출 키)</td></tr>
+              <tr><td class="px-2 py-1 font-mono">category</td>      <td class="px-2 py-1">String</td>  <td class="px-2 py-1">ANY</td>       <td class="px-2 py-1">DOC / IMAGE / VIDEO / ANY</td></tr>
+              <tr><td class="px-2 py-1 font-mono">multiple</td>      <td class="px-2 py-1">boolean</td> <td class="px-2 py-1">true</td>      <td class="px-2 py-1">여러 파일 허용 여부</td></tr>
+              <tr><td class="px-2 py-1 font-mono">existingFiles</td> <td class="px-2 py-1">List&lt;FileItem&gt;</td> <td class="px-2 py-1">[]</td> <td class="px-2 py-1">수정/상세 시 기존 파일 시드</td></tr>
+              <tr><td class="px-2 py-1 font-mono">readOnly</td>      <td class="px-2 py-1">boolean</td> <td class="px-2 py-1">false</td>     <td class="px-2 py-1">true 면 드롭존 숨김·삭제 버튼 숨김</td></tr>
+              <tr><td class="px-2 py-1 font-mono">entityType</td>    <td class="px-2 py-1">String</td>  <td class="px-2 py-1">ETC</td>       <td class="px-2 py-1">BBS/CNT/MBR/POPUP/MAIL/ETC</td></tr>
+              <tr><td class="px-2 py-1 font-mono">entityId</td>      <td class="px-2 py-1">String</td>  <td class="px-2 py-1">(빈값)</td>    <td class="px-2 py-1">상위 엔티티 ID — 같은 그룹에 묶기</td></tr>
+              <tr><td class="px-2 py-1 font-mono">siteId</td>        <td class="px-2 py-1">String</td>  <td class="px-2 py-1">(빈값)</td>    <td class="px-2 py-1">멀티사이트 구분</td></tr>
+              <tr><td class="px-2 py-1 font-mono">maxFiles</td>      <td class="px-2 py-1">int</td>     <td class="px-2 py-1">20</td>        <td class="px-2 py-1">최대 업로드 개수</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 class="text-sm font-semibold text-fg mt-4 mb-2">커스텀 이벤트</h3>
+        <p class="text-xs text-fg-subtle">파일 추가/삭제 시 <code class="font-mono">fp:change</code> 이벤트 발행. <code class="font-mono">detail.fileIds</code> 로 현재 목록 접근:</p>
+<pre class="text-xs font-mono bg-gray-90 text-gray-10 rounded p-3 overflow-auto mt-1">document.addEventListener('fp:change', (e) =&gt; {
+  console.log(e.detail.fileIds);   // ["019d...", ...]
+});</pre>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         등록 폼 샘플
+         ==================================================================== -->
+    <section th:if="${mode == 'create'}">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <h2 class="text-lg font-bold text-fg-strong">등록 폼 샘플</h2>
+        <a th:href="@{/admin/system/file/demo}" class="text-sm text-brand-60 hover:underline">← 허브로</a>
+      </div>
+      <p class="text-sm text-fg-subtle mb-4">
+        빈 상태에서 파일을 드래그하거나 선택하세요. "등록" 클릭 시 hidden input 의 JSON 배열이 서버에 제출됩니다.
+      </p>
+
+      <form th:action="@{/admin/system/file/demo/submit}" method="post"
+            class="bg-surface border border-line rounded-large p-6 space-y-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+        <div>
+          <label for="title" class="block text-sm font-medium text-fg mb-1">제목</label>
+          <input id="title" type="text" name="title" maxlength="100"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"
+                 placeholder="임의 제목"/>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-fg mb-2">첨부</label>
+          <div th:replace="~{fragments/file-picker :: picker(
+              inputName='attachments',
+              category='ANY',
+              multiple=true,
+              existingFiles=${existing},
+              readOnly=false,
+              entityType='ETC',
+              entityId=null,
+              siteId=null,
+              maxFiles=20,
+              fileGroupId=null
+          )}"></div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-4 border-t border-line">
+          <a th:href="@{/admin/system/file/demo}"
+             class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+          <button type="submit"
+                  class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">등록</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ====================================================================
+         수정 폼 샘플
+         ==================================================================== -->
+    <section th:if="${mode == 'edit'}">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <h2 class="text-lg font-bold text-fg-strong">수정 폼 샘플</h2>
+        <a th:href="@{/admin/system/file/demo}" class="text-sm text-brand-60 hover:underline">← 허브로</a>
+      </div>
+      <p class="text-sm text-fg-subtle mb-4">
+        최근 파일 3건이 사전 주입된 상태. 기존 파일은 "삭제" 버튼으로 빼고, 새 파일 추가·제출 테스트.
+      </p>
+
+      <form th:action="@{/admin/system/file/demo/submit}" method="post"
+            class="bg-surface border border-line rounded-large p-6 space-y-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+        <div>
+          <label for="title-edit" class="block text-sm font-medium text-fg mb-1">제목</label>
+          <input id="title-edit" type="text" name="title" maxlength="100"
+                 value="수정 샘플 제목"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-fg mb-2">첨부</label>
+          <div th:replace="~{fragments/file-picker :: picker(
+              inputName='attachments',
+              category='ANY',
+              multiple=true,
+              existingFiles=${existing},
+              readOnly=false,
+              entityType='ETC',
+              entityId=null,
+              siteId=null,
+              maxFiles=20,
+              fileGroupId=null
+          )}"></div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-4 border-t border-line">
+          <a th:href="@{/admin/system/file/demo}"
+             class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+          <button type="submit"
+                  class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">저장</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ====================================================================
+         상세 보기 샘플
+         ==================================================================== -->
+    <section th:if="${mode == 'view'}">
+      <div class="flex items-center justify-between gap-2 mb-3">
+        <h2 class="text-lg font-bold text-fg-strong">상세 보기 샘플 (읽기 전용)</h2>
+        <a th:href="@{/admin/system/file/demo}" class="text-sm text-brand-60 hover:underline">← 허브로</a>
+      </div>
+      <p class="text-sm text-fg-subtle mb-4">
+        <code class="font-mono">readOnly=true</code> 로 호출 — 드롭존·삭제 버튼 숨김, 다운로드만 허용.
+      </p>
+
+      <div class="bg-surface border border-line rounded-large p-6 space-y-4">
+        <div>
+          <div class="text-xs text-fg-subtle mb-1">제목</div>
+          <div class="text-fg-strong">상세 샘플 제목</div>
+        </div>
+        <div>
+          <div class="text-xs text-fg-subtle mb-2">첨부</div>
+          <div th:replace="~{fragments/file-picker :: picker(
+              inputName='attachments',
+              category='ANY',
+              multiple=true,
+              existingFiles=${existing},
+              readOnly=true,
+              entityType='ETC',
+              entityId=null,
+              siteId=null,
+              maxFiles=20,
+              fileGroupId=null
+          )}"></div>
+        </div>
+      </div>
+    </section>
+
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+  </section>
+</body>
+</html>

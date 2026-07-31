@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>비밀번호 이력 상세</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a> /
+      <a th:href="@{/admin/system/member/password-history}" class="hover:underline">비밀번호 이력</a> /
+      <span>상세</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-4">비밀번호 이력 상세</h1>
+
+    <div class="bg-surface border border-line rounded-large p-5">
+      <dl class="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-y-3 text-sm">
+        <dt class="text-fg-subtle">이력 ID</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${row.pwdHistoryId}">-</dd>
+
+        <dt class="text-fg-subtle">회원 ID</dt>
+        <dd><a th:href="@{/admin/system/member/{id}(id=${row.memberId})}" class="font-mono text-xs text-brand-60 hover:underline" th:text="${row.memberId}">-</a></dd>
+
+        <dt class="text-fg-subtle">변경 일시</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${@fmt.dt(row.changedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">password_hash</dt>
+        <dd class="text-fg-subtle italic">평문 노출 영구 차단 — 길이 <span th:text="${row.passwordHash != null ? row.passwordHash.length() : 0}">60</span> bytes (BCrypt)</dd>
+
+        <dt class="text-fg-subtle pt-3 border-t border-divider">등록 IP</dt>
+        <dd class="font-mono text-xs text-fg-subtle pt-3 border-t border-divider" th:text="${row.createdIp} ?: '-'">-</dd>
+      </dl>
+    </div>
+
+    <div class="mt-6">
+      <a th:href="@{/admin/system/member/password-history}" class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">목록</a>
+    </div>
+  </section>
+</body>
+</html>

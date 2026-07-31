@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<!--
+  휴면 계정 전환 안내 메일 — 배치(향후 S5) 가 1년 미접속 회원을 tb_member_dormant 로
+  이관하기 전·후 발송. 정책상 30일 전 사전 안내 메일 1회 + 전환 당일 확정 메일 1회.
+  모델 변수:
+    memberName     : 회원 이름 (PII)
+    loginId        : 로그인 ID
+    siteName       : 사이트명
+    lastLoginAt    : 최종 로그인/접속 일시
+    dormantAt      : 휴면 전환 예정/완료 일시
+    stage          : 'NOTICE' (사전 안내) / 'APPLIED' (전환 완료)
+    reactivateUrl  : 휴면 해제 안내 URL
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <title th:text="${stage == 'APPLIED'} ? '휴면 계정 전환 완료' : '휴면 계정 전환 예정 안내'">휴면 계정 안내</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f8fafc;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0"
+               style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+
+          <!-- 헤더 -->
+          <tr>
+            <td style="padding:24px 32px;border-bottom:1px solid #e2e8f0;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="width:36px;height:36px;background-color:#0f172a;border-radius:6px;color:#ffffff;text-align:center;font-weight:700;font-size:18px;line-height:36px;">G</td>
+                  <td style="padding-left:10px;">
+                    <div style="font-weight:700;font-size:16px;color:#0f172a;" th:text="${@project.nameKo}">관리자</div>
+                    <div style="font-size:12px;color:#64748b;"
+                         th:text="${siteName} ?: '기본 사이트'">기본 사이트</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- 본문 -->
+          <tr>
+            <td style="padding:28px 32px;">
+              <!-- 단계별 배지 -->
+              <div th:if="${stage == 'APPLIED'}"
+                   style="display:inline-block;background-color:#fee2e2;color:#991b1b;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:0.3px;margin-bottom:12px;">DORMANT APPLIED</div>
+              <div th:unless="${stage == 'APPLIED'}"
+                   style="display:inline-block;background-color:#fef3c7;color:#92400e;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:0.3px;margin-bottom:12px;">DORMANT NOTICE</div>
+
+              <h1 style="margin:0 0 12px 0;font-size:18px;color:#0f172a;"
+                  th:text="${stage == 'APPLIED'} ? '계정이 휴면 상태로 전환되었습니다' : '휴면 계정 전환 예정 안내'">
+                휴면 계정 안내
+              </h1>
+
+              <p style="margin:0 0 16px 0;font-size:14px;line-height:1.7;color:#334155;">
+                안녕하세요, <strong th:text="${memberName}">홍길동</strong> 님.
+              </p>
+
+              <!-- 사전 안내 -->
+              <p th:if="${stage != 'APPLIED'}"
+                 style="margin:0 0 16px 0;font-size:14px;line-height:1.7;color:#334155;">
+                정보통신망법 제29조 및 시행령에 따라, 일정 기간(1년) 동안 서비스 이용이 없는 계정은
+                개인정보 보호를 위해 <strong>휴면 상태로 전환</strong>됩니다.
+                휴면 전환을 원치 않으시면 전환 예정일 전에 로그인해 주세요.
+              </p>
+
+              <!-- 전환 완료 -->
+              <p th:if="${stage == 'APPLIED'}"
+                 style="margin:0 0 16px 0;font-size:14px;line-height:1.7;color:#334155;">
+                장기 미접속으로 회원님의 계정이 휴면 상태로 전환되었습니다. 개인정보는 분리된 저장소
+                (<code style="font-family:ui-monospace,monospace;">tb_member_dormant</code>) 에 안전하게 보관됩니다.
+                재사용하시려면 아래 안내에 따라 휴면 해제를 진행해 주세요.
+              </p>
+
+              <!-- 계정 정보 -->
+              <div style="margin:20px 0;padding:16px 20px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+                  <tr>
+                    <td style="padding:6px 0;font-size:12px;color:#64748b;width:120px;">로그인 ID</td>
+                    <td style="padding:6px 0;font-size:13px;color:#0f172a;font-family:ui-monospace,monospace;"
+                        th:text="${loginId}">example_user</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;font-size:12px;color:#64748b;">최종 접속 일시</td>
+                    <td style="padding:6px 0;font-size:13px;color:#0f172a;font-family:ui-monospace,monospace;"
+                        th:text="${lastLoginAt != null ? #temporals.format(lastLoginAt, 'yyyy-MM-dd HH:mm') : '-'}">2025-04-21 10:00</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;font-size:12px;color:#64748b;"
+                        th:text="${stage == 'APPLIED'} ? '전환 일시' : '전환 예정일'">전환 예정일</td>
+                    <td style="padding:6px 0;font-size:13px;color:#0f172a;font-weight:600;font-family:ui-monospace,monospace;"
+                        th:text="${#temporals.format(dormantAt, 'yyyy-MM-dd')}">2026-05-21</td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- 액션 버튼 -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0;">
+                <tr>
+                  <td>
+                    <a th:href="${reactivateUrl} ?: '#'"
+                       style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:14px;padding:12px 24px;border-radius:6px;text-decoration:none;"
+                       th:text="${stage == 'APPLIED'} ? '휴면 해제하기 →' : '지금 로그인해서 휴면 방지 →'">
+                      지금 로그인하기
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- 안내 -->
+              <h2 style="margin:28px 0 10px 0;font-size:14px;color:#0f172a;">보관 정책</h2>
+              <ul style="margin:0 0 16px 20px;padding:0;font-size:12px;line-height:1.8;color:#334155;">
+                <li>휴면 전환 후에도 회원님의 개인정보는 법령에 따라 분리 보관됩니다.</li>
+                <li>언제든 본인 확인을 거쳐 휴면을 해제하고 계정을 재사용하실 수 있습니다.</li>
+                <li>일정 기간이 더 경과되면 개인정보는 법령에 따라 자동 파기됩니다.</li>
+              </ul>
+
+              <p style="margin:16px 0 0 0;font-size:12px;color:#94a3b8;">
+                발송 일시:
+                <span th:text="${#temporals.format(#temporals.createNow(), 'yyyy-MM-dd HH:mm:ss')}">2026-04-21 15:30:00</span>
+              </p>
+            </td>
+          </tr>
+
+          <!-- 푸터 -->
+          <tr>
+            <td style="padding:16px 32px;border-top:1px solid #e2e8f0;background-color:#f8fafc;font-size:11px;color:#94a3b8;line-height:1.6;">
+              본 메일은 <span th:text="${@project.nameKo}">관리자</span> 시스템에서 자동 발송되었습니다. 회신이 불가합니다.<br/>
+              문의: <a href="mailto:kingja51@gmail.com" style="color:#64748b;">고객센터</a>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

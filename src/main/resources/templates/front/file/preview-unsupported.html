@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{front/layouts/VIEWER/viewer}"
+      lang="ko">
+<head>
+  <title th:text="|미리보기 · ${originalName}|">미리보기</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-2xl mx-auto">
+
+    <!-- 헤더 1줄: 파일명 + 다운로드. -->
+    <header class="mb-3 flex items-center justify-between gap-3 flex-wrap">
+      <h1 class="min-w-0 flex-1 text-base font-semibold text-slate-900 truncate"
+          th:text="${originalName}" th:title="${originalName}">파일명</h1>
+      <a th:href="@{${downloadUrl}}"
+         class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+        ⬇ 원본 다운로드
+      </a>
+    </header>
+
+    <!-- 형식별 안내 분기 -->
+    <th:block th:switch="${extension}">
+      <div th:case="'hwp'"
+           class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <h2 class="text-sm font-semibold text-amber-900 mb-1">한글 문서 (HWP) 미리보기는 곧 지원됩니다</h2>
+        <p class="text-xs text-amber-800">
+          현재 HWP/HWPX 인플레이스 뷰어를 준비 중입니다. 원본 다운로드 후
+          한컴오피스나 무료 뷰어로 열어 주세요.
+        </p>
+      </div>
+      <div th:case="'hwpx'"
+           class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+        <h2 class="text-sm font-semibold text-amber-900 mb-1">한글 문서 (HWPX) 미리보기는 곧 지원됩니다</h2>
+        <p class="text-xs text-amber-800">
+          현재 HWP/HWPX 인플레이스 뷰어를 준비 중입니다. 원본 다운로드 후
+          한컴오피스나 무료 뷰어로 열어 주세요.
+        </p>
+      </div>
+      <div th:case="'docx'"
+           class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <h2 class="text-sm font-semibold text-blue-900 mb-1">Word 문서 (DOCX) 미리보기는 곧 지원됩니다</h2>
+        <p class="text-xs text-blue-800">서버 변환 모듈을 준비 중입니다. 원본 다운로드 후 Word 또는 호환 프로그램으로 열어 주세요.</p>
+      </div>
+      <div th:case="'xlsx'"
+           class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <h2 class="text-sm font-semibold text-blue-900 mb-1">Excel 문서 (XLSX) 미리보기는 곧 지원됩니다</h2>
+        <p class="text-xs text-blue-800">서버 변환 모듈을 준비 중입니다. 원본 다운로드 후 Excel 또는 호환 프로그램으로 열어 주세요.</p>
+      </div>
+      <div th:case="'pptx'"
+           class="rounded-lg border border-blue-200 bg-blue-50 p-4">
+        <h2 class="text-sm font-semibold text-blue-900 mb-1">PowerPoint 문서 (PPTX) 미리보기는 곧 지원됩니다</h2>
+        <p class="text-xs text-blue-800">서버 변환 모듈을 준비 중입니다. 원본 다운로드 후 PowerPoint 또는 호환 프로그램으로 열어 주세요.</p>
+      </div>
+      <div th:case="*"
+           class="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <h2 class="text-sm font-semibold text-slate-900 mb-1">미리보기를 지원하지 않는 형식입니다</h2>
+        <p class="text-xs text-slate-700">
+          확장자 <code class="px-1 rounded bg-white border border-slate-200" th:text="${#strings.isEmpty(extension)} ? '(없음)' : extension">ext</code>
+          는 인플레이스 뷰어가 지원되지 않습니다. 원본 다운로드 후 적절한 프로그램으로 열어 주세요.
+        </p>
+      </div>
+    </th:block>
+
+  </section>
+</body>
+</html>

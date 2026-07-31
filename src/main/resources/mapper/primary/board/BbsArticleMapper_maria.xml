@@ -1,0 +1,338 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_bbs_article CRUD Mapper.
+  AuditInterceptor 가 INSERT/UPDATE 시 6감사컬럼 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.board.article.mapper.BbsArticleMapper">
+
+  <sql id="articleColumns">
+    a.article_id, a.bbs_master_id, a.category_id, a.file_group_id,
+    a.writer_user_id, a.writer_user_type, a.writer_name, a.writer_password,
+    a.title, a.content,
+    a.press_name, a.link_url, a.published_at,
+    a.notice_yn, a.secret_yn,
+    a.view_count, a.like_count, a.report_count, a.comment_count,
+    a.client_ip, a.status, a.delete_yn,
+    a.created_by, a.created_ip, a.created_at,
+    a.updated_by, a.updated_ip, a.updated_at,
+    m.bbs_code   AS bbs_code,
+    m.bbs_name   AS bbs_name,
+    m.bbs_type   AS bbs_type,
+    m.site_id    AS site_id,
+    s.site_code  AS site_code,
+    m.comment_yn AS commentYn,
+    m.file_yn    AS fileYn,
+    cat.category_code AS category_code,
+    cat.category_name AS category_name,
+    (SELECT f.file_id
+       FROM tb_file f
+      WHERE f.file_group_id = a.file_group_id
+        AND f.delete_yn     = 'N'
+        AND f.is_image_yn   = 'Y'
+        AND f.virus_scan_status IN ('CLEAN','PENDING')
+      ORDER BY f.created_at ASC, f.file_id ASC
+      LIMIT 1) AS cover_file_id
+  </sql>
+
+  <sql id="listFilter">
+    WHERE a.delete_yn = 'N'
+      <choose>
+          <when test="search.groupedBoardIdArray != null and search.groupedBoardIdArray != ''">
+              AND a.bbs_master_id IN
+              <foreach collection="search.groupedBoardIdArray" item="id" open="(" separator="," close=")">
+                  #{id}
+              </foreach>
+          </when>
+          <otherwise>
+              AND a.bbs_master_id = #{search.bbsMasterId}
+          </otherwise>
+      </choose>
+
+    <if test="search.status != null and search.status != '' and search.status != 'ALL'">
+      AND a.status = #{search.status}
+    </if>
+    <if test="search.categoryId != null and search.categoryId != ''">
+      AND a.category_id = #{search.categoryId}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      <choose>
+        <when test="search.searchType == 'TITLE'">
+          AND a.title LIKE CONCAT('%', #{search.keyword}, '%')
+        </when>
+        <when test="search.searchType == 'WRITER'">
+          AND a.writer_name LIKE CONCAT('%', #{search.keyword}, '%')
+        </when>
+        <when test="search.searchType == 'CONTENT'">
+          AND a.content LIKE CONCAT('%', #{search.keyword}, '%')
+        </when>
+        <otherwise>
+          AND (a.title LIKE CONCAT('%', #{search.keyword}, '%')
+            OR a.writer_name LIKE CONCAT('%', #{search.keyword}, '%'))
+        </otherwise>
+      </choose>
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.board.article.dto.BbsArticle">
+    SELECT <include refid="articleColumns"/>
+      FROM tb_bbs_article  a
+      JOIN tb_bbs_master   m ON m.bbs_master_id = a.bbs_master_id
+      LEFT JOIN tb_site         s   ON s.site_id     = m.site_id
+      LEFT JOIN tb_bbs_category cat ON cat.category_id = a.category_id
+                                   AND cat.delete_yn  = 'N'
+    <include refid="listFilter"/>
+    <choose>
+      <when test="search.includeNotice">
+        ORDER BY a.notice_yn DESC, a.created_at DESC
+      </when>
+      <otherwise>
+        ORDER BY a.created_at DESC
+      </otherwise>
+    </choose>
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_bbs_article a
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.board.article.dto.BbsArticle">
+    SELECT <include refid="articleColumns"/>
+      FROM tb_bbs_article  a
+      JOIN tb_bbs_master   m ON m.bbs_master_id = a.bbs_master_id
+      LEFT JOIN tb_site         s   ON s.site_id     = m.site_id
+      LEFT JOIN tb_bbs_category cat ON cat.category_id = a.category_id
+                                   AND cat.delete_yn  = 'N'
+     WHERE a.article_id = #{articleId}
+       AND a.delete_yn  = 'N'
+  </select>
+
+  <!-- OWNER_PRIVACY 정책 평가용 — 작성자 식별자만 가벼이 조회 -->
+  <select id="findCreatedBy" resultType="string">
+    SELECT created_by
+      FROM tb_bbs_article
+     WHERE article_id = #{articleId}
+     LIMIT 1
+  </select>
+
+  <select id="findByBbsAndId" resultType="com.gonet.primary.board.article.dto.BbsArticle">
+    SELECT <include refid="articleColumns"/>
+      FROM tb_bbs_article  a
+      JOIN tb_bbs_master   m ON m.bbs_master_id = a.bbs_master_id
+      LEFT JOIN tb_site         s   ON s.site_id     = m.site_id
+      LEFT JOIN tb_bbs_category cat ON cat.category_id = a.category_id
+                                   AND cat.delete_yn  = 'N'
+     WHERE a.article_id    = #{articleId}
+       AND a.bbs_master_id = #{bbsMasterId}
+       AND a.delete_yn     = 'N'
+  </select>
+
+  <!-- 이전글/다음글 — 상세 하단 내비(fragments/bbs-prev-next). PUBLISHED 만,
+       created_at 동률은 article_id(UUID v7, 시간순) 타이브레이크. 경량 3컬럼만 조회. -->
+  <select id="findPrev" resultType="com.gonet.primary.board.article.dto.BbsArticle">
+    SELECT a.article_id, a.title, a.created_at
+      FROM tb_bbs_article a
+     WHERE a.bbs_master_id = #{bbsMasterId}
+       AND a.delete_yn     = 'N'
+       AND a.status        = 'PUBLISHED'
+       AND (a.created_at &lt; #{createdAt}
+            OR (a.created_at = #{createdAt} AND a.article_id &lt; #{articleId}))
+     ORDER BY a.created_at DESC, a.article_id DESC
+     LIMIT 1
+  </select>
+
+  <select id="findNext" resultType="com.gonet.primary.board.article.dto.BbsArticle">
+    SELECT a.article_id, a.title, a.created_at
+      FROM tb_bbs_article a
+     WHERE a.bbs_master_id = #{bbsMasterId}
+       AND a.delete_yn     = 'N'
+       AND a.status        = 'PUBLISHED'
+       AND (a.created_at &gt; #{createdAt}
+            OR (a.created_at = #{createdAt} AND a.article_id &gt; #{articleId}))
+     ORDER BY a.created_at ASC, a.article_id ASC
+     LIMIT 1
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.board.article.dto.BbsArticle">
+    INSERT INTO tb_bbs_article (
+      article_id, bbs_master_id, category_id, file_group_id,
+      writer_user_id, writer_user_type, writer_name, writer_password,
+      title, content,
+      press_name, link_url, published_at,
+      notice_yn, secret_yn,
+      view_count, like_count, report_count, comment_count,
+      client_ip, status, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{articleId}, #{bbsMasterId}, #{categoryId}, #{fileGroupId},
+      #{writerUserId}, #{writerUserType}, #{writerName}, #{writerPassword},
+      #{title}, #{content},
+      #{pressName}, #{linkUrl}, #{publishedAt},
+      #{noticeYn}, #{secretYn},
+      #{viewCount}, #{likeCount}, #{reportCount}, #{commentCount},
+      #{clientIp}, #{status}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.board.article.dto.BbsArticle">
+    UPDATE tb_bbs_article SET
+      <if test="title != null and title != ''">title=#{title},</if>
+      <if test="content != null and content != ''">content=#{content},</if>
+      <if test="pressName != null and pressName != ''">press_name=#{pressName},</if>
+      <if test="linkUrl != null and linkUrl != ''">link_url=#{linkUrl},</if>
+      <if test="publishedAt != null">published_at=#{publishedAt},</if>
+      <if test="writerName != null and writerName != ''">writer_name=#{writerName},</if>
+      <if test="secretYn != null and secretYn != ''">secret_yn=#{secretYn},</if>
+      <if test="noticeYn != null and noticeYn != ''">notice_yn=#{noticeYn},</if>
+      <if test="categoryId != null and categoryId != ''">category_id=#{categoryId},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE article_id    = #{articleId}
+       AND delete_yn     = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_bbs_article
+       SET delete_yn  = 'Y',
+           status     = 'DELETED',
+           updated_at = NOW()
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="updateStatus">
+    UPDATE tb_bbs_article
+       SET status     = #{status},
+           updated_at = NOW()
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="updateNoticeYn">
+    UPDATE tb_bbs_article
+       SET notice_yn  = #{noticeYn},
+           updated_at = NOW()
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!--
+    view_count 증가는 6감사컬럼을 건드리지 않는다.
+    AuditInterceptor 가 자동 주입하지 않도록 컬럼 명시 안 함 (#{updatedBy} 등 미사용).
+  -->
+  <update id="incrementViewCount">
+    UPDATE tb_bbs_article
+       SET view_count = view_count + 1
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!-- 댓글 CUD 후 comment_count 재계산. PUBLISHED 만 카운트. -->
+  <update id="recomputeCommentCount">
+    UPDATE tb_bbs_article
+       SET comment_count = (
+             SELECT COUNT(1) FROM tb_bbs_comment
+              WHERE article_id = #{articleId}
+                AND delete_yn  = 'N'
+                AND status     = 'PUBLISHED'
+           )
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!--
+    like_count / report_count 비정규화 동기화. 좋아요/신고 토글 직후 호출.
+    6감사컬럼 미주입 — created/updated_by 보존, updated_at 만 ON UPDATE 트리거.
+  -->
+  <update id="updateLikeCount">
+    UPDATE tb_bbs_article
+       SET like_count = #{likeCount}
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="updateReportCount">
+    UPDATE tb_bbs_article
+       SET report_count = #{reportCount}
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!--
+    H-1 race 가드 — 원자적 증감.
+    GREATEST(.., 0) 클램프로 음수 회피 (좋아요 OFF 시 UNDERFLOW 대비).
+    DB 가 단일 UPDATE 로 처리하므로 SELECT→UPDATE race window 영구 차단.
+  -->
+  <update id="incrementLikeCount">
+    UPDATE tb_bbs_article
+       SET like_count = GREATEST(like_count + #{delta}, 0)
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="incrementReportCount">
+    UPDATE tb_bbs_article
+       SET report_count = GREATEST(report_count + #{delta}, 0)
+     WHERE article_id   = #{articleId}
+       AND delete_yn    = 'N'
+  </update>
+
+  <!-- 자동 REPORTED 전환 — status 만 변경, audit 컬럼 미주입 (시스템 자동 전환이므로). -->
+  <update id="markStatusReportedIfPublished">
+    UPDATE tb_bbs_article
+       SET status     = 'REPORTED',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+       AND status     = 'PUBLISHED'
+  </update>
+
+  <!-- 색인 재구축용 — 활성 게시글 전체. status 무관 (Service 가 PUBLISHED 만 등록). -->
+  <select id="findAllForReindex" resultType="com.gonet.primary.board.article.dto.BbsArticle">
+    SELECT <include refid="articleColumns"/>
+      FROM tb_bbs_article  a
+      JOIN tb_bbs_master   m ON m.bbs_master_id = a.bbs_master_id
+      LEFT JOIN tb_site         s   ON s.site_id     = m.site_id
+      LEFT JOIN tb_bbs_category cat ON cat.category_id = a.category_id
+                                   AND cat.delete_yn  = 'N'
+     WHERE a.delete_yn = 'N'
+     ORDER BY a.created_at ASC
+  </select>
+
+  <!-- 회원 대시보드 — 본인 작성 최신 N건. status DELETED 만 제외. -->
+  <select id="findRecentByCreatedBy" resultType="com.gonet.primary.board.article.dto.BbsArticle">
+    SELECT <include refid="articleColumns"/>
+      FROM tb_bbs_article  a
+      JOIN tb_bbs_master   m ON m.bbs_master_id = a.bbs_master_id
+      LEFT JOIN tb_site         s   ON s.site_id     = m.site_id
+      LEFT JOIN tb_bbs_category cat ON cat.category_id = a.category_id
+                                   AND cat.delete_yn  = 'N'
+     WHERE a.delete_yn  = 'N'
+       AND a.created_by = #{createdBy}
+       AND a.status    &lt;&gt; 'DELETED'
+     ORDER BY a.created_at DESC
+     LIMIT #{limit}
+  </select>
+
+
+    <!-- Soft-delete retention — RetentionScheduler 가 cutoff 를 계산해 전달 (bucket 별 30/90/180일) -->
+    <delete id="purgeSoftDeletedOlderThan">
+        DELETE FROM tb_bbs_article
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </delete>
+
+    <select id="countSoftDeletedOlderThan" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_bbs_article
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </select>
+
+</mapper>

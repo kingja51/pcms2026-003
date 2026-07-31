@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>알림</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="max-w-[768px] mx-auto px-4 py-6">
+
+      <div class="flex items-center justify-between gap-4 flex-wrap mb-4">
+        <div>
+          <h1 class="text-heading-md font-bold text-fg-strong">알림</h1>
+          <p class="text-body-sm text-fg-subtle mt-1">
+            미확인 <strong class="text-primary-60" th:text="${unreadCount}">0</strong>건 ·
+            전체 <strong th:text="${page.totalElements}">0</strong>건
+          </p>
+        </div>
+        <form th:if="${unreadCount > 0}" th:action="@{/notification/read-all}" method="post" class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit" class="krds-btn krds-btn-sm krds-btn-primary">
+            모두 읽음 처리
+          </button>
+        </form>
+      </div>
+
+      <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+        <span class="text-success-icon font-bold shrink-0" aria-hidden="true">✓</span>
+        <p th:text="${message}"></p>
+      </div>
+      <div th:if="${error}" role="alert" aria-live="polite" class="krds-alert krds-alert-danger mb-4">
+        <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+
+      <form th:action="@{/notification}" method="get" class="bg-surface border border-line rounded-large p-3 mb-4 flex flex-wrap items-end gap-2">
+        <div class="w-[140px]">
+          <label for="filterReadYn" class="block text-label-xs font-medium text-fg-subtle mb-1">읽음</label>
+          <select id="filterReadYn" name="readYn" class="krds-input">
+            <option value="">전체</option>
+            <option value="N" th:selected="${search?.readYn == 'N'}">미확인</option>
+            <option value="Y" th:selected="${search?.readYn == 'Y'}">읽음</option>
+          </select>
+        </div>
+        <div class="w-[200px]">
+          <label for="filterType" class="block text-label-xs font-medium text-fg-subtle mb-1">타입</label>
+          <select id="filterType" name="notificationType" class="krds-input">
+            <option value="">전체</option>
+            <option th:each="t : ${types}" th:value="${t.name()}"
+                    th:text="${t.label()}"
+                    th:selected="${search?.notificationType == t.name()}">SYSTEM</option>
+          </select>
+        </div>
+        <button type="submit" class="krds-btn krds-btn-primary">필터</button>
+        <a th:href="@{/notification}" class="krds-btn krds-btn-tertiary">초기화</a>
+      </form>
+
+      <ul class="flex flex-col gap-2">
+        <li th:each="row : ${page.content}"
+            class="bg-surface border rounded-large p-4"
+            th:classappend="${row.readYn == 'N'} ? 'border-primary-20 bg-primary-5' : 'border-line'">
+          <div class="flex items-start gap-3">
+            <span class="krds-badge whitespace-nowrap"
+                  th:classappend="${row.readYn == 'N'} ? 'bg-primary-50 text-white' : 'bg-surface-subtle text-fg-subtle'"
+                  th:text="${row.notificationType}">SYSTEM</span>
+            <div class="flex-1 min-w-0">
+              <a th:href="@{/notification/{id}(id=${row.notificationId})}"
+                 class="block font-medium text-fg-strong hover:text-primary-60"
+                 th:text="${row.title}">제목</a>
+              <p th:if="${row.body}" class="text-body-sm text-fg-subtle mt-1 line-clamp-2"
+                 th:text="${row.body}">본문</p>
+              <div class="mt-2 flex items-center gap-3 text-body-xs text-fg-subtle">
+                <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+                <span th:if="${row.readYn == 'Y'}" class="text-success-fg">읽음</span>
+                <span th:unless="${row.readYn == 'Y'}" class="text-primary-60">미확인</span>
+              </div>
+            </div>
+            <form th:action="@{/notification/{id}/delete(id=${row.notificationId})}" method="post"
+                  data-confirm="삭제하시겠습니까?">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <button type="submit" class="text-body-xs text-fg-disabled hover:text-danger-fg" title="삭제">✕</button>
+            </form>
+          </div>
+        </li>
+        <li th:if="${#lists.isEmpty(page.content)}"
+            class="bg-surface border border-dashed border-line rounded-large p-8 text-center text-body-sm text-fg-subtle">
+          알림이 없습니다.
+        </li>
+      </ul>
+
+      <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+        <ul class="flex items-center justify-center gap-1 text-body-sm">
+          <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+            <a th:href="@{/notification(page=${p}, pageSize=${page.pageSize},
+                         readYn=${search.readYn}, notificationType=${search.notificationType})}"
+               th:text="${p}"
+               th:class="${p == page.page} ? 'inline-flex items-center justify-center size-10 rounded-medium bg-primary-50 text-white' : 'inline-flex items-center justify-center size-10 rounded-medium border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+          </li>
+        </ul>
+      </nav>
+
+    </div>
+
+  </section>
+</body>
+</html>

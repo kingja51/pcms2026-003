@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<!-- 관리자 수업계획서 등록·수정 — STAFF 전용. layout-admin + file-picker(DOC). -->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head>
+  <title>수업계획서 등록·수정</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span>
+      <a th:href="@{/admin/dept/syllabus}" class="hover:underline">수업계획서</a> <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit' ? '수정' : '등록'}">등록</span>
+    </nav>
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6" th:text="${mode == 'edit' ? '수업계획서 수정' : '수업계획서 등록'}">수업계획서 등록</h1>
+
+    <form th:action="${mode == 'edit'} ? @{/admin/dept/syllabus/{id}(id=${item.syllabusId})} : @{/admin/dept/syllabus}"
+          method="post" class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" name="fileGroupId" th:value="${fileGroupId}"/>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학과(사이트) <span class="text-danger-fg">*</span></label>
+          <select name="siteCode" required class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">선택</option>
+            <option th:each="d : ${depts}" th:value="${d.siteCode}" th:text="${d.deptName} + ' (' + ${d.siteCode} + ')'"
+                    th:selected="${d.siteCode == item.siteCode}">학과</option></select></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학년도</label>
+          <input name="year" th:value="${item.year} ?: '2026'" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학기</label>
+          <input name="semester" th:value="${item.semester} ?: '2학기'" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">교과목명 <span class="text-danger-fg">*</span></label>
+          <input name="courseName" th:value="${item.courseName}" required class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">과목코드</label>
+          <input name="courseCode" th:value="${item.courseCode}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">이수구분</label>
+          <input name="completionType" th:value="${item.completionType}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">분반</label>
+          <input name="section" th:value="${item.section}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학점/시수</label>
+          <input name="creditHours" th:value="${item.creditHours}" placeholder="3-3-0" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">담당교수</label>
+          <input name="professor" th:value="${item.professor}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">과정구분</label>
+          <input name="courseCategory" th:value="${item.courseCategory} ?: '일반'" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">개설학과코드 <span class="text-fg-disabled">(학과명은 학과마스터에서 자동 연동)</span></label>
+          <input name="deptCode" th:value="${item.deptCode}" placeholder="ME / CSE" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div><label class="block text-xs font-medium text-fg-subtle mb-1">수업 개요</label>
+        <textarea name="summary" rows="3" class="block w-full rounded border border-line px-3 py-2 text-sm" th:text="${item.summary}"></textarea></div>
+
+      <div>
+        <label class="block text-xs font-medium text-fg-subtle mb-1">수업계획서 파일 <span class="text-fg-disabled">(문서)</span></label>
+        <div th:replace="~{fragments/file-picker :: picker(
+            inputName='attachments', category='DOC', multiple=true, existingFiles=${null},
+            readOnly=false, entityType='SYLLABUS', entityId=${null}, siteId=${null},
+            maxFiles=10, fileGroupId=${fileGroupId})}"></div>
+      </div>
+
+      <div class="flex items-center gap-2 pt-2">
+        <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60" th:text="${mode == 'edit' ? '수정' : '등록'}">등록</button>
+        <a th:href="@{/admin/dept/syllabus}" class="inline-flex items-center px-4 py-2 rounded border border-line text-fg text-sm hover:bg-surface-subtle">취소</a>
+      </div>
+    </form>
+
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+  </section>
+</body>
+</html>

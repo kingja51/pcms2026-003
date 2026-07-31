@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>운영 모니터링</title>
+  <script th:src="@{/js/vendor/chart.umd.min.js}"
+          th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <span>운영 모니터링</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">운영 모니터링</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          애플리케이션 상태 · JVM · Tomcat · DB 풀 · HTTP — 10초마다 자동 갱신
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-xs"
+              th:classappend="${snap.status() == 'UP'} ? 'bg-success-surface border border-success-border text-success-fg' :
+                                 (${snap.status() == 'DOWN'} ? 'bg-danger-surface border border-danger-border text-danger-fg'
+                                                            : 'bg-surface-subtle border border-line text-fg')">
+          <span class="inline-block w-2 h-2 rounded-full"
+                th:classappend="${snap.status() == 'UP'} ? 'bg-success-40 animate-pulse' :
+                                   (${snap.status() == 'DOWN'} ? 'bg-danger-40' : 'bg-gray-40')"></span>
+          <strong th:text="${snap.status()}">UP</strong>
+          <span class="text-fg-disabled">·</span>
+          <span th:text="${snap.appName()}">gopcms</span>
+        </span>
+        <a th:href="@{/actuator/health}" target="_blank" rel="noopener"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-xs hover:bg-surface-subtle">/actuator/health ↗</a>
+      </div>
+    </div>
+
+    <!-- ── KPI 라인 1 — 시스템 핵심 ── -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">Uptime</div>
+        <div class="mt-1 text-lg font-bold font-mono text-fg-strong" id="uptime">-</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">CPU (process)</div>
+        <div class="mt-1 text-lg font-bold font-mono text-fg-strong">
+          <span id="cpuProcess" th:text="${#numbers.formatDecimal(snap.processCpuPct(), 1, 1)}">0.0</span>%
+        </div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">CPU (system)</div>
+        <div class="mt-1 text-lg font-bold font-mono text-fg-strong">
+          <span id="cpuSystem" th:text="${#numbers.formatDecimal(snap.systemCpuPct(), 1, 1)}">0.0</span>%
+        </div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">Load avg (1m)</div>
+        <div class="mt-1 text-lg font-bold font-mono text-fg-strong"
+             id="load1m" th:text="${#numbers.formatDecimal(snap.systemLoadAvg1m(), 1, 2)}">0.00</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">Threads (live / peak)</div>
+        <div class="mt-1 text-lg font-bold font-mono text-fg-strong">
+          <span id="threadsLive" th:text="${snap.threadsLive()}">0</span>
+          <span class="text-fg-disabled"> / </span>
+          <span id="threadsPeak" th:text="${snap.threadsPeak()}">0</span>
+        </div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">GC pauses</div>
+        <div class="mt-1 text-lg font-bold font-mono text-fg-strong">
+          <span id="gcCount" th:text="${snap.gcPauseCount()}">0</span>
+          <span class="text-xs text-fg-subtle ml-1">회 ·
+            <span id="gcTime" th:text="${#numbers.formatDecimal(snap.gcPauseTotalSec(), 1, 2)}">0.00</span>s
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 차트 영역 1 — CPU + Heap + Threads (시계열) ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">CPU 사용률 (%)</h2>
+        <div class="h-48"><canvas id="chartCpu"></canvas></div>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">Heap 메모리 (MB)</h2>
+        <div class="h-48"><canvas id="chartHeap"></canvas></div>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">Threads / Tomcat 처리</h2>
+        <div class="h-48"><canvas id="chartThreads"></canvas></div>
+      </section>
+    </div>
+
+    <!-- ── 메모리 게이지 + Tomcat 풀 게이지 ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-3">메모리 사용 현황</h2>
+        <div class="space-y-3">
+          <!-- Heap -->
+          <div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-fg font-medium">Heap</span>
+              <span class="font-mono text-fg-subtle">
+                <span id="heapUsedMb" th:text="${snap.heapUsedBytes() / 1048576}">0</span> /
+                <span id="heapMaxMb"  th:text="${snap.heapMaxBytes() / 1048576}">0</span> MB
+              </span>
+            </div>
+            <div class="h-2 bg-surface-subtler rounded mt-1 overflow-hidden">
+              <div id="heapBar" class="h-full bg-brand-40"
+                   th:attr="style=|width: ${snap.heapMaxBytes() > 0 ? snap.heapUsedBytes() * 100 / snap.heapMaxBytes() : 0}%|"></div>
+            </div>
+          </div>
+          <!-- Non-heap -->
+          <div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-fg font-medium">Non-Heap</span>
+              <span class="font-mono text-fg-subtle">
+                <span id="nonHeapUsedMb" th:text="${snap.nonHeapUsedBytes() / 1048576}">0</span> /
+                <span id="nonHeapCommitMb" th:text="${snap.nonHeapCommittedBytes() / 1048576}">0</span> MB (committed)
+              </span>
+            </div>
+            <div class="h-2 bg-surface-subtler rounded mt-1 overflow-hidden">
+              <div id="nonHeapBar" class="h-full bg-secondary-40"
+                   th:attr="style=|width: ${snap.nonHeapCommittedBytes() > 0 ? snap.nonHeapUsedBytes() * 100 / snap.nonHeapCommittedBytes() : 0}%|"></div>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="text-sm font-bold text-fg-strong mt-5 mb-3">Tomcat 스레드</h3>
+        <div class="space-y-3">
+          <div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-fg font-medium">Busy / Current / Max</span>
+              <span class="font-mono text-fg-subtle">
+                <span id="tcBusy"    th:text="${snap.tomcatThreadsBusy()}">0</span> /
+                <span id="tcCurrent" th:text="${snap.tomcatThreadsCurrent()}">0</span> /
+                <span id="tcMax"     th:text="${snap.tomcatThreadsConfigMax()}">0</span>
+              </span>
+            </div>
+            <div class="h-2 bg-surface-subtler rounded mt-1 overflow-hidden">
+              <div id="tcBar" class="h-full bg-success-40"
+                   th:attr="style=|width: ${snap.tomcatThreadsConfigMax() > 0 ? snap.tomcatThreadsBusy() * 100 / snap.tomcatThreadsConfigMax() : 0}%|"></div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-xs text-fg">
+            <div class="px-2 py-1 bg-surface-subtle rounded text-center">세션
+              <span id="tcSessions" class="block font-mono font-semibold" th:text="${snap.tomcatSessionsActiveCurrent()}">0</span>
+            </div>
+            <div class="px-2 py-1 bg-surface-subtle rounded text-center">총 요청
+              <span id="tcReq" class="block font-mono font-semibold" th:text="${snap.tomcatRequestCount()}">0</span>
+            </div>
+            <div class="px-2 py-1 bg-surface-subtle rounded text-center">에러율
+              <span id="tcErrPct" class="block font-mono font-semibold"
+                    th:classappend="${snap.tomcatRequestErrorPct() > 1.0} ? 'text-danger-fg' : ''"
+                    th:text="${#numbers.formatDecimal(snap.tomcatRequestErrorPct(), 1, 2)} + '%'">0.00%</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- DB 풀 -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-3">DB Connection Pool (HikariCP)</h2>
+        <div id="poolList" class="space-y-3">
+          <div th:each="p : ${snap.dataSources()}"
+               class="border border-divider rounded p-3"
+               th:attr="data-pool=${p.poolName()}">
+            <div class="flex items-center justify-between mb-1">
+              <code class="font-mono text-xs bg-surface-subtler px-1.5 py-0.5 rounded" th:text="${p.poolName()}">primary</code>
+              <span class="text-xs font-mono text-fg-subtle">
+                <span class="poolActive"  th:text="${p.active()}">0</span> active /
+                <span class="poolIdle"    th:text="${p.idle()}">0</span> idle /
+                <span class="poolPending" th:text="${p.pending()}">0</span> pending
+                · max <span class="poolMax" th:text="${p.max()}">0</span>
+                <span th:if="${p.timeoutTotal() > 0}" class="text-danger-fg ml-1">
+                  · timeout <span class="poolTimeout" th:text="${p.timeoutTotal()}">0</span>
+                </span>
+              </span>
+            </div>
+            <div class="h-2 bg-surface-subtler rounded overflow-hidden">
+              <div class="h-full poolBar"
+                   th:classappend="${p.usagePct() > 80} ? 'bg-danger-40' : (${p.usagePct() > 60} ? 'bg-warning-30' : 'bg-success-40')"
+                   th:attr="style=|width: ${p.usagePct()}%|"></div>
+            </div>
+          </div>
+          <p th:if="${#lists.isEmpty(snap.dataSources())}" class="text-sm text-fg-subtle py-4 text-center">
+            HikariCP 메트릭이 등록되지 않았습니다.
+          </p>
+        </div>
+      </section>
+    </div>
+
+    <!-- ── HTTP requests + Health components + Server info ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-3">HTTP 요청 (누적)</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">총 요청 수</dt>
+            <dd class="font-mono font-semibold" id="httpTotal" th:text="${snap.httpServerRequestsTotal()}">0</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">평균 응답 시간</dt>
+            <dd class="font-mono" id="httpAvg">
+              <span th:text="${#numbers.formatDecimal(snap.httpServerLatencyAvgMs(), 1, 2)}">0.00</span> ms
+            </dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">최대 응답 시간</dt>
+            <dd class="font-mono" id="httpMax">
+              <span th:text="${#numbers.formatDecimal(snap.httpServerLatencyMaxMs(), 1, 2)}">0.00</span> ms
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-3">Health 컴포넌트</h2>
+        <ul class="space-y-1 text-sm" id="healthList">
+          <li th:each="h : ${snap.healthDetails()}"
+              class="flex items-center justify-between border-b border-divider pb-1 last:border-0">
+            <span class="text-fg font-mono text-xs" th:text="${h.key}">db</span>
+            <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
+                  th:classappend="${h.value == 'UP'} ? 'bg-success-surface text-success-fg' :
+                                     (${h.value == 'DOWN'} ? 'bg-danger-surface text-danger-fg' : 'bg-surface-subtler text-fg')"
+                  th:text="${h.value}">UP</span>
+          </li>
+          <li th:if="${#maps.isEmpty(snap.healthDetails())}" class="text-fg-subtle text-sm py-2 text-center">
+            로그인 사용자에게만 details 노출 (when-authorized)
+          </li>
+        </ul>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-3">서버 정보</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">애플리케이션</dt>
+            <dd class="font-mono" th:text="${snap.appName()}">gopcms</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">OS</dt>
+            <dd class="font-mono text-xs" th:text="${snap.osName() + ' (' + snap.osArch() + ')'}">Linux</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">Java</dt>
+            <dd class="font-mono text-xs" th:text="${snap.javaVersion()}">17</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">CPU 코어</dt>
+            <dd class="font-mono" th:text="${snap.availableProcessors()}">8</dd>
+          </div>
+          <div class="flex items-center justify-between">
+            <dt class="text-fg-subtle">클래스 로드</dt>
+            <dd class="font-mono">
+              <span th:text="${snap.classesLoaded()}">0</span>
+              <span class="text-xs text-fg-subtle" th:text="'(unloaded ' + ${snap.classesUnloaded()} + ')'">(unloaded 0)</span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+
+    <!-- 외부 actuator 링크 (디버깅용) -->
+    <p class="text-xs text-fg-disabled">
+      <a href="/actuator/metrics" target="_blank" rel="noopener" class="underline hover:text-fg-subtle">/actuator/metrics ↗</a> ·
+      <a href="/actuator/health"  target="_blank" rel="noopener" class="underline hover:text-fg-subtle">/actuator/health ↗</a> ·
+      <a href="/actuator/httpexchanges" target="_blank" rel="noopener" class="underline hover:text-fg-subtle">/actuator/httpexchanges ↗</a> ·
+      <a href="/actuator/prometheus" target="_blank" rel="noopener" class="underline hover:text-fg-subtle">/actuator/prometheus ↗</a>
+    </p>
+
+    <!-- 초기 페이로드 (서버 모델 → JS) -->
+    <script th:nonce="${cspNonce}" th:inline="javascript">
+      /*<![CDATA[*/
+      window.MONITORING_BOOTSTRAP = /*[[${snap}]]*/ {};
+      window.MONITORING_REFRESH_API = /*[[@{/admin/system/monitoring/snapshot}]]*/ '/admin/system/monitoring/snapshot';
+      window.MONITORING_REFRESH_MS = 10000;
+      /*]]>*/
+    </script>
+    <script th:src="@{/js/monitoring-chart.js}" th:attr="nonce=${cspNonce}"></script>
+
+  </section>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>내 활동 대시보드</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-5xl mx-auto">
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">내 활동 대시보드</h1>
+        <p class="text-sm text-slate-500 mt-1">
+          <span class="font-mono" th:text="${@mask.loginId(loginId)}">us***er</span> 님이 참여한 최신 활동 요약
+        </p>
+      </div>
+      <nav class="flex items-center gap-2 flex-wrap">
+        <a th:href="@{/member/mypage}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-slate-300 bg-white text-slate-700 text-sm hover:bg-slate-50">
+          ← 마이페이지
+        </a>
+      </nav>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+      <!-- ============================================================
+           내가 작성한 게시글 (최신 5건)
+           ============================================================ -->
+      <section class="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-700">📝 내가 작성한 게시글</h2>
+          <span class="text-xs text-slate-500">최신 5건</span>
+        </div>
+
+        <p th:if="${#lists.isEmpty(myArticles)}"
+           class="text-sm text-slate-500 py-6 text-center">
+          작성한 게시글이 없습니다.
+        </p>
+
+        <ul th:unless="${#lists.isEmpty(myArticles)}" class="divide-y divide-slate-100">
+          <li th:each="a : ${myArticles}" class="py-2.5">
+            <a th:href="@{|/bbs/${a.siteCode}/${a.bbsCode}/${a.articleId}|}"
+               class="block hover:bg-slate-50 rounded -mx-2 px-2 py-1">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs text-slate-500 truncate">
+                    <span class="font-mono" th:text="${a.bbsName} ?: ${a.bbsCode}">자유게시판</span>
+                    <span th:if="${a.categoryName}" class="ml-1 text-slate-400">· <span th:text="${a.categoryName}">카테고리</span></span>
+                  </div>
+                  <div class="text-sm font-medium text-slate-900 truncate"
+                       th:text="${a.title}">제목</div>
+                </div>
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
+                      th:classappend="${a.status == 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700' :
+                                        a.status == 'HIDDEN'    ? 'bg-slate-100 text-slate-600' :
+                                        a.status == 'REPORTED'  ? 'bg-rose-50 text-rose-700' :
+                                                                  'bg-amber-50 text-amber-700'}"
+                      th:text="${a.status}">PUBLISHED</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                <span th:text="${@fmt.dt(a.createdAt)}">2026-04-30 12:00</span>
+                <span class="text-slate-300">·</span>
+                <span>👁 <span th:text="${a.viewCount}">0</span></span>
+                <span class="text-slate-300">·</span>
+                <span>💬 <span th:text="${a.commentCount}">0</span></span>
+                <span class="text-slate-300">·</span>
+                <span>❤ <span th:text="${a.likeCount}">0</span></span>
+              </div>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           내가 작성한 댓글 (최신 5건)
+           ============================================================ -->
+      <section class="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-700">💬 내가 작성한 댓글</h2>
+          <span class="text-xs text-slate-500">최신 5건</span>
+        </div>
+
+        <p th:if="${#lists.isEmpty(myComments)}"
+           class="text-sm text-slate-500 py-6 text-center">
+          작성한 댓글이 없습니다.
+        </p>
+
+        <ul th:unless="${#lists.isEmpty(myComments)}" class="divide-y divide-slate-100">
+          <li th:each="c : ${myComments}" class="py-2.5">
+            <a th:href="@{|/bbs/${c.siteCode}/${c.bbsCode}/${c.articleId}|}"
+               class="block hover:bg-slate-50 rounded -mx-2 px-2 py-1">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                  <div class="text-xs text-slate-500 truncate">
+                    <span class="font-mono" th:text="${c.bbsName} ?: ${c.bbsCode}">자유게시판</span>
+                    <span class="text-slate-300 ml-1">›</span>
+                    <span class="ml-1 truncate" th:text="${c.articleTitle} ?: '(삭제됨)'">원글 제목</span>
+                  </div>
+                  <div class="text-sm text-slate-900 mt-0.5 line-clamp-2"
+                       th:text="${c.isSecret() and c.status != 'PUBLISHED'} ? '(비밀 댓글)' : ${c.content}">댓글 본문</div>
+                </div>
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
+                      th:classappend="${c.status == 'PUBLISHED' ? 'bg-emerald-50 text-emerald-700' :
+                                        c.status == 'HIDDEN'    ? 'bg-slate-100 text-slate-600' :
+                                        c.status == 'REPORTED'  ? 'bg-rose-50 text-rose-700' :
+                                                                  'bg-amber-50 text-amber-700'}"
+                      th:text="${c.status}">PUBLISHED</span>
+              </div>
+              <div class="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                <span th:text="${@fmt.dt(c.createdAt)}">2026-04-30 12:00</span>
+                <span class="text-slate-300">·</span>
+                <span>❤ <span th:text="${c.likeCount}">0</span></span>
+                <span th:if="${c.isReply()}" class="text-slate-300">·</span>
+                <span th:if="${c.isReply()}" class="text-indigo-600">↪ 답글</span>
+                <span th:if="${c.isSecret()}" class="text-slate-300">·</span>
+                <span th:if="${c.isSecret()}" class="text-amber-600">🔒 비밀</span>
+              </div>
+            </a>
+          </li>
+        </ul>
+      </section>
+
+      <!-- ============================================================
+           내가 신고한 신고 모더레이션 (최신 5건)
+           ============================================================ -->
+      <section class="bg-white border border-slate-200 rounded-lg p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-slate-700">🚩 내가 신고한 내역</h2>
+          <span class="text-xs text-slate-500">최신 5건</span>
+        </div>
+
+        <p th:if="${#lists.isEmpty(myReports)}"
+           class="text-sm text-slate-500 py-6 text-center">
+          신고한 내역이 없습니다.
+        </p>
+
+        <ul th:unless="${#lists.isEmpty(myReports)}" class="divide-y divide-slate-100">
+          <li th:each="r : ${myReports}" class="py-2.5">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex-1 min-w-0">
+                <div class="text-xs text-slate-500">
+                  <span th:text="${@code.label('BBS_REPORT_TARGET', r.targetType)}">게시글</span>
+                  <span class="text-slate-300 mx-1">·</span>
+                  <span class="font-mono"
+                        th:text="${@code.label('BBS_REPORT_REASON', r.reasonCode)}">스팸/광고</span>
+                </div>
+                <div class="text-sm text-slate-900 truncate mt-0.5"
+                     th:text="${r.targetTitle} ?: '(삭제된 콘텐츠)'">신고 대상 제목</div>
+                <div th:if="${!#strings.isEmpty(r.reasonText)}"
+                     class="text-xs text-slate-600 mt-1 line-clamp-2"
+                     th:text="${r.reasonText}">추가 설명</div>
+              </div>
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0"
+                    th:classappend="${r.status == 'PENDING'  ? 'bg-amber-50 text-amber-700' :
+                                      r.status == 'REVIEWED' ? 'bg-emerald-50 text-emerald-700' :
+                                                               'bg-slate-100 text-slate-600'}"
+                    th:text="${@code.label('BBS_REPORT_STATUS', r.status)}">대기</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-slate-500 mt-1">
+              <span>접수 <span th:text="${@fmt.dt(r.createdAt)}">2026-04-30 12:00</span></span>
+              <span th:if="${r.reviewedAt != null}" class="text-slate-300">·</span>
+              <span th:if="${r.reviewedAt != null}">
+                처리 <span th:text="${@fmt.dt(r.reviewedAt)}">2026-04-30 13:00</span>
+              </span>
+            </div>
+            <div th:if="${!#strings.isEmpty(r.reviewNote)}"
+                 class="text-xs text-slate-700 mt-1 px-2 py-1 bg-slate-50 rounded border border-slate-200">
+              <span class="text-slate-500">관리자 메모:</span>
+              <span class="whitespace-pre-line" th:text="${r.reviewNote}">처리 메모</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+    </div>
+
+  </section>
+</body>
+</html>

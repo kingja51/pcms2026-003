@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{front/layouts/VIEWER/viewer}"
+      lang="ko">
+<head>
+  <title th:text="|미리보기 · ${originalName}|">미리보기</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* docx-preview 가 주입하는 .docx-wrapper 와 페이지 박스 */
+    .docx-stage {
+      background: #f1f5f9;            /* slate-100 */
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 480px;
+    }
+    .docx-stage .docx-wrapper {
+      background: transparent;
+    }
+    .docx-stage .docx {
+      background: white;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.08);
+      margin: 0 auto 16px;
+    }
+    .docx-status {
+      padding: 4px 8px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .docx-status.is-error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <!-- 헤더 1줄: 파일명 + 다운로드. -->
+    <header class="mb-1 flex items-center justify-between gap-3 flex-wrap">
+      <h1 class="min-w-0 flex-1 text-base font-semibold text-slate-900 truncate"
+          th:text="${originalName}" th:title="${originalName}">파일명.docx</h1>
+      <a th:href="@{${downloadUrl}}"
+         class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+        ⬇ 원본 다운로드
+      </a>
+    </header>
+
+    <!-- 헤더 2줄: 진행 상태 (1줄, 인라인) -->
+    <div id="docx-status" class="docx-status mb-2" role="status" aria-live="polite">
+      ⏳ 엔진 로딩 중…
+    </div>
+
+    <!-- docx-preview 가 이 컨테이너 안에 .docx-wrapper > .docx 페이지를 주입 -->
+    <div id="docx-stage" class="docx-stage" aria-label="DOCX 페이지 영역"></div>
+
+    <!-- docx-preview ESM 동적 import + 컨테이너 직접 렌더 -->
+    <script type="module" th:attr="nonce=${cspNonce}" th:inline="javascript">
+      const inlineUrl   = /*[[${inlineUrl}]]*/ '';
+      const downloadUrl = /*[[${downloadUrl}]]*/ '';
+      const status      = document.getElementById('docx-status');
+      const stage       = document.getElementById('docx-stage');
+
+      const setStatus = (msg, error) => {
+        status.textContent = msg;
+        status.classList.toggle('is-error', !!error);
+      };
+
+      try {
+        setStatus('⏳ docx-preview 엔진 로딩 중...');
+        const docx = await import('https://cdn.jsdelivr.net/npm/docx-preview@0.3.7/+esm');
+
+        setStatus('⏳ 파일 다운로드 중...');
+        const res = await fetch(inlineUrl, { credentials: 'same-origin' });
+        if (!res.ok) {
+          throw new Error('파일 응답 ' + res.status + ' ' + res.statusText);
+        }
+        const blob = await res.blob();
+
+        setStatus('⏳ 렌더링 중...');
+        await docx.renderAsync(blob, stage, null, {
+          inWrapper: true,
+          ignoreWidth: false,
+          ignoreHeight: false,
+          ignoreFonts: false,
+          breakPages: true,
+          ignoreLastRenderedPageBreak: true,
+          experimental: false,
+          trimXmlDeclaration: true,
+          // useBase64URL: true — 임베드 이미지를 data: URI 로 인라인.
+          //   false 면 blob: URL 사용 → 우리 CSP `img-src 'self' data:` 가 blob: 미허용 → 이미지 차단.
+          //   data: 는 이미 허용. base64 로 약간의 메모리/렌더 비용 증가하지만 보안 정책 호환성 우선.
+          useBase64URL: true,
+          renderHeaders: true,
+          renderFooters: true,
+          renderFootnotes: true,
+          renderEndnotes: true,
+        });
+
+        setStatus('✅ docx-preview v0.3.7');
+      } catch (e) {
+        console.error('[docx-preview] 렌더 실패:', e);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.className = 'text-blue-600 hover:underline font-medium';
+        a.textContent = '원본 다운로드';
+        status.classList.add('is-error');
+        status.innerHTML = '';
+        const msg = document.createElement('span');
+        msg.textContent = '⚠️ 미리보기 실패: ' + (e && e.message ? e.message : '알 수 없는 오류') + ' — ';
+        status.appendChild(msg);
+        status.appendChild(a);
+      }
+    </script>
+
+  </section>
+</body>
+</html>

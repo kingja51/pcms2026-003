@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>민원 마스터 등록·수정</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/complaint}" class="hover:underline">민원</a>
+    <span class="mx-1">/</span>
+    <span th:text="${mode == 'create' ? '등록' : '수정'}">등록</span>
+  </nav>
+
+  <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+      th:text="${mode == 'create' ? '민원 마스터 등록' : '민원 마스터 수정'}">등록</h1>
+
+  <div th:if="${error}" role="alert"
+       class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+  <div th:if="${errors != null and !#lists.isEmpty(errors)}" role="alert"
+       class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg">
+    <p class="font-semibold mb-1">입력 항목을 확인해 주세요.</p>
+    <ul class="list-disc list-inside space-y-0.5">
+      <li th:each="e : ${errors}" th:text="${e.defaultMessage}">오류</li>
+    </ul>
+  </div>
+
+  <form th:object="${form}" method="post"
+        th:action="${mode == 'create'} ? @{/admin/system/complaint} : @{/admin/system/complaint/{id}(id=${form.complaintMasterId})}"
+        class="space-y-6">
+
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+    <!-- 기본 정보 -->
+    <div class="bg-surface border border-line rounded-large p-6 space-y-4">
+      <h2 class="text-base font-semibold text-fg-strong">기본 정보</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="siteId" class="block text-xs font-medium text-fg-subtle mb-1">사이트 <span class="text-danger-fg">*</span></label>
+          <select id="siteId" th:field="*{siteId}" required
+                  class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">선택</option>
+            <option th:each="s : ${sites}" th:value="${s.siteId}"
+                    th:text="${s.siteCode} + ' · ' + ${s.siteName}">site</option>
+          </select>
+        </div>
+        <div>
+          <label for="masterCode" class="block text-xs font-medium text-fg-subtle mb-1">마스터 코드 <span class="text-danger-fg">*</span></label>
+          <input id="masterCode" type="text" th:field="*{masterCode}" required maxlength="50"
+                 placeholder="영문 시작, 영문/숫자/_/-"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"
+                 th:readonly="${mode == 'edit'}"/>
+        </div>
+      </div>
+
+      <div>
+        <label for="masterName" class="block text-xs font-medium text-fg-subtle mb-1">이름 <span class="text-danger-fg">*</span></label>
+        <input id="masterName" type="text" th:field="*{masterName}" required maxlength="100"
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+      </div>
+
+      <div>
+        <label for="description" class="block text-xs font-medium text-fg-subtle mb-1">설명</label>
+        <textarea id="description" th:field="*{description}" rows="2" maxlength="500"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm resize-none"></textarea>
+      </div>
+
+      <div>
+        <label for="noticeHtml" class="block text-xs font-medium text-fg-subtle mb-1">주의사항 안내문 (HTML)</label>
+        <textarea id="noticeHtml" th:field="*{noticeHtml}" rows="5" maxlength="8000"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"></textarea>
+        <p class="mt-1 text-xs text-fg-subtle">저장 시 XSS 안전 처리됩니다. 사용자 민원 작성 폼 상단에 표시됩니다.</p>
+      </div>
+    </div>
+
+    <!-- 작성 인증 정책 -->
+    <div class="bg-surface border border-line rounded-large p-6 space-y-4">
+      <h2 class="text-base font-semibold text-fg-strong">작성 인증 정책</h2>
+      <p class="text-xs text-fg-subtle">최소 1개 이상 허용해야 합니다.</p>
+
+      <div class="flex flex-wrap gap-6">
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" th:field="*{allowMemberYn}" value="Y"
+                 class="rounded border-line text-brand-50"/>
+          <span>회원(Member) 작성 허용</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" th:field="*{allowOauth2Yn}" value="Y"
+                 class="rounded border-line text-brand-50"/>
+          <span>OAuth2 소셜 로그인 허용</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" th:field="*{allowNiceYn}" value="Y"
+                 class="rounded border-line text-brand-50"/>
+          <span>NICE 실명인증 허용</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer"
+               title="체크 시 글쓰기 폼에 Google reCAPTCHA v3 적용 (invisible — 사용자 인지 없음).&#10;민원은 SNS/NICE 만으로 작성 가능해 봇 차단 권장. application.yml 의 gopcms.captcha.enabled=true 필요.">
+          <input type="checkbox" th:field="*{captchaYn}" value="Y"
+                 class="rounded border-line text-brand-50"/>
+          <span>CAPTCHA 사용 (글쓰기)</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 목록 노출 정책 -->
+    <div class="bg-surface border border-line rounded-large p-6 space-y-3">
+      <h2 class="text-base font-semibold text-fg-strong">목록 노출 정책</h2>
+      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" th:field="*{showInList}" value="Y"
+               class="rounded border-line text-brand-50"/>
+        <span>목록 축소 표시 (순번·제목·등록일만 노출, 작성자/내용 비공개)</span>
+      </label>
+    </div>
+
+    <!-- 첨부파일 정책 -->
+    <div class="bg-surface border border-line rounded-large p-6 space-y-4">
+      <h2 class="text-base font-semibold text-fg-strong">첨부파일 정책</h2>
+
+      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" th:field="*{fileYn}" value="Y"
+               class="rounded border-line text-brand-50"/>
+        <span>첨부파일 허용</span>
+      </label>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="fileCountMax" class="block text-xs font-medium text-fg-subtle mb-1">최대 첨부 수</label>
+          <input id="fileCountMax" type="number" th:field="*{fileCountMax}" min="1" max="20"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label for="fileSizeMb" class="block text-xs font-medium text-fg-subtle mb-1">최대 파일 크기 (MB)</label>
+          <input id="fileSizeMb" type="number" th:field="*{fileSizeMb}" min="1" max="100"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+      </div>
+    </div>
+
+    <!-- 답변 정책 -->
+    <div class="bg-surface border border-line rounded-large p-6 space-y-4">
+      <h2 class="text-base font-semibold text-fg-strong">답변 정책</h2>
+
+      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" th:field="*{answerRequiredYn}" value="Y"
+               class="rounded border-line text-brand-50"/>
+        <span>답변 필수 (민원 종결 전 답변 없으면 차단)</span>
+      </label>
+
+      <div>
+        <label for="answerDeadlineDays" class="block text-xs font-medium text-fg-subtle mb-1">답변 기한 (일)</label>
+        <input id="answerDeadlineDays" type="number" th:field="*{answerDeadlineDays}" min="1" max="365"
+               placeholder="미입력 시 기한 없음"
+               class="block w-full md:w-48 rounded border border-line px-3 py-2 text-sm"/>
+        <p class="mt-1 text-xs text-fg-subtle">접수 시점 기준으로 answer_due_at 자동 계산됩니다.</p>
+      </div>
+    </div>
+
+    <!-- 사용 여부 -->
+    <div class="bg-surface border border-line rounded-large p-6">
+      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" th:field="*{useYn}" value="Y"
+               class="rounded border-line text-brand-50"/>
+        <span class="font-medium">사용 여부</span>
+      </label>
+    </div>
+
+    <div class="flex items-center justify-end gap-3">
+      <a th:href="@{/admin/system/complaint}"
+         class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">취소</a>
+      <button type="submit"
+              class="inline-flex items-center px-5 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60"
+              th:text="${mode == 'create' ? '등록' : '저장'}">등록</button>
+    </div>
+  </form>
+
+</section>
+</body>
+</html>

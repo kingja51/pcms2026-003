@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>접근 TOP-20 통계</title>
+  <meta http-equiv="refresh" th:attr="content=${autoRefreshSec}"/>
+  <script th:src="@{/js/vendor/chart.umd.min.js}"
+          th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/access-stat}" class="hover:underline">접근 통계</a>
+      <span class="mx-1">/</span>
+      <span>TOP 20</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">접근 TOP-20 통계</h1>
+        <p class="mt-1 text-sm text-fg-subtle">
+          기간 <span class="font-mono" th:text="${from}">2026-04-23</span> ~
+          <span class="font-mono" th:text="${to}">2026-04-30</span> ·
+          상위 <span class="font-mono" th:text="${limit}">20</span> 건 ·
+          느린 URI 최소 호출수 <span class="font-mono" th:text="${slowMinCalls}">5</span>
+        </p>
+        <!-- 실시간 갱신 배너 + 즉시 적용 버튼 -->
+        <div class="mt-2 flex items-center gap-2 flex-wrap">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-success-surface border border-success-border text-success-fg text-xs">
+            <span class="inline-block w-2 h-2 rounded-full bg-success-40 animate-pulse"></span>
+            <span>실시간</span>
+            <span class="text-fg-disabled">·</span>
+            <span>마지막 로드 <span class="font-mono" th:text="${@fmt.dt(loadedAt)}">-</span></span>
+            <span class="text-fg-disabled">·</span>
+            <span>다음 갱신까지 <span id="autoRefreshCountdown" class="font-mono font-semibold">-</span></span>
+          </div>
+
+          <form id="liveRefreshForm" method="post"
+                th:action="@{/admin/system/access-top20/refresh}"
+                class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="period" th:value="${period}"/>
+            <input type="hidden" name="from"   th:value="${from}"/>
+            <input type="hidden" name="to"     th:value="${to}"/>
+            <button type="submit"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-brand-50 text-fg-on text-xs font-medium hover:bg-brand-60">
+              <svg class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none"
+                   viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              <span>실시간 적용</span>
+            </button>
+          </form>
+        </div>
+
+        <div th:if="${message}"
+             class="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded bg-success-surface border border-success-border text-success-fg text-xs"
+             th:text="${message}">완료</div>
+        <div th:if="${error}"
+             class="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded bg-danger-surface border border-danger-border text-danger-fg text-xs"
+             th:text="${error}">오류</div>
+      </div>
+
+      <!-- 기간 토글 — access-stat 과 동일 패턴 -->
+      <div class="flex items-end gap-2 flex-wrap">
+        <div class="inline-flex rounded border border-line overflow-hidden">
+          <a th:href="@{/admin/system/access-top20(period='day')}"
+             th:classappend="${period == 'day'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs">일</a>
+          <a th:href="@{/admin/system/access-top20(period='week')}"
+             th:classappend="${period == 'week'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">주</a>
+          <a th:href="@{/admin/system/access-top20(period='month')}"
+             th:classappend="${period == 'month'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">월</a>
+          <a th:href="@{/admin/system/access-top20(period='year')}"
+             th:classappend="${period == 'year'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">년</a>
+        </div>
+        <form method="get" th:action="@{/admin/system/access-top20}" class="flex items-end gap-1">
+          <div>
+            <label class="block text-[10px] text-fg-subtle">From</label>
+            <input type="date" name="from" th:value="${from}"
+                   class="rounded border border-line px-2 py-1 text-xs"/>
+          </div>
+          <div>
+            <label class="block text-[10px] text-fg-subtle">To</label>
+            <input type="date" name="to" th:value="${to}"
+                   class="rounded border border-line px-2 py-1 text-xs"/>
+          </div>
+          <button type="submit"
+                  class="px-3 py-1.5 rounded bg-gray-90 text-fg-on text-xs">적용</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 색상 범례 — 1등=red 부터 20등=stone 까지 모든 차트 공통 -->
+    <div class="bg-surface border border-line rounded-large px-4 py-3 mb-4">
+      <div class="flex items-center gap-3 flex-wrap">
+        <span class="text-xs font-semibold text-fg">순위 색상</span>
+        <span class="text-[10px] text-fg-subtle">
+          1등 = 빨강 → 16등 = 분홍 → 17~20등 = 회색.
+          모든 차트가 같은 색 = 같은 순위.
+        </span>
+        <div id="rankLegend" class="flex flex-wrap items-center"></div>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         12 차트 그리드 — 각 차트는 horizontal bar (Chart.js indexAxis='y')
+         막대 색상은 1~20 등 RANK_COLORS 팔레트 자동 매핑.
+         카테고리(보안/통계/인프라/마케팅) 는 섹션 헤더 배지에서만 분기.
+         ==================================================================== -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- ① 가장 많이 접속한 IP -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">① 가장 많이 접속한 IP</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger-surface text-danger-fg">보안</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">DDoS / 봇 / 크롤러 탐지 기본 지표</p>
+        <div class="h-96"><canvas id="chart_topClientIps"></canvas></div>
+      </section>
+
+      <!-- ② Referer 도메인 -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">② Referer 도메인</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-info-surface text-info-fg">마케팅</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">외부 유입 채널 — 검색엔진/커뮤니티/파트너사</p>
+        <div class="h-96"><canvas id="chart_topRefererDomains"></canvas></div>
+      </section>
+
+      <!-- ③ 4xx/5xx 유발 IP -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">③ 4xx/5xx 유발 IP</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger-surface text-danger-fg">보안</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">SQL 인젝션 / Directory Traversal 스캐너 의심</p>
+        <div class="h-96"><canvas id="chart_topErrorIps"></canvas></div>
+      </section>
+
+      <!-- ④ 평균 응답속도 느린 URI -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">④ 평균 응답속도 느린 URI</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-warning-surface text-warning-fg">성능</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">
+          최소 <span class="font-mono" th:text="${slowMinCalls}">5</span>회 이상 호출 ·
+          평균 ms 기준 정렬
+        </p>
+        <div class="h-96"><canvas id="chart_topSlowUris"></canvas></div>
+      </section>
+
+      <!-- ⑤ ANONYMOUS 접근 URI -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑤ 비로그인 접근 URI</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger-surface text-danger-fg">보안</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">미인증 접근 시도 감사 + 가입 유도 통계</p>
+        <div class="h-96"><canvas id="chart_topAnonymousUris"></canvas></div>
+      </section>
+
+      <!-- ⑥ 메뉴/경로 -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑥ 가장 많이 방문한 메뉴/경로</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-info-surface text-info-fg">통계</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">URI 첫 2 세그먼트 그룹 (예: /admin/system, /bbs/airbnb)</p>
+        <div class="h-96"><canvas id="chart_topMenuPaths"></canvas></div>
+      </section>
+
+      <!-- ⑦ User-Agent -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑦ User-Agent</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger-surface text-danger-fg">보안</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">python-requests / curl / Java 등 봇 의심 식별</p>
+        <div class="h-96"><canvas id="chart_topUserAgents"></canvas></div>
+      </section>
+
+      <!-- ⑧ URI 스캐너 -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑧ 다양한 URI 스캔한 IP</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger-surface text-danger-fg">보안</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">distinct URI count — 취약점 스캐너/크롤러 탐지</p>
+        <div class="h-96"><canvas id="chart_topUriScannerIps"></canvas></div>
+      </section>
+
+      <!-- ⑨ 누적 트래픽 -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑨ 누적 트래픽 IP</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-warning-surface text-warning-fg">인프라</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">SUM(bytes_sent) — 헤비 유저 / 대량 다운로드 식별</p>
+        <div class="h-96"><canvas id="chart_topBandwidthIps"></canvas></div>
+      </section>
+
+      <!-- ⑩ 404 URI -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑩ 404 Not Found URI</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-danger-surface text-danger-fg">보안/운영</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">깨진 링크 + /.env / /wp-login.php 공격 타겟</p>
+        <div class="h-96"><canvas id="chart_top404Uris"></canvas></div>
+      </section>
+
+      <!-- ⑪ 다운로드 파일 -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑪ 가장 많이 다운로드된 파일</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-info-surface text-info-fg">통계</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">log_file_download · result=SUCCESS — 인기 콘텐츠 / CDN 분리 후보</p>
+        <div class="h-96"><canvas id="chart_topDownloadFiles"></canvas></div>
+      </section>
+
+      <!-- ⑫ 헤비 유저 (로그인 ID) -->
+      <section class="bg-surface border border-line rounded-large p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-bold text-fg-strong">⑫ 가장 많이 방문한 로그인 사용자</h2>
+          <span class="text-[10px] px-1.5 py-0.5 rounded bg-success-surface text-success-fg">마케팅/보안</span>
+        </div>
+        <p class="text-xs text-fg-subtle mb-2">
+          헤비 유저 / VIP 식별 + 다중 IP 분포 시 계정 도용·봇 악용 의심
+          (보조값 = distinct IP 수)
+        </p>
+        <div class="h-96"><canvas id="chart_topLoginUsers"></canvas></div>
+      </section>
+
+    </div>
+
+    <!-- ===================================================================
+         Chart.js 렌더링 — strict-dynamic CSP 호환 inline script (nonce)
+         =================================================================== -->
+    <script th:inline="javascript" th:attr="nonce=${cspNonce}">
+      /*<![CDATA[*/
+      (function () {
+        const STATS = JSON.parse(/*[[${chartsJson}]]*/ '{}');
+
+        /* ----------------------------------------------------------------
+         * 1~20 등 고정 색상 팔레트
+         * - 1~5  : warm (red→lime) — 상위 hot zone
+         * - 6~10 : cool-warm 전환 (green→sky)
+         * - 11~16: cool (blue→pink) — 무지개 후반
+         * - 17~20: grayscale (light→dark) — 하위 muted zone
+         * 모든 차트가 같은 인덱스 = 같은 색상 = 같은 순위.
+         * ---------------------------------------------------------------- */
+        const RANK_COLORS = [
+          '#DC2626', // 1  red       🔴
+          '#EA580C', // 2  orange    🟠
+          '#F59E0B', // 3  amber     🟡
+          '#EAB308', // 4  yellow    🟡
+          '#84CC16', // 5  lime      🟢
+          '#22C55E', // 6  green     🟢
+          '#10B981', // 7  emerald   🟢
+          '#14B8A6', // 8  teal      🟢
+          '#06B6D4', // 9  cyan      🔵
+          '#0EA5E9', // 10 sky       🔵
+          '#3B82F6', // 11 blue      🔵
+          '#6366F1', // 12 indigo    🟣
+          '#8B5CF6', // 13 violet    🟣
+          '#A855F7', // 14 purple    🟣
+          '#D946EF', // 15 fuchsia   🌸
+          '#EC4899', // 16 pink      🌸
+          '#94A3B8', // 17 slate-400 ⚪
+          '#78716C', // 18 stone-500 ⚪
+          '#57534E', // 19 stone-600 ⚫
+          '#44403C'  // 20 stone-700 ⚫
+        ];
+
+        /** 인덱스 i 의 팔레트 색을 rgba 로 변환 (alpha 가능). 20 초과는 stone-700 폴백. */
+        function rankColor(i, alpha) {
+          const hex = RANK_COLORS[i] || '#44403C';
+          const r = parseInt(hex.substring(1, 3), 16);
+          const g = parseInt(hex.substring(3, 5), 16);
+          const b = parseInt(hex.substring(5, 7), 16);
+          return 'rgba(' + r + ',' + g + ',' + b + ',' + (alpha == null ? 1 : alpha) + ')';
+        }
+
+        function truncate(s, n) {
+          if (!s) return '';
+          return s.length > n ? s.substring(0, n - 1) + '…' : s;
+        }
+
+        /**
+         * 모든 TOP-N 차트 공통 horizontal bar 렌더러.
+         * 색상은 rank index 기반 — 1등(idx 0)=red, 20등=stone.
+         * 라벨도 "1. xxx" 형태로 순위 prefix 부착.
+         */
+        function hbar(canvasId, payload, label, valueFmt) {
+          const el = document.getElementById(canvasId);
+          if (!el) return;
+          const labels = (payload && payload.labels) || [];
+          const values = (payload && payload.values) || [];
+          const extras = (payload && payload.extras) || [];
+
+          // 순위 prefix + truncate
+          const displayLabels = labels.map((l, i) =>
+            (i + 1).toString().padStart(2, ' ') + '. ' + truncate(l, 56));
+          // 막대 색상 — 인덱스별
+          const barBg     = labels.map((_, i) => rankColor(i, 0.85));
+          const barBorder = labels.map((_, i) => rankColor(i, 1));
+
+          new Chart(el, {
+            type: 'bar',
+            data: {
+              labels: displayLabels,
+              datasets: [{
+                label: label,
+                data: values,
+                backgroundColor: barBg,
+                borderColor: barBorder,
+                borderWidth: 1
+              }]
+            },
+            options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  callbacks: {
+                    title: (items) => labels[items[0].dataIndex] || '',
+                    label: (item) => {
+                      const v = item.parsed.x;
+                      const ex = extras[item.dataIndex];
+                      const main = (valueFmt || ((x) => x.toLocaleString()))(v);
+                      if (ex !== null && ex !== undefined) {
+                        return label + ': ' + main + ' (보조: ' + Number(ex).toLocaleString() + ')';
+                      }
+                      return label + ': ' + main;
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: { beginAtZero: true, ticks: { precision: 0 } },
+                y: { ticks: { autoSkip: false, font: { size: 11 } } }
+              }
+            }
+          });
+        }
+
+        function fmtBytes(b) {
+          if (b == null) return '0 B';
+          const u = ['B','KB','MB','GB','TB'];
+          let i = 0; let v = Number(b);
+          while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+          return v.toFixed(i === 0 ? 0 : 2) + ' ' + u[i];
+        }
+        function fmtMs(v) {
+          return Number(v).toFixed(1) + ' ms';
+        }
+
+        // 모든 차트가 RANK_COLORS 팔레트 사용 — 1등=red 부터 20등=stone-700 까지 인덱스별 자동 매핑.
+        // 카테고리 색 분기는 섹션 헤더 배지로 충분.
+
+        // ① ~ ⑩ — log_access 기반
+        hbar('chart_topClientIps',      STATS.topClientIps,      '요청 수');
+        hbar('chart_topRefererDomains', STATS.topRefererDomains, '유입 수');
+        hbar('chart_topErrorIps',       STATS.topErrorIps,       '오류 수');
+
+        // ④ Slow URIs — value=호출수, extras=평균ms (extras 가 정렬 기준)
+        // 그래프 X 는 평균ms 로 표시하기 위해 데이터 swap
+        const slow = STATS.topSlowUris;
+        if (slow) {
+          const swapped = {
+            labels: slow.labels,
+            values: slow.extras,   // 평균 ms
+            extras: slow.values    // 호출 수
+          };
+          hbar('chart_topSlowUris', swapped, '평균 ms', fmtMs);
+        }
+
+        hbar('chart_topAnonymousUris',  STATS.topAnonymousUris,  '요청 수');
+        hbar('chart_topMenuPaths',      STATS.topMenuPaths,      '방문 수');
+        hbar('chart_topUserAgents',     STATS.topUserAgents,     '요청 수');
+        hbar('chart_topUriScannerIps',  STATS.topUriScannerIps,  'distinct URI');
+
+        // ⑨ Bandwidth — value=bytes (포매터)
+        hbar('chart_topBandwidthIps',   STATS.topBandwidthIps,   '전송량', fmtBytes);
+        hbar('chart_top404Uris',        STATS.top404Uris,        '404 수');
+
+        // ⑪ Download — value=다운로드 횟수
+        hbar('chart_topDownloadFiles',  STATS.topDownloadFiles,  '다운로드 수');
+
+        // ⑫ 헤비 유저 — value=요청 수, extras=distinct IP 수
+        hbar('chart_topLoginUsers',     STATS.topLoginUsers,     '요청 수');
+
+        // 색상 범례 — 같은 색 = 같은 순위. 화면 상단에 노출.
+        const legendEl = document.getElementById('rankLegend');
+        if (legendEl) {
+          let html = '';
+          for (let i = 0; i < RANK_COLORS.length; i++) {
+            html += '<span class="inline-flex items-center gap-1 mr-2 mb-1">' +
+              '<span class="inline-block w-3 h-3 rounded-sm" style="background:' + RANK_COLORS[i] + '"></span>' +
+              '<span class="font-mono text-[10px] text-fg">' + (i + 1) + '</span>' +
+              '</span>';
+          }
+          legendEl.innerHTML = html;
+        }
+
+        // 자동 새로고침 카운트다운 — access-stat 패턴 동일
+        const total = parseInt(/*[[${autoRefreshSec}]]*/ '600', 10);
+        const cnt = document.getElementById('autoRefreshCountdown');
+        if (cnt) {
+          let remain = total;
+          const tick = () => {
+            const m = Math.floor(remain / 60);
+            const s = remain % 60;
+            cnt.textContent = (m > 0 ? m + 'm ' : '') + s + 's';
+            if (remain > 0) remain--;
+          };
+          tick();
+          setInterval(tick, 1000);
+        }
+      })();
+      /*]]>*/
+    </script>
+
+  </section>
+</body>
+</html>

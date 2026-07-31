@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>휴면 회원 상세</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a> /
+      <a th:href="@{/admin/system/member/dormant}" class="hover:underline">휴면 회원</a> /
+      <span>상세</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-1">휴면 회원 상세</h1>
+    <p class="text-sm text-fg-subtle mb-4">PII 분리 보관 영역. 본 화면 접근은 log_privacy_access(24개월) 기록됨.</p>
+
+    <div class="bg-surface border border-line rounded-large p-5">
+      <dl class="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-y-3 text-sm">
+        <dt class="text-fg-subtle">회원 ID</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${row.memberId}">-</dd>
+
+        <dt class="text-fg-subtle">회원 seq</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${row.memberSeq}">-</dd>
+
+        <dt class="text-fg-subtle">사이트</dt>
+        <dd class="text-fg-strong" th:text="${row.siteCode} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">로그인 ID</dt>
+        <dd class="text-fg-strong" th:text="${row.loginId}">-</dd>
+
+        <dt class="text-fg-subtle">이름 (마스킹)</dt>
+        <dd class="text-fg-strong" th:text="${@mask.name(row.memberName)}">***</dd>
+
+        <dt class="text-fg-subtle">이메일 (마스킹)</dt>
+        <dd class="text-fg-strong font-mono text-xs" th:text="${@mask.email(row.email)}">***</dd>
+
+        <dt class="text-fg-subtle">전화 (마스킹)</dt>
+        <dd class="text-fg-strong font-mono text-xs" th:text="${@mask.phone(row.phone)}">***</dd>
+
+        <dt class="text-fg-subtle">가입 유형</dt>
+        <dd class="text-fg" th:text="${row.joinType}">-</dd>
+
+        <dt class="text-fg-subtle">상태</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle" th:text="${row.status} ?: 'DORMANT'">DORMANT</span>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t border-divider">휴면 전환 일시</dt>
+        <dd class="font-mono text-xs text-fg-strong pt-3 border-t border-divider" th:text="${@fmt.dt(row.dormantAt)}">-</dd>
+
+        <dt class="text-fg-subtle">최종 로그인</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(row.lastLoginAt)}">-</dd>
+
+        <dt class="text-fg-subtle">최종 로그인 IP</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${row.lastLoginIp} ?: '-'">-</dd>
+      </dl>
+    </div>
+
+    <div class="mt-6 flex gap-2">
+      <a th:href="@{/admin/system/member/dormant}" class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">목록</a>
+      <a th:href="@{/admin/system/member/dormant-notice(memberId=${row.memberId})}" class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">이 회원의 안내 메일 이력</a>
+    </div>
+  </section>
+</body>
+</html>

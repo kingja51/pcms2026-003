@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${master.bbsName}">유튜브</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* 구조적 스타일만 유지 — 색은 KRDS CSS 변수 (Design.md §2) */
+    .yt-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <header class="flex items-end justify-between gap-4 mb-6 border-b border-line pb-4">
+      <div>
+        <h1 class="text-heading-md font-bold text-fg-strong" th:text="${master.bbsName}">유튜브</h1>
+        <p class="text-body-sm text-fg-subtle mt-1">총
+          <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+          <span class="mx-1 text-fg-disabled">·</span>
+          페이지 <span th:text="${page.page}">1</span> / <span th:text="${page.totalPages}">1</span>
+        </p>
+      </div>
+      <a th:if="${canWrite}"
+         th:href="@{/bbs/{sc}/{bc}/write(sc=${siteCode}, bc=${bbsCode})}"
+         class="krds-btn krds-btn-primary krds-btn-sm">+ 영상 등록</a>
+    </header>
+
+    <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p th:text="${message}">처리되었습니다.</p>
+    </div>
+    <div th:if="${error}" role="alert" aria-live="polite" class="krds-alert krds-alert-danger mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+      </svg>
+      <p th:text="${error}">오류가 발생했습니다.</p>
+    </div>
+
+    <!-- 카테고리 칩 -->
+    <nav th:if="${categories != null and !#lists.isEmpty(categories)}"
+         aria-label="카테고리" class="mb-4 flex items-center gap-2 flex-wrap">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+         th:classappend="${search?.categoryId == null or search?.categoryId == ''} ? ' border-primary-50 text-primary-50 bg-primary-5 font-bold' : ' border-line text-fg-subtle hover:bg-surface-subtle'"
+         class="krds-tag">전체</a>
+      <a th:each="c : ${categories}"
+         th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode}, categoryId=${c.categoryId})}"
+         th:classappend="${search?.categoryId == c.categoryId} ? ' border-primary-50 text-primary-50 bg-primary-5 font-bold' : ' border-line text-fg-subtle hover:bg-surface-subtle'"
+         class="krds-tag"
+         th:text="${c.categoryName}">분류</a>
+    </nav>
+
+    <!-- 검색 -->
+    <form th:action="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}" method="get"
+          role="search" aria-label="유튜브 검색"
+          class="program-search">
+      <input type="hidden" name="categoryId" th:value="${search?.categoryId}"/>
+      <div class="program-search__field program-search__field--grow">
+        <label for="keyword" class="program-search__label">검색어</label>
+        <input id="keyword" name="keyword" type="text"
+               th:value="${search?.keyword}" maxlength="100"
+               placeholder="제목 또는 작성자로 검색"
+               class="krds-input"/>
+      </div>
+      <div class="program-search__field">
+        <label for="searchType" class="program-search__label">구분</label>
+        <select id="searchType" name="searchType" class="krds-input">
+          <option value=""        th:selected="${search?.searchType == null or search?.searchType == ''}">제목+작성자</option>
+          <option value="TITLE"   th:selected="${search?.searchType == 'TITLE'}">제목</option>
+          <option value="WRITER"  th:selected="${search?.searchType == 'WRITER'}">작성자</option>
+        </select>
+      </div>
+      <div class="program-search__actions">
+        <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+        <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+           class="krds-btn krds-btn-tertiary">초기화</a>
+      </div>
+    </form>
+
+    <!-- 영상 카드 그리드 -->
+    <div th:if="${not #lists.isEmpty(page.content)}" class="yt-grid">
+      <a th:each="row : ${page.content}"
+         th:href="@{/bbs/{sc}/{bc}/{aid}(sc=${siteCode}, bc=${bbsCode}, aid=${row.articleId})}"
+         class="group flex flex-col overflow-hidden rounded-xlarge border border-line bg-surface no-underline text-fg shadow-e1 transition-shadow hover:shadow-e2 hover:border-line-strong">
+        <div class="relative aspect-video overflow-hidden bg-surface-subtler" th:with="ytId=${row.youtubeId}">
+          <!-- youtube ID 가 추출되면 HD 썸네일, 아니면 placeholder -->
+          <img th:if="${ytId != null}"
+               th:src="'https://i.ytimg.com/vi/' + ${ytId} + '/hqdefault.jpg'"
+               th:alt="${row.title}" loading="lazy"
+               data-src-fallback="hqdefault:mqdefault"
+               class="block h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"/>
+          <div th:if="${ytId == null}"
+               class="absolute inset-0 flex items-center justify-center bg-surface-subtle text-fg-subtle">
+            <svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"
+                 fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.4">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.348a1.125 1.125 0 010 1.971l-11.54 6.347a1.125 1.125 0 01-1.667-.985V5.653z"/>
+            </svg>
+          </div>
+
+          <!-- 재생 아이콘 -->
+          <span th:if="${ytId != null}" aria-hidden="true"
+                class="pointer-events-none absolute left-1/2 top-1/2 flex size-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-max bg-danger-icon text-fg-on shadow-e2 transition-transform group-hover:scale-110">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="ml-0.5 size-5 fill-current"><path d="M8 5v14l11-7z"/></svg>
+          </span>
+
+          <!-- 뱃지 -->
+          <div class="absolute left-2 top-2 flex flex-wrap gap-1">
+            <span th:if="${row.noticeYn == 'Y'}" class="krds-badge bg-danger-surface text-danger-fg">공지</span>
+            <span th:if="${row.secretYn == 'Y'}" class="krds-badge bg-surface-subtle text-fg-subtle">🔒 비밀</span>
+            <span th:if="${row.categoryName != null and !#strings.isEmpty(row.categoryName)}"
+                  class="krds-badge bg-primary-5 text-primary-50" th:text="${row.categoryName}">카테고리</span>
+          </div>
+        </div>
+
+        <div class="flex flex-1 flex-col gap-1.5 p-4">
+          <h2 class="text-body-md font-bold text-fg-strong line-clamp-2" th:text="${row.title}">영상 제목</h2>
+          <p class="text-body-sm text-fg-subtle line-clamp-2"
+             th:text="${#strings.abbreviate(#strings.replace(#strings.replace(row.content ?: '', '<br>', ' '), '\n', ' '), 90)}">
+            본문 미리보기 텍스트가 두 줄까지 요약되어 노출됩니다.
+          </p>
+
+          <div class="mt-auto flex items-center justify-between gap-2 border-t border-divider pt-2 text-body-xs text-fg-subtle">
+            <span th:text="${row.publishedAt != null ? #temporals.format(row.publishedAt, 'yyyy-MM-dd') : @fmt.d(row.createdAt)}">2026-04-27</span>
+            <span class="inline-flex items-center gap-2.5">
+              <span title="조회" class="inline-flex items-center gap-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5s8.577 3.01 9.964 7.183c.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5s-8.577-3.01-9.964-7.178z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <span th:text="${row.viewCount}">0</span>
+              </span>
+              <span title="좋아요" class="inline-flex items-center gap-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z"/>
+                </svg>
+                <span th:text="${row.likeCount}">0</span>
+              </span>
+              <span title="댓글" th:if="${row.commentCount > 0}" class="inline-flex items-center gap-0.5">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                        d="M2.25 12.76c0 1.6 1.123 2.994 2.707 3.227 1.068.157 2.148.279 3.238.364.466.037.893.281 1.153.671L12 21l2.652-3.978c.26-.39.687-.634 1.153-.67 1.09-.086 2.17-.208 3.238-.365 1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/>
+                </svg>
+                <span th:text="${row.commentCount}">0</span>
+              </span>
+            </span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- 빈 상태 -->
+    <div th:if="${#lists.isEmpty(page.content)}"
+         class="py-16 text-center text-fg-subtle border border-dashed border-line rounded-large">
+      <p class="text-heading-lg mb-2">▶️</p>
+      <p>아직 등록된 영상이 없습니다.</p>
+    </div>
+
+    <!-- 페이지 네비 -->
+    <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-8">
+      <ul class="flex items-center justify-center gap-1 text-body-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode},
+                       page=${p}, pageSize=${page.pageSize},
+                       categoryId=${search?.categoryId},
+                       keyword=${search?.keyword}, searchType=${search?.searchType})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center size-10 rounded-medium bg-primary-50 text-white'
+                       : 'inline-flex items-center justify-center size-10 rounded-medium border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

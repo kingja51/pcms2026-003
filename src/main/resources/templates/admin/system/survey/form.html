@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>설문 등록·수정</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/survey}" class="hover:underline">설문조사</a> /
+      <span th:text="${mode == 'create' ? '등록' : '수정'}">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'create' ? '설문 등록' : '설문 수정'}">설문 등록</h1>
+
+    <div th:if="${error}" class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form id="surveyForm" th:object="${form}" method="post"
+          th:action="${mode == 'create'} ? @{/admin/system/survey} : @{/admin/system/survey/{id}(id=${form.surveyId})}"
+          class="space-y-6">
+
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:if="${mode == 'edit'}" th:field="*{surveyId}"/>
+      <input type="hidden" id="questionsJson" th:field="*{questionsJson}"/>
+
+      <fieldset class="space-y-4 bg-surface border border-line rounded-large p-6">
+        <legend class="text-base font-semibold text-fg-strong">기본 정보</legend>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">설문 마스터 <span class="text-danger-fg">*</span></label>
+            <select th:field="*{surveyMasterId}" required class="block w-full rounded border border-line px-3 py-2 text-sm">
+              <option value="">선택</option>
+              <option th:each="m : ${masters}" th:value="${m.surveyMasterId}"
+                      th:text="${m.siteCode} + ' · ' + ${m.masterTitle}">master</option>
+            </select>
+            <p class="text-[11px] text-fg-subtle mt-1">
+              마스터에서 사이트/메뉴 컨텍스트가 결정됩니다.
+              <a th:href="@{/admin/system/survey-master}" class="text-brand-60 hover:underline">마스터 관리 →</a>
+            </p>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">상태</label>
+            <select th:field="*{status}" class="block w-full rounded border border-line px-3 py-2 text-sm">
+              <option th:each="st : ${statuses}" th:value="${st.name()}" th:text="${st.name()}">DRAFT</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">제목 <span class="text-danger-fg">*</span></label>
+          <input type="text" th:field="*{surveyTitle}" required maxlength="200"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">설명 (HTML 허용)</label>
+          <textarea th:field="*{surveyDescription}" rows="4"
+                    class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"></textarea>
+          <p class="text-[11px] text-fg-subtle mt-1">서버에서 OWASP Sanitizer 로 위험 태그 자동 제거.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">시작 <span class="text-danger-fg">*</span></label>
+            <input type="datetime-local" th:field="*{startAt}" required
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">종료 <span class="text-danger-fg">*</span></label>
+            <input type="datetime-local" th:field="*{endAt}" required
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-4 text-sm">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="anonymousYn" value="Y"
+                   th:checked="${form.anonymousYn == 'Y'}" class="rounded border-line"/>
+            익명 응답 (응답자 ID 미저장)
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="oneResponseYn" value="Y"
+                   th:checked="${form.oneResponseYn == 'Y'}" class="rounded border-line"/>
+            1인 1회 응답 제한
+          </label>
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" name="useYn" value="Y"
+                   th:checked="${form.useYn == 'Y'}" class="rounded border-line"/>
+            사용함
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset class="space-y-4 bg-surface border border-line rounded-large p-6">
+        <legend class="text-base font-semibold text-fg-strong">문항</legend>
+        <p class="text-xs text-fg-subtle">+ 문항 추가 버튼으로 행을 늘리고, 각 문항에 유형(TEXT/TEXTAREA/RADIO/CHECKBOX/SELECT/SCALE)과 선택지를 입력하세요. 객관식 선택지는 한 줄에 하나씩.</p>
+        <div id="questionList" class="space-y-3"></div>
+        <button type="button" id="addQuestion"
+                class="px-3 py-1.5 rounded border border-line bg-surface text-sm hover:bg-surface-subtle">+ 문항 추가</button>
+      </fieldset>
+
+      <div class="flex justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="@{/admin/system/survey}" class="px-4 py-2 rounded border border-line bg-surface text-fg text-sm">취소</a>
+        <button type="submit" class="px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium"
+                th:text="${mode == 'create' ? '등록' : '수정'}">등록</button>
+      </div>
+    </form>
+
+    <!-- 기존 문항 직렬화용 (수정 모드) — Controller 가 미리 JSON 으로 직렬화 -->
+    <script id="existingQuestions" type="application/json"
+            th:if="${existingQuestionsJson != null}"
+            th:utext="${existingQuestionsJson}"></script>
+
+    <script th:nonce="${cspNonce}" th:inline="none">
+      (function () {
+        var listEl = document.getElementById('questionList');
+        var jsonInput = document.getElementById('questionsJson');
+        var TYPES = ['TEXT','TEXTAREA','RADIO','CHECKBOX','SELECT','SCALE'];
+
+        function el(tag, attrs, html) {
+          var e = document.createElement(tag);
+          if (attrs) Object.keys(attrs).forEach(function(k){ e.setAttribute(k, attrs[k]); });
+          if (html != null) e.innerHTML = html;
+          return e;
+        }
+
+        function makeCard(idx, q) {
+          q = q || {};
+          var card = el('div', { 'class':'border border-line rounded-large p-4', 'data-q':'1' });
+          card.innerHTML =
+            '<div class="flex items-center justify-between gap-2 mb-2">' +
+              '<strong class="text-sm text-fg">문항 #' + (idx+1) + '</strong>' +
+              '<div class="flex gap-1">' +
+                '<button type="button" data-act="up" class="px-2 py-1 text-xs border border-line rounded">▲</button>' +
+                '<button type="button" data-act="down" class="px-2 py-1 text-xs border border-line rounded">▼</button>' +
+                '<button type="button" data-act="del" class="px-2 py-1 text-xs border border-danger-border text-danger-fg rounded">삭제</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="grid grid-cols-1 md:grid-cols-[1fr_140px_120px] gap-2 mb-2">' +
+              '<input type="text" data-f="text" placeholder="문항 내용" maxlength="1000" required ' +
+                'class="rounded border border-line px-2 py-1.5 text-sm"/>' +
+              '<select data-f="type" class="rounded border border-line px-2 py-1.5 text-sm">' +
+                TYPES.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('') +
+              '</select>' +
+              '<label class="inline-flex items-center gap-1.5 text-sm">' +
+                '<input type="checkbox" data-f="required" class="rounded border-line"/> 필수' +
+              '</label>' +
+            '</div>' +
+            '<div data-options class="space-y-1">' +
+              '<label class="block text-xs text-fg-subtle">선택지 (한 줄에 하나, RADIO/CHECKBOX/SELECT 시 사용)</label>' +
+              '<textarea data-f="options" rows="3" ' +
+                'class="block w-full rounded border border-line px-2 py-1 text-xs font-mono"></textarea>' +
+            '</div>' +
+            '<div data-scale class="hidden grid grid-cols-2 gap-2 mt-2">' +
+              '<label class="text-xs text-fg-subtle">최소' +
+                '<input type="number" data-f="scaleMin" min="0" max="100" class="block w-full rounded border border-line px-2 py-1 text-xs"/>' +
+              '</label>' +
+              '<label class="text-xs text-fg-subtle">최대' +
+                '<input type="number" data-f="scaleMax" min="0" max="100" class="block w-full rounded border border-line px-2 py-1 text-xs"/>' +
+              '</label>' +
+            '</div>';
+
+          // 값 채우기
+          card.querySelector('[data-f="text"]').value = q.text || '';
+          card.querySelector('[data-f="type"]').value = (q.type || 'TEXT');
+          card.querySelector('[data-f="required"]').checked = (q.required !== 'N');
+          if (q.options && q.options.length) {
+            card.querySelector('[data-f="options"]').value =
+              q.options.map(function(o){ return o.text || ''; }).join('\n');
+          }
+          card.querySelector('[data-f="scaleMin"]').value = (q.scaleMin != null ? q.scaleMin : '');
+          card.querySelector('[data-f="scaleMax"]').value = (q.scaleMax != null ? q.scaleMax : '');
+
+          // 유형에 따라 표시 토글
+          function refresh() {
+            var t = card.querySelector('[data-f="type"]').value;
+            card.querySelector('[data-options]').style.display =
+              (t === 'RADIO' || t === 'CHECKBOX' || t === 'SELECT') ? '' : 'none';
+            card.querySelector('[data-scale]').className =
+              (t === 'SCALE') ? 'grid grid-cols-2 gap-2 mt-2' : 'hidden grid grid-cols-2 gap-2 mt-2';
+          }
+          card.querySelector('[data-f="type"]').addEventListener('change', refresh);
+          refresh();
+
+          // 액션
+          card.querySelector('[data-act="del"]').addEventListener('click', function() {
+            card.remove(); reindex();
+          });
+          card.querySelector('[data-act="up"]').addEventListener('click', function() {
+            var prev = card.previousElementSibling;
+            if (prev) listEl.insertBefore(card, prev);
+            reindex();
+          });
+          card.querySelector('[data-act="down"]').addEventListener('click', function() {
+            var next = card.nextElementSibling;
+            if (next) listEl.insertBefore(next, card);
+            reindex();
+          });
+
+          return card;
+        }
+
+        function reindex() {
+          [].forEach.call(listEl.querySelectorAll('[data-q]'), function(c, i) {
+            var head = c.querySelector('strong');
+            if (head) head.textContent = '문항 #' + (i+1);
+          });
+        }
+
+        function addCard(q) {
+          var idx = listEl.querySelectorAll('[data-q]').length;
+          listEl.appendChild(makeCard(idx, q));
+        }
+
+        // 기존 데이터 시드 (수정 모드)
+        var existing = document.getElementById('existingQuestions');
+        if (existing) {
+          try {
+            var arr = JSON.parse(existing.textContent || '[]');
+            arr.forEach(function(q){ addCard(q); });
+          } catch (e) { /* ignore */ }
+        }
+        if (listEl.children.length === 0) addCard(); // 빈 카드 1개
+
+        document.getElementById('addQuestion').addEventListener('click', function(){ addCard(); });
+
+        // 제출 직전 직렬화
+        document.getElementById('surveyForm').addEventListener('submit', function() {
+          var arr = [];
+          [].forEach.call(listEl.querySelectorAll('[data-q]'), function(c) {
+            var t = c.querySelector('[data-f="type"]').value;
+            var item = {
+              text:     c.querySelector('[data-f="text"]').value.trim(),
+              type:     t,
+              required: c.querySelector('[data-f="required"]').checked ? 'Y' : 'N'
+            };
+            if (t === 'SCALE') {
+              var sMin = c.querySelector('[data-f="scaleMin"]').value;
+              var sMax = c.querySelector('[data-f="scaleMax"]').value;
+              if (sMin !== '') item.scaleMin = parseInt(sMin, 10);
+              if (sMax !== '') item.scaleMax = parseInt(sMax, 10);
+            }
+            if (t === 'RADIO' || t === 'CHECKBOX' || t === 'SELECT') {
+              var lines = c.querySelector('[data-f="options"]').value.split('\n')
+                .map(function(s){ return s.trim(); }).filter(function(s){ return s.length > 0; });
+              item.options = lines.map(function(l){ return { text: l }; });
+            }
+            if (item.text) arr.push(item);
+          });
+          jsonInput.value = JSON.stringify(arr);
+        });
+      })();
+    </script>
+
+  </section>
+</body>
+</html>

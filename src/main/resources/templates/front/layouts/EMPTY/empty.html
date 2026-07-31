@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!--
+  EMPTY 레이아웃 — 브랜드-독립 최종 폴백 (template_code='EMPTY') · KRDS × Tailwind v4
+    · 원칙: siteContext 가 null 이거나 site.siteName 이 빈 문자열이어도 정상 렌더
+    · 용도: SiteContextInterceptor 6단계 중 마지막 EMPTY 폴백, 또는 관리자가 일부
+      사이트에 default_template_id 를 지정하지 않은 경우
+    · 위치 규약: /templates/front/layouts/{TEMPLATE_CODE}/{template_code}.html
+    · 1:1 매칭: tb_template.layout_path = 'front/layouts/EMPTY/empty'
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ko"
+      class="h-full bg-bg"
+      th:classappend="${themeClass}">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="htmx-config" content='{"includeIndicatorStyles":false}'/>
+  <!-- CSRF — app.js 가 htmx:configRequest 헤더로, file-picker 등이 fetch 헤더로 사용 -->
+  <meta name="_csrf"        th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+  <title layout:title-pattern="$CONTENT_TITLE"
+         th:text="${siteContext?.site?.siteName != null and !#strings.isEmpty(siteContext.site.siteName)}
+                    ? ${siteContext.site.siteName} : ${@project.nameKo}">홈</title>
+
+  <link th:href="@{/css/output.css}" rel="stylesheet" />
+  <link rel="stylesheet" th:href="@{/tmpl/css/EMPTY/empty.css}"/>
+  <!-- 사용자 프로그램(board/schedule/...) 페이지 공통 폭 컨테이너 -->
+  <link rel="stylesheet" th:href="@{/css/program-page.css}"/>
+
+  <!-- 사이트별 <head> 삽입 (tb_site.head_meta) — empty 사이트면 보통 null 이라 no-op -->
+  <th:block th:if="${!#strings.isEmpty(siteContext?.site?.headMeta)}"
+            th:utext="${siteContext.site.headMeta}"/>
+</head>
+<body class="min-h-screen flex flex-col bg-bg text-fg antialiased">
+
+<a class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-surface focus:outline-2 focus:outline-brand-50 focus:rounded-medium"
+   th:href="@{#main}">본문으로 건너뛰기</a>
+
+<!-- ══════ 최소 헤더 — 브랜드마크(홈 링크)만 ══════ -->
+<header role="banner" class="bg-surface border-b border-line">
+  <div class="max-w-content mx-auto px-4 py-3 flex items-center gap-4">
+    <a th:href="@{/}" class="flex items-center gap-2 text-body-lg font-bold text-fg-strong hover:text-brand-60">
+      <span class="inline-flex items-center justify-center size-7 rounded-medium bg-brand-50 text-fg-on text-body-sm font-bold">G</span>
+      <span th:text="${siteContext?.site?.siteName != null and !#strings.isEmpty(siteContext.site.siteName)}
+                       ? ${siteContext.site.siteName} : ${@project.nameKo}">홈</span>
+    </a>
+    <div class="ml-auto">
+      <!-- 알림 종 — 인증 사용자만 노출 -->
+      <th:block th:replace="~{fragments/notification-bell :: bell(href='/notification')}"/>
+    </div>
+  </div>
+</header>
+
+<!-- ══════ 빈 내비 구분 영역 — 메뉴는 없지만 다른 템플릿과 공간 구조 일관성 확보 ══════ -->
+<nav aria-label="주 메뉴" class="bg-surface border-b border-line">
+  <div class="max-w-content mx-auto px-4 h-10" role="presentation"></div>
+</nav>
+
+<!-- ══════ 본문 ══════ -->
+<main id="main" role="main" class="flex-1">
+  <div class="max-w-content mx-auto px-4 py-6 md:px-6">
+    <section layout:fragment="content">
+	
+	
+	
+      <p class="text-fg-subtle">기본 콘텐츠 영역</p>
+	  
+	  
+	  
+	  
+    </section>
+  </div>
+</main>
+
+<!-- ══════ 푸터 (건양대 표준 공용 — fragments/site-footer) ══════ -->
+<th:block th:replace="~{fragments/site-footer :: render}"/>
+
+<th:block th:replace="~{fragments/popup-overlay :: render(popups=${activePopups})}"/>
+<link rel="stylesheet" th:href="@{/css/popup-overlay.css}"/>
+<link rel="stylesheet" th:href="@{/css/banner-slot.css}"/>
+<script th:src="@{/js/popup-overlay.js}" th:attr="nonce=${cspNonce}"></script>
+
+<!-- 파일 뷰어 팝업 — [data-viewer-popup] 속성 가진 앵커를 팝업창으로 연다. 게시판 첨부 등. -->
+<script th:src="@{/js/file-viewer-popup.js}" th:attr="nonce=${cspNonce}"></script>
+
+<script th:src="@{/js/htmx.min.js}" th:attr="nonce=${cspNonce}"></script>
+<script th:src="@{/js/app.js}" th:attr="nonce=${cspNonce}"></script>
+
+<!-- 알림 종 폴링 — 인증 사용자만 -->
+<script th:src="@{/js/notification-bell.js}" th:attr="nonce=${cspNonce}" sec:authorize="isAuthenticated()" defer></script>
+
+<!-- 페이지별 추가 스크립트 슬롯 -->
+<th:block layout:fragment="scripts"></th:block>
+</body>
+</html>

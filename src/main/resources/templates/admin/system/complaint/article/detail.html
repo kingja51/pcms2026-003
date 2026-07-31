@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>민원 상세</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/complaint}" class="hover:underline">민원</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/complaint/{mid}/article(mid=${master.complaintMasterId})}"
+       class="hover:underline" th:text="${master.masterName}">마스터</a>
+    <span class="mx-1">/</span>
+    <span th:text="${article.complaintNo}">상세</span>
+  </nav>
+
+  <div th:if="${message}" role="status"
+       class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+  <div th:if="${error}" role="alert"
+       class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+  <!-- 헤더 -->
+  <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+    <div>
+      <div class="flex items-center gap-2 mb-1">
+        <span class="font-mono text-sm text-fg-subtle" th:text="${article.complaintNo}">-</span>
+        <span th:classappend="${article.status == 'RECEIVED'} ? 'bg-info-surface text-info-fg'
+                           : (${article.status == 'IN_PROGRESS'} ? 'bg-warning-surface text-warning-fg'
+                           : (${article.status == 'ANSWERED'} ? 'bg-success-surface text-success-fg'
+                           : (${article.status == 'CLOSED'} ? 'bg-surface-subtler text-fg-subtle'
+                           : 'bg-danger-surface text-danger-fg')))"
+              class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+              th:text="${article.status}">상태</span>
+      </div>
+      <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${article.title}">제목</h1>
+    </div>
+    <div class="flex items-center gap-2">
+      <a th:href="@{/admin/system/complaint/{mid}/article(mid=${master.complaintMasterId})}"
+         class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">← 목록</a>
+    </div>
+  </div>
+
+  <!-- 민원 정보 -->
+  <div class="bg-surface border border-line rounded-large p-6 mb-6">
+    <h2 class="text-base font-semibold text-fg-strong mb-4">민원 정보</h2>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+      <div><span class="text-fg-subtle block text-xs mb-0.5">작성자</span>
+           <span th:text="${article.writerName ?: '-'}">-</span></div>
+      <div><span class="text-fg-subtle block text-xs mb-0.5">인증 방식</span>
+           <span th:text="${article.writerAuthType ?: '-'}">-</span></div>
+      <div><span class="text-fg-subtle block text-xs mb-0.5">카테고리</span>
+           <span th:text="${article.categoryName ?: '미분류'}">-</span></div>
+      <div><span class="text-fg-subtle block text-xs mb-0.5">접수일시</span>
+           <span class="font-mono text-xs" th:text="${@fmt.dt(article.createdAt)}">-</span></div>
+      <div><span class="text-fg-subtle block text-xs mb-0.5">답변 기한</span>
+           <span class="font-mono text-xs"
+                 th:classappend="${article.answerDueAt != null and article.answerDueAt.isBefore(T(java.time.LocalDateTime).now()) and article.status != 'ANSWERED' and article.status != 'CLOSED'} ? 'text-danger-fg font-semibold' : ''"
+                 th:text="${article.answerDueAt != null ? @fmt.dt(article.answerDueAt) : '-'}">-</span></div>
+      <div><span class="text-fg-subtle block text-xs mb-0.5">답변 완료일</span>
+           <span class="font-mono text-xs" th:text="${article.answeredAt != null ? @fmt.dt(article.answeredAt) : '-'}">-</span></div>
+      <div><span class="text-fg-subtle block text-xs mb-0.5">접속 IP</span>
+           <span class="font-mono text-xs" th:text="${article.clientIp ?: '-'}">-</span></div>
+      <div><span class="text-fg-subtle block text-xs mb-0.5">종결일시</span>
+           <span class="font-mono text-xs" th:text="${article.closedAt != null ? @fmt.dt(article.closedAt) : '-'}">-</span></div>
+    </div>
+    <div>
+      <span class="text-fg-subtle block text-xs mb-1">민원 내용</span>
+      <div class="bg-surface-subtle rounded p-4 text-sm whitespace-pre-wrap leading-relaxed"
+           th:text="${article.content}">-</div>
+    </div>
+  </div>
+
+  <!-- 상태 변경 -->
+  <div class="bg-surface border border-line rounded-large p-6 mb-6">
+    <h2 class="text-base font-semibold text-fg-strong mb-3">상태 변경</h2>
+    <form th:action="@{/admin/system/complaint/{mid}/article/{aid}/status(mid=${master.complaintMasterId},aid=${article.articleId})}"
+          method="post" class="flex items-center gap-3">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <select name="status" class="rounded border border-line px-3 py-2 text-sm">
+        <option th:each="s : ${statuses}"
+                th:value="${s.name()}"
+                th:text="${s.label()}"
+                th:selected="${article.status == s.name()}">-</option>
+      </select>
+      <button type="submit"
+              class="inline-flex items-center px-4 py-2 rounded bg-gray-70 text-fg-on text-sm font-medium hover:bg-gray-90">변경</button>
+    </form>
+  </div>
+
+  <!-- 답변 목록 -->
+  <div class="bg-surface border border-line rounded-large p-6 mb-6">
+    <h2 class="text-base font-semibold text-fg-strong mb-4">
+      답변 <span class="text-fg-subtle font-normal text-sm" th:text="'(' + ${#lists.size(answers)} + '건)'"></span>
+    </h2>
+
+    <div th:if="${#lists.isEmpty(answers)}" class="text-sm text-fg-subtle mb-6">등록된 답변이 없습니다.</div>
+
+    <div th:each="ans : ${answers}" class="border border-line rounded-large p-4 mb-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2 text-sm">
+          <span class="font-medium text-fg-strong" th:text="${ans.answererName ?: ans.answererId}">-</span>
+          <span class="text-fg-subtle text-xs" th:text="${ans.answererType}">-</span>
+          <span th:if="${ans.isFinal == 'Y'}"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">최종 답변</span>
+          <span class="font-mono text-xs text-fg-disabled" th:text="${@fmt.dt(ans.createdAt)}">-</span>
+        </div>
+        <div class="flex items-center gap-1">
+          <form th:action="@{/admin/system/complaint/{mid}/article/{aid}/answer/{anid}/delete(mid=${master.complaintMasterId},aid=${article.articleId},anid=${ans.answerId})}"
+                method="post" class="inline"
+                data-confirm="답변을 삭제하시겠습니까?">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit"
+                    class="inline-flex items-center px-2 py-0.5 rounded border border-danger-border bg-surface text-xs text-danger-fg hover:bg-danger-surface">삭제</button>
+          </form>
+        </div>
+      </div>
+      <div class="text-sm whitespace-pre-wrap leading-relaxed text-fg"
+           th:text="${ans.content}">-</div>
+    </div>
+
+    <!-- 답변 등록 폼 -->
+    <div class="mt-6 border-t border-line pt-6">
+      <h3 class="text-sm font-semibold text-fg-strong mb-3">답변 등록</h3>
+      <form th:action="@{/admin/system/complaint/{mid}/article/{aid}/answer(mid=${master.complaintMasterId},aid=${article.articleId})}"
+            method="post" class="space-y-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="articleId" th:value="${article.articleId}"/>
+
+        <div th:if="${answerErrors}" role="alert"
+             class="rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg">입력값을 확인해 주세요.</div>
+
+        <div>
+          <label for="answerContent" class="block text-xs font-medium text-fg-subtle mb-1">답변 내용 <span class="text-danger-fg">*</span></label>
+          <textarea id="answerContent" name="content" rows="6" required maxlength="10000"
+                    class="block w-full rounded border border-line px-3 py-2 text-sm resize-y"></textarea>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+            <input type="checkbox" name="isFinal" value="Y"
+                   class="rounded border-line text-brand-50"/>
+            <span>최종 답변 (민원 상태 → ANSWERED 자동 전환)</span>
+          </label>
+          <button type="submit"
+                  class="inline-flex items-center px-5 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">답변 등록</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 민원 삭제 -->
+  <div class="bg-surface border border-line rounded-large p-6">
+    <h2 class="text-base font-semibold text-fg-strong mb-3">민원 삭제</h2>
+    <form th:action="@{/admin/system/complaint/{mid}/article/{aid}/delete(mid=${master.complaintMasterId},aid=${article.articleId})}"
+          method="post"
+          data-confirm="민원을 삭제하시겠습니까?">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <button type="submit"
+              class="inline-flex items-center px-4 py-2 rounded border border-danger-border bg-surface text-sm text-danger-fg hover:bg-danger-surface">민원 삭제</button>
+    </form>
+  </div>
+
+</section>
+</body>
+</html>

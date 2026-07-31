@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>부서별 집행현황</title></head>
+<body>
+<section layout:fragment="content" 
+         th:with="thisYear=${T(java.time.Year).now().value}">
+
+  <header class="mb-4">
+    <h1 class="text-2xl font-bold text-slate-900 mb-1">부서별 집행현황</h1>
+    <p class="text-sm text-slate-500">기준일 <strong th:text="${ymd}">-</strong></p>
+  </header>
+
+  <form method="get" th:action="@{|/lfios/${siteCode}/expense/dept|}"
+        class="bg-white border border-slate-200 rounded p-3 mb-4 grid grid-cols-2 md:grid-cols-6 gap-2 text-sm">
+    <select name="fisYear" class="border rounded px-2 py-1" title="회계년도">
+      <option th:each="y : ${#numbers.sequence(2018, thisYear)}" th:value="${y}"
+              th:text="${y} + '년'" th:selected="${#strings.toString(y) == search.fisYear}"></option>
+    </select>
+    <select name="fisFgCd" class="border rounded px-2 py-1" title="회계구분">
+      <option value="">회계구분(전체)</option>
+      <option value="1" th:selected="${search.fisFgCd == '1'}">일반회계</option>
+      <option value="2" th:selected="${search.fisFgCd == '2'}">특별회계</option>
+      <option value="4" th:selected="${search.fisFgCd == '4'}">기금회계</option>
+    </select>
+    <select name="subsdBgtFg" class="border rounded px-2 py-1" title="사업구분">
+      <option value="">사업구분(전체)</option>
+      <option th:each="s : ${subsdBgtFgs}" th:value="${s.subsdBgtFg}" th:text="${s.subsdBgtFgNm}"
+              th:selected="${s.subsdBgtFg == search.subsdBgtFg}"></option>
+    </select>
+    <select name="deptCd" class="border rounded px-2 py-1" title="부서">
+      <option value="">부서(전체)</option>
+      <option th:each="d : ${deptInfos}" th:value="${d.deptCd}" th:text="${d.deptNm}"
+              th:selected="${d.deptCd == search.deptCd}"></option>
+    </select>
+    <select name="fldCd" class="border rounded px-2 py-1" title="분야">
+      <option value="">분야(전체)</option>
+      <option th:each="f : ${flds}" th:value="${f.fldCd}" th:text="${f.fldNm}"
+              th:selected="${f.fldCd == search.fldCd}"></option>
+    </select>
+    <button class="bg-slate-900 text-white rounded px-3 py-1 font-semibold">검색</button>
+  </form>
+
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-xs text-slate-500">(단위 : 원)</span>
+    <a th:href="@{|/lfios/${siteCode}/expense/dept/excel|(fisYear=${search.fisYear}, fisFgCd=${search.fisFgCd},
+                  subsdBgtFg=${search.subsdBgtFg}, deptCd=${search.deptCd}, fldCd=${search.fldCd})}"
+       class="inline-flex items-center gap-1 px-3 py-1 rounded border border-emerald-600 bg-white text-emerald-700 text-sm font-semibold hover:bg-emerald-50">
+      ⬇ 엑셀 다운로드
+    </a>
+  </div>
+
+  <div class="overflow-x-auto bg-white rounded border border-slate-200"
+       th:with="totalBgt=${#aggregates.sum(rows.![sumBgt])}, totalExpd=${#aggregates.sum(rows.![sumExpd])}">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50">
+        <tr class="text-slate-600">
+          <th class="px-3 py-2 text-left">부서별</th>
+          <th class="px-3 py-2 text-right">예산현액(A)</th>
+          <th class="px-3 py-2 text-right">지출액 누계(B)</th>
+          <th class="px-3 py-2 text-right">집행 잔액(A-B)</th>
+          <th class="px-3 py-2 text-right">집행률(B/A)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="r : ${rows}" class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="px-3 py-2" th:text="${r.deptNm}"></td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${r.sumBgt})}">0</td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${r.sumExpd})}">0</td>
+          <td class="px-3 py-2 text-right"
+              th:text="${#numbers.formatInteger((r.sumBgt ?: 0) - (r.sumExpd ?: 0), 1, 'COMMA')}"></td>
+          <td class="px-3 py-2 text-right"
+              th:text="${(r.sumAvg != null ? #numbers.formatDecimal(r.sumAvg, 1, 3) : '0') + ' %'}"></td>
+        </tr>
+        <tr th:if="${rows.isEmpty()}">
+          <td colspan="5" class="px-3 py-12 text-center text-slate-400">데이터가 없습니다.</td>
+        </tr>
+      </tbody>
+      <tfoot th:unless="${rows.isEmpty()}">
+        <tr class="bg-slate-100 font-semibold border-t-2 border-slate-300">
+          <td class="px-3 py-2">합계</td>
+          <td class="px-3 py-2 text-right" th:text="${#numbers.formatInteger(totalBgt, 1, 'COMMA')}"></td>
+          <td class="px-3 py-2 text-right" th:text="${#numbers.formatInteger(totalExpd, 1, 'COMMA')}"></td>
+          <td class="px-3 py-2 text-right" th:text="${#numbers.formatInteger(totalBgt - totalExpd, 1, 'COMMA')}"></td>
+          <td class="px-3 py-2 text-right"
+              th:text="${(totalBgt != 0 ? #numbers.formatDecimal(totalExpd * 100.0 / totalBgt, 1, 3) : '0') + ' %'}"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+</section>
+</body>
+</html>

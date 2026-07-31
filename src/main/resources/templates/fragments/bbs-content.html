@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!--
+  bbs-content fragment — 게시글 본문 렌더링 통합 진입점.
+
+  사용:
+    <th:block th:replace="~{fragments/bbs-content :: render(content=${article.content},
+                                                            htmlYn=${master.htmlYn})}"></th:block>
+
+  정책:
+    · htmlYn = 'Y' → @xss.safe() 화이트리스트 통과 후 th:utext 로 HTML 렌더
+    · htmlYn = 'N' → th:text 평문 강제 (Thymeleaf 자동 이스케이프)
+
+  defense-in-depth:
+    게시판 마스터 정책과 무관하게 출력 직전에 sanitizer 를 다시 한 번 거친다 — 과거 데이터
+    또는 마이그레이션 직후 raw HTML 잔존을 대비.
+
+  trim / 한 줄 유지 (2026-07-08):
+    본문 래퍼가 whitespace-pre-wrap 이라 ① 저장 본문의 앞뒤 개행 ② 이 fragment 마크업
+    자체의 개행이 전부 빈 줄로 렌더된다. 출력 직전 앞뒤 공백 trim(내부 개행 보존) +
+    fragment 내부를 개행 없이 한 줄로 유지 — 들여쓰기용 개행을 넣지 말 것.
+-->
+<body>
+
+<th:block th:fragment="render(content, htmlYn)"><th:block th:if="${htmlYn == 'Y'}" th:utext="${#strings.trim(@xss.safe(content))}"></th:block><th:block th:unless="${htmlYn == 'Y'}" th:text="${#strings.trim(content)}"></th:block></th:block>
+
+</body>
+</html>

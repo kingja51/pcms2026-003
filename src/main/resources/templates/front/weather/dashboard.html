@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath}__}"
+      lang="ko">
+<head>
+  <title>날씨 통계</title>
+  <!-- Chart.js v4 — strict-dynamic 정책 하 nonce 가 자동 부착 -->
+  <script th:src="@{/js/vendor/chart.umd.min.js}"
+          th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+<section layout:fragment="content">
+  <!-- 콘텐츠 페이지 공통 폭 컨테이너 — KRDS 레이아웃은 content 에 폭을 강제하지 않으므로
+       페이지가 직접 감싼다 (2026-07-07: 풀폭으로 나오던 것을 콘텐츠 폭에 정렬) -->
+  <div class="max-w-content mx-auto px-4 py-12">
+
+  <header class="mb-8">
+    <h1 class="text-heading-lg text-fg-strong">
+      날씨 통계
+      <span class="text-body-md font-normal text-fg-subtle ml-2"
+            th:if="${stats?.label != null}"
+            th:text="|· ${stats.label}|">· 천안시청</span>
+    </h1>
+    <p class="text-fg-subtle mt-2">
+      기상청 단기예보 데이터 —
+      <strong class="text-fg-strong"
+              th:text="${#temporals.format(#temporals.createNow(), 'yyyy년 M월 d일 HH시 기준')}">
+        2026년 5월 5일 21시 기준
+      </strong>.
+    </p>
+  </header>
+
+  <!-- 데이터 없음 안내 -->
+  <div th:if="${stats == null or stats.latest == null}"
+       class="border border-line rounded-large bg-surface p-10 text-center">
+    <p class="text-body-md text-fg-subtle">현재 적재된 날씨 데이터가 없습니다.</p>
+    <p class="text-body-sm text-fg-subtle mt-2">스케줄러 가동 + DDL 적용 후 1시간 이내에 노출됩니다.</p>
+  </div>
+
+  <!-- ① 실시간 카드 (가장 가까운 미래 슬롯) -->
+  <section th:if="${stats != null and stats.latest != null}"
+           class="mb-8 border border-line rounded-large bg-surface p-6">
+    <h2 class="text-heading-md text-fg-strong mb-4">실시간 (최신 발표)</h2>
+    <div class="grid grid-cols-2 md:grid-cols-6 gap-4">
+      <div>
+        <div class="text-body-xs text-fg-subtle">상태</div>
+        <div class="text-heading-md text-fg-strong">
+          <span aria-hidden="true" th:text="${stats.latest.emoji()}">☀️</span>
+          <span th:text="${stats.latest.label()}">맑음</span>
+        </div>
+      </div>
+      <div>
+        <div class="text-body-xs text-fg-subtle">기온</div>
+        <div class="text-heading-md text-fg-strong"
+             th:text="${stats.latest.tmp != null} ? |${stats.latest.tmp}°| : '-'">22°</div>
+      </div>
+      <div>
+        <div class="text-body-xs text-fg-subtle">강수확률</div>
+        <div class="text-heading-md text-fg-strong"
+             th:text="${stats.latest.pop != null} ? |${stats.latest.pop}%| : '-'">10%</div>
+      </div>
+      <div>
+        <div class="text-body-xs text-fg-subtle">습도</div>
+        <div class="text-heading-md text-fg-strong"
+             th:text="${stats.latest.reh != null} ? |${stats.latest.reh}%| : '-'">55%</div>
+      </div>
+      <div>
+        <div class="text-body-xs text-fg-subtle">풍속</div>
+        <div class="text-heading-md text-fg-strong"
+             th:text="${stats.latest.wsd != null} ? |${stats.latest.wsd} m/s| : '-'">2 m/s</div>
+      </div>
+      <div>
+        <div class="text-body-xs text-fg-subtle">예보 시각</div>
+        <div class="text-body-sm text-fg mt-1"
+             th:text="|${#strings.substring(stats.latest.fcstDate,0,4)}-${#strings.substring(stats.latest.fcstDate,4,6)}-${#strings.substring(stats.latest.fcstDate,6,8)} ${#strings.substring(stats.latest.fcstTime,0,2)}:${#strings.substring(stats.latest.fcstTime,2,4)}|">
+          2026-05-05 15:00
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ② 오늘 시간별 차트 -->
+  <section th:if="${stats != null and stats.latest != null}"
+           class="mb-8 border border-line rounded-large bg-surface p-6">
+    <h2 class="text-heading-md text-fg-strong mb-4">오늘 시간별 (지금까지) — 기온 / 강수확률</h2>
+    <div class="relative h-[280px]">
+      <canvas id="chart-today"></canvas>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- ③ 이번주 일별 -->
+    <section th:if="${stats != null and stats.latest != null}"
+             class="border border-line rounded-large bg-surface p-6">
+      <h2 class="text-heading-md text-fg-strong mb-4">이번주 (월~오늘) — 최저/최고 기온</h2>
+      <div class="relative h-60">
+        <canvas id="chart-week"></canvas>
+      </div>
+    </section>
+
+    <!-- ④ 이번달 일별 -->
+    <section th:if="${stats != null and stats.latest != null}"
+             class="border border-line rounded-large bg-surface p-6">
+      <h2 class="text-heading-md text-fg-strong mb-4">이번달 (1일~오늘) — 평균 기온 / 평균 강수확률</h2>
+      <div class="relative h-60">
+        <canvas id="chart-month"></canvas>
+      </div>
+      <p class="text-body-xs text-fg-subtle mt-2">※ 스케줄러가 가동되기 전 일자는 데이터 없음.</p>
+    </section>
+  </div>
+
+  <!--
+    Chart.js 데이터 인라인 — 별도 fetch 없이 서버 사이드 렌더링.
+    Thymeleaf 가 #lists.replace 등으로 JSON 직조립.
+    JS 가 #weather-stats-data 의 data-* attribute 에서 읽어 차트 그린다.
+  -->
+  <div id="weather-stats-data" class="hidden"
+       th:if="${stats != null and stats.latest != null}"
+       th:data-today-labels="${#strings.listJoin(stats.todayHourly.![label()], ',')}"
+       th:data-today-tmp="${#strings.listJoin(stats.todayHourly.![tmp ?: 'null'], ',')}"
+       th:data-today-pop="${#strings.listJoin(stats.todayHourly.![pop ?: 'null'], ',')}"
+       th:data-week-labels="${#strings.listJoin(stats.weekDaily.![label()], ',')}"
+       th:data-week-tmp-min="${#strings.listJoin(stats.weekDaily.![tmpMin ?: 'null'], ',')}"
+       th:data-week-tmp-max="${#strings.listJoin(stats.weekDaily.![tmpMax ?: 'null'], ',')}"
+       th:data-month-labels="${#strings.listJoin(stats.monthDaily.![label()], ',')}"
+       th:data-month-tmp-avg="${#strings.listJoin(stats.monthDaily.![tmpAvg ?: 'null'], ',')}"
+       th:data-month-pop-avg="${#strings.listJoin(stats.monthDaily.![popAvg ?: 'null'], ',')}"></div>
+
+  <script th:src="@{/js/weather-stats-chart.js}" th:attr="nonce=${cspNonce}" defer></script>
+
+  </div>
+</section>
+</body>
+</html>

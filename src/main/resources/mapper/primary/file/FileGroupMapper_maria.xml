@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_file_group CRUD Mapper.
+  감사컬럼(created_*/updated_*) 은 AuditInterceptor 가 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.file.mapper.FileGroupMapper">
+
+  <sql id="columns">
+    file_group_id, entity_type, entity_id, site_id, download_auth, delete_yn,
+    created_by, created_ip, created_at,
+    updated_by, updated_ip, updated_at
+  </sql>
+
+  <select id="findById" resultType="com.gonet.primary.file.dto.FileGroup">
+    SELECT <include refid="columns"/>
+      FROM tb_file_group
+     WHERE file_group_id = #{fileGroupId}
+       AND delete_yn     = 'N'
+  </select>
+
+  <select id="findByEntity" resultType="com.gonet.primary.file.dto.FileGroup">
+    SELECT <include refid="columns"/>
+      FROM tb_file_group
+     WHERE entity_type = #{entityType}
+       AND entity_id   = #{entityId}
+       AND delete_yn   = 'N'
+     ORDER BY created_at DESC
+     LIMIT 1
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.file.dto.FileGroup">
+    INSERT INTO tb_file_group (
+      file_group_id, entity_type, entity_id, site_id, download_auth, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{fileGroupId}, #{entityType}, #{entityId}, #{siteId},
+      COALESCE(#{downloadAuth}, 'ROLE_MEMBER'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+    ON DUPLICATE KEY UPDATE
+      entity_type   = VALUES(entity_type),
+      entity_id     = VALUES(entity_id),
+      site_id       = VALUES(site_id),
+      download_auth = VALUES(download_auth),
+      delete_yn     = 'N',
+      updated_by    = VALUES(updated_by),
+      updated_ip    = VALUES(updated_ip),
+      updated_at    = VALUES(updated_at)
+  </insert>
+
+  <update id="updateDownloadAuth">
+    UPDATE tb_file_group
+       SET download_auth = #{downloadAuth},
+           updated_by    = #{updatedBy},
+           updated_ip    = #{updatedIp},
+           updated_at    = CURRENT_TIMESTAMP
+     WHERE file_group_id = #{fileGroupId}
+       AND delete_yn     = 'N'
+  </update>
+
+  <!-- 게시판 마스터의 download_auth 변경 시 cascade — 해당 게시판의 모든 article file_group 일괄 갱신.
+       단, 공지글(notice_yn='Y') 은 항상 ANONYMOUS 정책이므로 제외. -->
+  <update id="cascadeUpdateDownloadAuthByBbs">
+    UPDATE tb_file_group g
+       JOIN tb_bbs_article a
+         ON a.article_id = g.entity_id
+        AND a.delete_yn  = 'N'
+       SET g.download_auth = #{downloadAuth},
+           g.updated_by    = #{updatedBy},
+           g.updated_ip    = #{updatedIp},
+           g.updated_at    = CURRENT_TIMESTAMP
+     WHERE g.entity_type   = 'BBS'
+       AND g.delete_yn     = 'N'
+       AND a.bbs_master_id = #{bbsMasterId}
+       AND a.notice_yn     = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_file_group
+       SET delete_yn  = 'Y',
+           updated_by = #{updatedBy},
+           updated_ip = #{updatedIp},
+           updated_at = CURRENT_TIMESTAMP
+     WHERE file_group_id = #{fileGroupId}
+       AND delete_yn     = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_file_group
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_file_group
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_file_group
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{front/layouts/VIEWER/viewer}"
+      lang="ko">
+<head>
+  <title th:text="|미리보기 · ${originalName}|">미리보기</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <header class="mb-2 flex items-center justify-between gap-3 flex-wrap">
+      <h1 class="min-w-0 flex-1 text-base font-semibold text-slate-900 truncate"
+          th:text="${originalName}" th:title="${originalName}">파일명.txt</h1>
+      <a th:href="@{${downloadUrl}}"
+         class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+        ⬇ 원본 다운로드
+      </a>
+    </header>
+
+    <!-- iframe 으로 inline 엔드포인트 표시 — 브라우저가 text/plain 을 직접 렌더.
+         서버측 인코딩 자동 검출은 추후 Stage; 현재는 UTF-8 가정.
+         파일이 EUC-KR 등 비-UTF-8 인 경우 글자 깨짐 가능 — 다운로드 폴백 안내. -->
+    <iframe th:src="@{${inlineUrl}}" title="텍스트 뷰어"
+            class="w-full bg-white border border-slate-200 rounded-lg shadow-sm"
+            style="height: calc(100vh - 80px); min-height: 480px;"></iframe>
+
+  </section>
+</body>
+</html>

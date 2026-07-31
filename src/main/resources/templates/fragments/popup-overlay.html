@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<!--
+  공통 fragment — 사용자 화면 팝업 오버레이.
+  사용법:
+    <th:block th:replace="~{fragments/popup-overlay :: render(popups=${activePopups})}"/>
+
+  랜더링 정책:
+    - LAYER  : 화면 오른쪽 위 absolute 박스, 너비/위치는 popup 의 widthPx/positionX 등
+    - MODAL  : 화면 중앙 dim 배경 + 박스
+    - WINDOW : window.open 시도, 차단 시 LAYER 로 폴백 (JS)
+    - BANNER : 본 fragment 에서는 미렌더 — 배너는 inline 영역(별도 fragment) 에서 처리
+
+  쿠키:
+    - "오늘 그만보기" 클릭 시 cookieDays 일자 동안 popup_skip_{popupId}=1 쿠키
+    - JS 가 페이지 로드 시 검사하여 해당 ID 는 즉시 제거
+-->
+<body>
+
+<th:block th:fragment="render(popups)">
+  <th:block th:if="${popups != null and not popups.isEmpty()}">
+    <div id="pcms-popup-root" aria-live="polite">
+      <th:block th:each="p : ${popups}">
+
+        <!-- LAYER: 화면 위 absolute -->
+        <div th:if="${p.popupType == 'LAYER'}"
+             class="pcms-popup pcms-popup-layer"
+             th:data-popup-id="${p.popupId}"
+             th:data-cookie-days="${p.cookieDays}"
+             th:data-link-url="${p.linkUrl}"
+             role="dialog" aria-modal="false"
+             th:attr="aria-label=${p.popupTitle},
+                      style=
+                        'left:' + (${p.positionX} ?: 24) + 'px;' +
+                        'top:'  + (${p.positionY} ?: 24) + 'px;' +
+                        'width:' + (${p.widthPx} ?: 360) + 'px;' +
+                        (${p.heightPx != null} ? ('height:' + ${p.heightPx} + 'px;') : '')">
+          <header class="pcms-popup__head">
+            <strong class="pcms-popup__title" th:text="${p.popupTitle}">제목</strong>
+            <button type="button" class="pcms-popup__close" aria-label="닫기">×</button>
+          </header>
+          <div class="pcms-popup__body" th:utext="${p.popupContent}">본문</div>
+          <footer class="pcms-popup__foot">
+            <label class="pcms-popup__skip">
+              <input type="checkbox" class="pcms-popup__skip-check"/>
+              <span th:text="${p.cookieDays} + '일간 보지 않기'">1일간 보지 않기</span>
+            </label>
+            <a th:if="${p.linkUrl}" th:href="${p.linkUrl}" target="_blank" rel="noopener"
+               class="pcms-popup__link">자세히 →</a>
+          </footer>
+        </div>
+
+        <!-- MODAL: 중앙 dim -->
+        <div th:if="${p.popupType == 'MODAL'}"
+             class="pcms-popup-backdrop"
+             th:data-popup-id="${p.popupId}"
+             th:data-cookie-days="${p.cookieDays}"
+             role="dialog" aria-modal="true"
+             th:attr="aria-label=${p.popupTitle}">
+          <div class="pcms-popup pcms-popup-modal"
+               th:attr="style=
+                         (${p.widthPx != null} ? ('width:' + ${p.widthPx} + 'px;') : 'width:480px;') +
+                         (${p.heightPx != null} ? ('height:' + ${p.heightPx} + 'px;') : '')">
+            <header class="pcms-popup__head">
+              <strong class="pcms-popup__title" th:text="${p.popupTitle}">제목</strong>
+              <button type="button" class="pcms-popup__close" aria-label="닫기">×</button>
+            </header>
+            <div class="pcms-popup__body" th:utext="${p.popupContent}">본문</div>
+            <footer class="pcms-popup__foot">
+              <label class="pcms-popup__skip">
+                <input type="checkbox" class="pcms-popup__skip-check"/>
+                <span th:text="${p.cookieDays} + '일간 보지 않기'">1일간 보지 않기</span>
+              </label>
+              <a th:if="${p.linkUrl}" th:href="${p.linkUrl}" target="_blank" rel="noopener"
+                 class="pcms-popup__link">자세히 →</a>
+            </footer>
+          </div>
+        </div>
+
+        <!-- WINDOW: 별창 시도 (popup-overlay.js 가 처리) -->
+        <div th:if="${p.popupType == 'WINDOW'}"
+             class="pcms-popup-window-trigger"
+             th:data-popup-id="${p.popupId}"
+             th:data-cookie-days="${p.cookieDays}"
+             th:data-link-url="${p.linkUrl}"
+             th:data-width="${p.widthPx ?: 600}"
+             th:data-height="${p.heightPx ?: 400}"
+             style="display:none;">
+        </div>
+
+      </th:block>
+    </div>
+  </th:block>
+</th:block>
+
+</body>
+</html>

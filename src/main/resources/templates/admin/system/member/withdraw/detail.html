@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>탈퇴 회원 상세</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a> /
+      <a th:href="@{/admin/system/member/withdraw}" class="hover:underline">탈퇴 회원</a> /
+      <span>상세</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-1">탈퇴 회원 상세</h1>
+    <p class="text-sm text-fg-subtle mb-4">법정 최소 항목만 보존. retention_expire_at 만료 후 WithdrawPurgeScheduler 가 영구 삭제 (§0.38).</p>
+
+    <div class="bg-surface border border-line rounded-large p-5">
+      <dl class="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-y-3 text-sm">
+        <dt class="text-fg-subtle">회원 ID</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${row.memberId}">-</dd>
+
+        <dt class="text-fg-subtle">회원 seq</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${row.memberSeq}">-</dd>
+
+        <dt class="text-fg-subtle">사이트</dt>
+        <dd class="text-fg-strong" th:text="${row.siteCode} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">탈퇴 구분</dt>
+        <dd>
+          <span th:with="rs=${row.withdrawStatus}"
+                th:class="${rs == 'USER_REQUEST'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-surface text-info-fg'
+                         : (${rs == 'ADMIN_FORCE'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-surface text-warning-fg'
+                                                   : 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg')"
+                th:text="${rs}">USER_REQUEST</span>
+        </dd>
+
+        <dt class="text-fg-subtle">실제 사유</dt>
+        <dd class="text-fg-strong whitespace-pre-wrap break-words"
+            th:text="${row.withdrawReason} ?: '(미입력)'">관리자가 입력한 자유 텍스트 사유</dd>
+
+        <dt class="text-fg-subtle">탈퇴 일시</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${@fmt.dt(row.withdrawAt)}">-</dd>
+
+        <dt class="text-fg-subtle">보관 만료</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${@fmt.dt(row.retentionExpireAt)}">-</dd>
+
+        <dt class="text-fg-subtle">법적 근거</dt>
+        <dd class="text-fg" th:text="${row.legalBasis} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle pt-3 border-t border-divider">탈퇴 처리자 (updated_by)</dt>
+        <dd class="font-mono text-xs text-fg pt-3 border-t border-divider" th:text="${row.updatedBy} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">처리자 IP (updated_ip)</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${row.updatedIp} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">처리 일시 (updated_at)</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(row.updatedAt)}">-</dd>
+
+        <dt class="text-fg-subtle pt-3 border-t border-divider">원 가입자 (created_by)</dt>
+        <dd class="font-mono text-xs text-fg-subtle pt-3 border-t border-divider" th:text="${row.createdBy} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">원 가입 IP</dt>
+        <dd class="font-mono text-xs text-fg-subtle" th:text="${row.createdIp} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">원 가입 일시</dt>
+        <dd class="font-mono text-xs text-fg-subtle" th:text="${@fmt.dt(row.createdAt)}">-</dd>
+
+        <dt class="text-fg-subtle pt-3 border-t border-divider">login_id_hash</dt>
+        <dd class="font-mono text-[11px] text-fg-subtle break-all pt-3 border-t border-divider" th:text="${row.loginIdHash}">-</dd>
+
+        <dt class="text-fg-subtle">di_hash</dt>
+        <dd class="font-mono text-[11px] text-fg-subtle break-all" th:text="${row.diHash} ?: '-'">-</dd>
+      </dl>
+    </div>
+
+    <div class="mt-6">
+      <a th:href="@{/admin/system/member/withdraw}" class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">목록</a>
+    </div>
+  </section>
+</body>
+</html>

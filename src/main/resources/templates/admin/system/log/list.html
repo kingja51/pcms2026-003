@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${typeLabel}">로그</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <span>로그</span>
+      <span class="mx-1">/</span>
+      <span th:text="${typeLabel}">접근 로그</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
+      <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${typeLabel}">로그</h1>
+
+      <!-- 종류 토글 -->
+      <div class="inline-flex rounded border border-line overflow-hidden">
+        <a th:href="@{/admin/system/log/access}"
+           th:classappend="${type == 'access'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+           class="px-3 py-1.5 text-xs">접근</a>
+        <a th:href="@{/admin/system/log/audit}"
+           th:classappend="${type == 'audit'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+           class="px-3 py-1.5 text-xs border-l border-line">감사</a>
+        <a th:href="@{/admin/system/log/login}"
+           th:classappend="${type == 'login'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+           class="px-3 py-1.5 text-xs border-l border-line">로그인</a>
+        <a th:href="@{/admin/system/log/file-download}"
+           th:classappend="${type == 'file-download'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+           class="px-3 py-1.5 text-xs border-l border-line">파일 다운로드</a>
+        <a th:href="@{/admin/system/log/error}"
+           th:classappend="${type == 'error'} ? ' bg-danger-60 text-fg-on' : ' bg-surface text-danger-fg hover:bg-danger-surface'"
+           class="px-3 py-1.5 text-xs border-l border-line">⚠ 에러</a>
+        <a th:href="@{/admin/system/log/privacy}"
+           th:classappend="${type == 'privacy'} ? ' bg-secondary-70 text-fg-on' : ' bg-surface text-secondary-70 hover:bg-secondary-5'"
+           class="px-3 py-1.5 text-xs border-l border-line">🛡 개인정보</a>
+        <a th:href="@{/admin/system/log/security}"
+           th:classappend="${type == 'security'} ? ' bg-warning-50 text-fg-on' : ' bg-surface text-warning-fg hover:bg-warning-surface'"
+           class="px-3 py-1.5 text-xs border-l border-line">🚨 보안</a>
+        <a th:href="@{/admin/system/log/trace}"
+           class="px-3 py-1.5 text-xs border-l border-line bg-surface text-fg hover:bg-surface-subtle">🔗 Trace 추적</a>
+      </div>
+    </div>
+
+    <!-- audit 탭에서만 노출되는 가이드 진입 안내 -->
+    <div th:if="${type == 'audit'}"
+         class="mb-4 rounded-large border border-line bg-surface-subtle px-3 py-2 text-xs text-fg flex items-center justify-between gap-2 flex-wrap">
+      <span>
+        <strong class="text-fg-strong">감사로그</strong>는 70여 종의 action 코드로 적재됩니다 —
+        도메인별 의미·발생 시점을 한눈에 확인하세요.
+      </span>
+      <a th:href="@{/admin/system/log/audit/guide}"
+         class="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-gray-90 text-fg-on text-xs font-semibold hover:bg-gray-70">
+        📖 audit action 가이드
+      </a>
+    </div>
+
+    <div th:if="${error}"
+         class="mb-4 rounded bg-danger-surface border border-danger-border px-3 py-2 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <!-- 검색 폼 -->
+    <form method="get" th:action="@{|/admin/system/log/${type}|}"
+          class="bg-surface border border-line rounded-large p-3 mb-4 flex items-end gap-2 flex-wrap">
+      <div>
+        <label class="block text-xs text-fg mb-0.5">기간 시작</label>
+        <input type="date" name="dateFrom" th:value="${search.dateFrom}"
+               class="rounded border border-line px-2 py-1 text-sm"/>
+      </div>
+      <div>
+        <label class="block text-xs text-fg mb-0.5">기간 끝</label>
+        <input type="date" name="dateTo" th:value="${search.dateTo}"
+               class="rounded border border-line px-2 py-1 text-sm"/>
+      </div>
+      <div class="flex-1 min-w-[200px]">
+        <label class="block text-xs text-fg mb-0.5">키워드</label>
+        <input type="text" name="keyword" th:value="${search.keyword}"
+               placeholder="URI / 사용자 / IP / target ..."
+               class="block w-full rounded border border-line px-2 py-1 text-sm"/>
+      </div>
+      <div>
+        <label class="block text-xs text-fg mb-0.5">페이지당</label>
+        <select name="pageSize"
+                class="rounded border border-line px-2 py-1 text-sm">
+          <option th:each="sz : ${ {50, 100, 200} }"
+                  th:value="${sz}"
+                  th:text="${sz}"
+                  th:selected="${page.pageSize == sz}">100</option>
+        </select>
+      </div>
+      <button type="submit"
+              class="px-4 py-1.5 rounded bg-gray-90 text-fg-on text-sm hover:bg-gray-70">검색</button>
+    </form>
+
+    <p class="text-xs text-fg-subtle mb-2">
+      총 <strong class="font-mono text-fg-strong" th:text="${#numbers.formatInteger(page.totalElements, 1, 'COMMA')}">0</strong> 건
+      <span class="mx-1 text-gray-30">·</span>
+      페이지 <strong class="text-fg-strong" th:text="${page.page}">1</strong> /
+      <span th:text="${page.totalPages}">1</span>
+      <span class="mx-1 text-gray-30">·</span>
+      페이지당 <span class="font-mono" th:text="${page.pageSize}">100</span> 건
+    </p>
+
+    <!-- 목록 — type 별 컬럼 분기 -->
+    <div class="bg-surface border border-line rounded-large overflow-x-auto">
+      <table class="w-full text-xs">
+
+        <!-- ─── access ─── -->
+        <thead th:if="${type == 'access'}" class="bg-surface-subtle text-fg-subtle uppercase">
+          <tr>
+            <th class="px-2 py-2 text-left w-20">ID</th>
+            <th class="px-2 py-2 text-left w-36">시각</th>
+            <th class="px-2 py-2 text-left w-16">사이트</th>
+            <th class="px-2 py-2 text-left w-12">메서드</th>
+            <th class="px-2 py-2 text-left">URI</th>
+            <th class="px-2 py-2 text-right w-12">상태</th>
+            <th class="px-2 py-2 text-right w-12">ms</th>
+            <th class="px-2 py-2 text-left w-28">사용자</th>
+            <th class="px-2 py-2 text-left w-28">IP</th>
+          </tr>
+        </thead>
+        <tbody th:if="${type == 'access'}" class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-2 py-1.5">
+              <a th:href="@{|/admin/system/log/access/${r.logAccessId}|}"
+                 class="text-brand-60 hover:underline font-mono" th:text="${r.logAccessId}">1</a>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${@fmt.dt(r.loggedAt)}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.siteCode} ?: '-'">-</td>
+            <td class="px-2 py-1.5 font-mono" th:text="${r.httpMethod}">GET</td>
+            <td class="px-2 py-1.5 font-mono text-fg-strong break-all" th:text="${r.requestUri}">/</td>
+            <td class="px-2 py-1.5 text-right font-mono"
+                th:classappend="${r.statusCode != null and r.statusCode >= 400} ? ' text-danger-fg font-semibold' : ''"
+                th:text="${r.statusCode}">200</td>
+            <td class="px-2 py-1.5 text-right font-mono" th:text="${r.responseMs}">0</td>
+            <td class="px-2 py-1.5 text-fg"
+                th:text="${r.actorLoginId} ?: ${r.actorUserType}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.clientIp}">-</td>
+          </tr>
+        </tbody>
+
+        <!-- ─── audit ─── -->
+        <thead th:if="${type == 'audit'}" class="bg-surface-subtle text-fg-subtle uppercase">
+          <tr>
+            <th class="px-2 py-2 text-left w-20">ID</th>
+            <th class="px-2 py-2 text-left w-36">시각</th>
+            <th class="px-2 py-2 text-left w-32">action</th>
+            <th class="px-2 py-2 text-left w-32">target</th>
+            <th class="px-2 py-2 text-left">target_id</th>
+            <th class="px-2 py-2 text-left w-20">result</th>
+            <th class="px-2 py-2 text-left w-28">사용자</th>
+            <th class="px-2 py-2 text-left w-28">IP</th>
+          </tr>
+        </thead>
+        <tbody th:if="${type == 'audit'}" class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-2 py-1.5">
+              <a th:href="@{|/admin/system/log/audit/${r.logAuditId}|}"
+                 class="text-brand-60 hover:underline font-mono" th:text="${r.logAuditId}">1</a>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${@fmt.dt(r.loggedAt)}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-strong" th:text="${r.action}">CREATE</td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${r.targetEntity}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle break-all" th:text="${r.targetId}">-</td>
+            <td class="px-2 py-1.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    th:classappend="${r.result == 'SUCCESS' ? 'bg-success-surface text-success-fg' :
+                                      r.result == 'FAIL'    ? 'bg-warning-surface text-warning-fg' :
+                                                              'bg-danger-surface text-danger-fg'}"
+                    th:text="${r.result}">SUCCESS</span>
+            </td>
+            <td class="px-2 py-1.5 text-fg" th:text="${r.actorLoginId} ?: ${r.actorUserType}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.clientIp}">-</td>
+          </tr>
+        </tbody>
+
+        <!-- ─── login ─── -->
+        <thead th:if="${type == 'login'}" class="bg-surface-subtle text-fg-subtle uppercase">
+          <tr>
+            <th class="px-2 py-2 text-left w-20">ID</th>
+            <th class="px-2 py-2 text-left w-36">시각</th>
+            <th class="px-2 py-2 text-left w-32">login_id</th>
+            <th class="px-2 py-2 text-left w-20">user_type</th>
+            <th class="px-2 py-2 text-left w-24">result</th>
+            <th class="px-2 py-2 text-left">실패 사유</th>
+            <th class="px-2 py-2 text-left w-28">IP</th>
+          </tr>
+        </thead>
+        <tbody th:if="${type == 'login'}" class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-2 py-1.5">
+              <a th:href="@{|/admin/system/log/login/${r.logLoginId}|}"
+                 class="text-brand-60 hover:underline font-mono" th:text="${r.logLoginId}">1</a>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${@fmt.dt(r.loggedAt)}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-strong" th:text="${r.loginId}">user</td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${r.userType}">MEMBER</td>
+            <td class="px-2 py-1.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    th:classappend="${r.result == 'SUCCESS'  ? 'bg-success-surface text-success-fg' :
+                                      r.result == 'LOCKED'  ? 'bg-danger-surface text-danger-fg' :
+                                                               'bg-warning-surface text-warning-fg'}"
+                    th:text="${r.result}">SUCCESS</span>
+            </td>
+            <td class="px-2 py-1.5 text-fg-subtle" th:text="${r.failReason}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.clientIp}">-</td>
+          </tr>
+        </tbody>
+
+        <!-- ─── file-download ─── -->
+        <thead th:if="${type == 'file-download'}" class="bg-surface-subtle text-fg-subtle uppercase">
+          <tr>
+            <th class="px-2 py-2 text-left w-20">ID</th>
+            <th class="px-2 py-2 text-left w-36">시각</th>
+            <th class="px-2 py-2 text-left w-24">type</th>
+            <th class="px-2 py-2 text-left">파일명</th>
+            <th class="px-2 py-2 text-right w-20">바이트</th>
+            <th class="px-2 py-2 text-left w-20">result</th>
+            <th class="px-2 py-2 text-left w-28">사용자</th>
+            <th class="px-2 py-2 text-left w-28">IP</th>
+          </tr>
+        </thead>
+        <tbody th:if="${type == 'file-download'}" class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-2 py-1.5">
+              <a th:href="@{|/admin/system/log/file-download/${r.logFileDownloadId}|}"
+                 class="text-brand-60 hover:underline font-mono" th:text="${r.logFileDownloadId}">1</a>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${@fmt.dt(r.downloadedAt)}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${r.downloadType}">SINGLE</td>
+            <td class="px-2 py-1.5 break-all" th:text="${r.originalName}">file.pdf</td>
+            <td class="px-2 py-1.5 text-right font-mono"
+                th:text="${#numbers.formatInteger(r.sizeBytes ?: 0, 1, 'COMMA')}">0</td>
+            <td class="px-2 py-1.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    th:classappend="${r.result == 'SUCCESS' ? 'bg-success-surface text-success-fg' :
+                                                              'bg-danger-surface text-danger-fg'}"
+                    th:text="${r.result}">SUCCESS</span>
+            </td>
+            <td class="px-2 py-1.5 text-fg" th:text="${r.actorLoginId} ?: ${r.actorUserType}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.clientIp}">-</td>
+          </tr>
+        </tbody>
+
+        <!-- ─── privacy (PIPA §29 — log_privacy_access) ─── -->
+        <thead th:if="${type == 'privacy'}" class="bg-secondary-5 text-secondary-70 uppercase">
+          <tr>
+            <th class="px-2 py-2 text-left w-20">ID</th>
+            <th class="px-2 py-2 text-left w-36">접속 일시</th>
+            <th class="px-2 py-2 text-left w-20">action</th>
+            <th class="px-2 py-2 text-left w-28">대상</th>
+            <th class="px-2 py-2 text-right w-12">건수</th>
+            <th class="px-2 py-2 text-left w-40">PII 항목</th>
+            <th class="px-2 py-2 text-left">사유</th>
+            <th class="px-2 py-2 text-left w-20">result</th>
+            <th class="px-2 py-2 text-left w-28">접속자</th>
+            <th class="px-2 py-2 text-left w-28">IP</th>
+          </tr>
+        </thead>
+        <tbody th:if="${type == 'privacy'}" class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-secondary-5/30">
+            <td class="px-2 py-1.5">
+              <a th:href="@{|/admin/system/log/privacy/${r.logPrivacyAccessId}|}"
+                 class="text-secondary-60 hover:underline font-mono" th:text="${r.logPrivacyAccessId}">1</a>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${@fmt.dt(r.accessedAt)}">-</td>
+            <td class="px-2 py-1.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-secondary-5 text-secondary-70"
+                    th:text="${r.accessAction}">READ</span>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${r.targetEntity}">tb_member</td>
+            <td class="px-2 py-1.5 text-right font-mono"
+                th:text="${#numbers.formatInteger(r.targetCount ?: 1, 1, 'COMMA')}">1</td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${r.piiFields} ?: '-'">-</td>
+            <td class="px-2 py-1.5 text-fg break-all" th:text="${r.accessReason} ?: '-'">-</td>
+            <td class="px-2 py-1.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    th:classappend="${r.result == 'SUCCESS' ? 'bg-success-surface text-success-fg' :
+                                      r.result == 'DENIED'  ? 'bg-danger-surface text-danger-fg' :
+                                      r.result == 'ERROR'   ? 'bg-danger-surface text-danger-fg' :
+                                                              'bg-warning-surface text-warning-fg'}"
+                    th:text="${r.result}">SUCCESS</span>
+            </td>
+            <td class="px-2 py-1.5 text-fg" th:text="${r.actorLoginId} ?: ${r.actorUserType}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.clientIp}">-</td>
+          </tr>
+        </tbody>
+
+        <!-- ─── error ─── -->
+        <thead th:if="${type == 'error'}" class="bg-danger-surface text-danger-fg uppercase">
+          <tr>
+            <th class="px-2 py-2 text-left w-20">ID</th>
+            <th class="px-2 py-2 text-left w-36">시각</th>
+            <th class="px-2 py-2 text-left w-56">예외 클래스</th>
+            <th class="px-2 py-2 text-left">메시지</th>
+            <th class="px-2 py-2 text-left">URI</th>
+            <th class="px-2 py-2 text-right w-12">상태</th>
+            <th class="px-2 py-2 text-left w-28">사용자</th>
+            <th class="px-2 py-2 text-left w-28">IP</th>
+          </tr>
+        </thead>
+        <tbody th:if="${type == 'error'}" class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-danger-surface/30">
+            <td class="px-2 py-1.5">
+              <a th:href="@{|/admin/system/log/error/${r.logErrorId}|}"
+                 class="text-danger-fg hover:underline font-mono font-semibold" th:text="${r.logErrorId}">1</a>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${@fmt.dt(r.loggedAt)}">-</td>
+            <td class="px-2 py-1.5 font-mono text-danger-fg break-all" th:text="${r.errorClass}">Exception</td>
+            <td class="px-2 py-1.5 text-fg break-all" th:text="${r.errorMessage}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg break-all" th:text="${r.requestUri}">/</td>
+            <td class="px-2 py-1.5 text-right font-mono text-danger-fg font-semibold"
+                th:text="${r.statusCode}">500</td>
+            <td class="px-2 py-1.5 text-fg" th:text="${r.actorLoginId} ?: ${r.actorUserType}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.clientIp}">-</td>
+          </tr>
+        </tbody>
+
+        <!-- ─── security ─── -->
+        <thead th:if="${type == 'security'}" class="bg-warning-surface text-warning-fg uppercase">
+          <tr>
+            <th class="px-2 py-2 text-left w-20">ID</th>
+            <th class="px-2 py-2 text-left w-36">시각</th>
+            <th class="px-2 py-2 text-left w-44">이벤트</th>
+            <th class="px-2 py-2 text-left w-20">심각도</th>
+            <th class="px-2 py-2 text-left w-28">행위자</th>
+            <th class="px-2 py-2 text-left w-28">IP</th>
+            <th class="px-2 py-2 text-left">URI</th>
+            <th class="px-2 py-2 text-left">상세</th>
+          </tr>
+        </thead>
+        <tbody th:if="${type == 'security'}" class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-warning-surface/30">
+            <td class="px-2 py-1.5">
+              <a th:href="@{|/admin/system/log/security/${r.logSecurityId}|}"
+                 class="text-warning-fg hover:underline font-mono font-semibold" th:text="${r.logSecurityId}">1</a>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg" th:text="${@fmt.dt(r.loggedAt)}">-</td>
+            <td class="px-2 py-1.5 font-mono text-warning-fg font-semibold" th:text="${r.eventType}">UPLOAD_BLOCK</td>
+            <td class="px-2 py-1.5">
+              <span class="px-2 py-0.5 rounded text-xs font-semibold"
+                    th:classappend="${r.severity == 'CRITICAL' ? 'bg-danger-surface text-danger-fg' :
+                                      r.severity == 'WARN'     ? 'bg-warning-surface text-warning-fg' :
+                                                                  'bg-surface-subtle text-fg-subtle'}"
+                    th:text="${r.severity}">WARN</span>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg break-all" th:text="${r.actorId}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle" th:text="${r.clientIp}">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg break-all" th:text="${r.requestUri}">/</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle break-all text-xs" th:text="${r.detailJson}">-</td>
+          </tr>
+        </tbody>
+
+      </table>
+      <p th:if="${#lists.isEmpty(page.content)}"
+         class="text-center text-sm text-fg-subtle py-12">
+        해당 조건에 맞는 로그가 없습니다.
+      </p>
+    </div>
+
+    <!-- ===== 페이지 네비 =====
+         최대 10 페이지 윈도우 표시. 1/end 점프 + 이전/다음 버튼.
+         pageSize/keyword/dateFrom/dateTo 검색 조건 모두 유지.
+    -->
+    <nav th:if="${page.totalPages > 1}" aria-label="페이지" class="mt-4"
+         th:with="
+            windowSize=10,
+            curr=${page.page},
+            last=${page.totalPages},
+            startCalc=${curr - (windowSize / 2)},
+            startCand=${startCalc lt 1 ? 1 : startCalc},
+            endCand=${startCand + windowSize - 1},
+            endPage=${endCand gt last ? last : endCand},
+            startPage=${endPage - windowSize + 1 lt 1 ? 1 : endPage - windowSize + 1}">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:if="${curr > 1}">
+          <a th:href="@{|/admin/system/log/${type}|(page=1, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, dateFrom=${search.dateFrom}, dateTo=${search.dateTo})}"
+             class="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">«</a>
+        </li>
+        <li th:if="${curr > 1}">
+          <a th:href="@{|/admin/system/log/${type}|(page=${curr - 1}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, dateFrom=${search.dateFrom}, dateTo=${search.dateTo})}"
+             class="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">‹</a>
+        </li>
+        <li th:each="p : ${#numbers.sequence(startPage, endPage)}">
+          <a th:href="@{|/admin/system/log/${type}|(page=${p}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, dateFrom=${search.dateFrom}, dateTo=${search.dateTo})}"
+             th:text="${p}"
+             th:class="${p == curr}
+                       ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                       : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+        <li th:if="${curr < last}">
+          <a th:href="@{|/admin/system/log/${type}|(page=${curr + 1}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, dateFrom=${search.dateFrom}, dateTo=${search.dateTo})}"
+             class="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">›</a>
+        </li>
+        <li th:if="${curr < last}">
+          <a th:href="@{|/admin/system/log/${type}|(page=${last}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, dateFrom=${search.dateFrom}, dateTo=${search.dateTo})}"
+             class="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">»</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

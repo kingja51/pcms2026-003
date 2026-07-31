@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<!--
+  ★ 콘텐츠 저작용 Tailwind 클래스 안전목록 (라우팅되지 않음 — 빌드 스캔 전용)
+  ─────────────────────────────────────────────────────────────────────────────
+  · Tailwind v4 CLI 는 "빌드 시점에 소스에서 발견한 클래스만" output.css 에 포함한다.
+    관리자 콘텐츠(외부 html-root 파일·DB 본문)는 스캔 대상이 아니므로, 콘텐츠에서만
+    쓰는 클래스는 여기 나열해 항상 컴파일되게 한다. (2026-07-07 /med/about 교육과정
+    그리드 깨짐 실측 — lg:col-span-6 미컴파일이 원인)
+  · 관리자 콘텐츠 페이지를 만들 때는 이 목록에 있는 클래스만 사용할 것.
+    새 클래스가 필요하면 여기 추가 후 `npm run css` 재빌드.
+  · 언더스코어 파일명 — SiteTemplateScaffolder slug 목록과 매칭되지 않아 복사/라우팅 안 됨.
+-->
+<html lang="ko"><body>
+
+<!-- 컨테이너/카드 -->
+<div class="max-w-content mx-auto px-4 py-12 p-8 md:p-12 bg-surface border border-line rounded-large rounded-max overflow-hidden overflow-x-auto"></div>
+
+<!-- 헤더/섹션 구분 -->
+<div class="pb-3 pb-4 border-b border-b-2 border-t border-line-strong block w-8 h-1 bg-primary-50 bg-danger-50 mb-2 mt-1 mt-2 mt-4 mt-6 mt-8 mt-10 mt-12 pt-8"></div>
+
+<!-- 플렉스/그리드 -->
+<div class="flex flex-col md:flex-row lg:flex-row flex-wrap flex-1 items-center items-start justify-between justify-center justify-end lg:justify-end gap-2 gap-3 gap-4 gap-6 gap-8 gap-10 shrink-0"></div>
+<div class="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 lg:grid-cols-3 lg:grid-cols-12"></div>
+<div class="lg:col-span-3 lg:col-span-4 lg:col-span-5 lg:col-span-6 lg:col-span-7 lg:col-span-8 lg:col-span-9 md:col-span-2"></div>
+
+<!-- 크기 -->
+<div class="w-full h-auto h-96 md:h-[480px] w-8 w-28 h-28 w-40 w-44 w-52 h-52 w-56 md:w-60 md:h-60 w-72 min-w-0"></div>
+
+<!-- 표 -->
+<table class="table-fixed border-collapse divide-y divide-line text-center break-keep"><tr class="p-2 p-3 p-5 p-6 bg-surface-subtle bg-primary-5 font-bold font-normal"></tr></table>
+
+<!-- 타이포/색 (KRDS 토큰 유틸) -->
+<p class="text-display-sm text-heading-xl text-heading-lg text-heading-md text-heading-sm text-heading-xs text-body-lg text-body-md text-body-sm text-body-xs text-label-md
+          text-fg text-fg-strong text-fg-subtle text-fg-on text-primary-50 text-primary-60 leading-snug leading-relaxed truncate object-cover space-y-1 space-y-2 space-y-4 space-y-5"></p>
+
+</body></html>

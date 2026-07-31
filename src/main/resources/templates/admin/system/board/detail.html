@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="'게시판 — ' + ${master.bbsName}">게시판 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board}" class="hover:underline">게시판</a>
+      <span class="mx-1">/</span>
+      <span th:text="${master.bbsName}">이름</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${master.bbsName}">이름</h1>
+        <div class="mt-1 flex items-center gap-2 text-sm text-fg-subtle">
+          <code class="font-mono text-xs bg-surface-subtler px-1.5 py-0.5 rounded border border-line"
+                th:text="${master.bbsCode}">code</code>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg"
+                th:text="${master.bbsType}">FREE</span>
+          <span th:if="${master.useYn == 'Y'}"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용중</span>
+          <span th:unless="${master.useYn == 'Y'}"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">중지</span>
+          <span th:if="${master.aggregator}"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-5 text-secondary-70"
+                title="통합 게시판 — 대상 게시판들의 글을 합쳐서 보여주는 read-only 뷰">통합</span>
+          <span class="text-fg-subtle" th:text="'@ ' + ${master.siteCode}">@ site</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/board/{id}/article(id=${master.bbsMasterId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">게시글 →</a>
+        <a th:href="@{/admin/system/board/{id}/category(id=${master.bbsMasterId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">카테고리 →</a>
+        <a th:href="@{/admin/system/board/{id}/edit(id=${master.bbsMasterId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">수정</a>
+
+        <form th:if="${master.useYn == 'Y'}"
+              th:action="@{/admin/system/board/{id}/use(id=${master.bbsMasterId})}" method="post"
+              data-confirm="이 게시판을 사용중지 처리하시겠습니까?\n사용자 화면에 노출되지 않게 됩니다."
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="active" value="false"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">사용중지</button>
+        </form>
+        <form th:unless="${master.useYn == 'Y'}"
+              th:action="@{/admin/system/board/{id}/use(id=${master.bbsMasterId})}" method="post"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="active" value="true"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-success-40 bg-surface text-success-fg text-sm hover:bg-success-surface">사용 재개</button>
+        </form>
+
+        <form th:action="@{/admin/system/board/{id}(id=${master.bbsMasterId})}" method="post"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="_method" value="delete"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm hover:bg-danger-surface">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <section class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-sm font-semibold text-fg mb-3">기본 정보</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">사이트</dt>
+            <dd class="text-fg-strong" th:text="${master.siteCode} + ' · ' + ${master.siteName}">site</dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">코드</dt>
+            <dd><code class="font-mono text-xs bg-surface-subtle px-1.5 py-0.5 rounded border border-line"
+                       th:text="${master.bbsCode}">code</code></dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">이름</dt>
+            <dd class="text-fg-strong" th:text="${master.bbsName}">name</dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">타입</dt>
+            <dd>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg"
+                    th:text="${master.bbsTypeEnum().label} + ' (' + ${master.bbsType} + ')'">FREE</span>
+            </dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">사용</dt>
+            <dd>
+              <span th:if="${master.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용중</span>
+              <span th:unless="${master.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">중지</span>
+            </dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">게시판 상단</dt>
+            <dd class="text-fg-strong whitespace-pre-line"
+                th:text="${master.description} ?: '-'">-</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-sm font-semibold text-fg mb-3">기능 / 권한</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">댓글 허용</dt>
+            <dd th:text="${master.commentYn == 'Y' ? '허용' : '비허용'}">허용</dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">파일 첨부</dt>
+            <dd>
+              <span th:text="${master.fileYn == 'Y' ? '허용' : '비허용'}">허용</span>
+              <span th:if="${master.fileYn == 'Y'}" class="text-xs text-fg-subtle">
+                — 최대
+                <strong th:text="${master.fileCountMax}">5</strong>개,
+                파일당 <strong th:text="${master.fileSizeMaxMb}">10</strong> MB
+              </span>
+            </dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">익명 작성</dt>
+            <dd th:text="${master.anonymousYn == 'Y' ? '허용' : '비허용'}">비허용</dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">공지 상단고정</dt>
+            <dd th:text="${master.noticeTopYn == 'Y' ? '활성' : '비활성'}">활성</dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">HTML 본문</dt>
+            <dd th:text="${master.htmlYn == 'Y' ? '허용 (sanitize 후 utext)' : '평문 (text)'}">평문</dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">CAPTCHA</dt>
+            <dd th:text="${master.captchaYn == 'Y' ? '사용 (글쓰기 시 reCAPTCHA v3)' : '미사용'}">미사용</dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">읽기 권한</dt>
+            <dd>
+              <code class="font-mono text-xs bg-surface-subtle px-1.5 py-0.5 rounded border border-line"
+                    th:text="${master.readAuth}">ALL</code>
+            </dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">쓰기 권한</dt>
+            <dd>
+              <code class="font-mono text-xs bg-surface-subtle px-1.5 py-0.5 rounded border border-line"
+                    th:text="${master.writeAuth}">MEMBER</code>
+            </dd>
+          </div>
+          <div class="grid grid-cols-[120px_1fr] gap-2">
+            <dt class="text-fg-subtle">첨부 다운로드</dt>
+            <dd>
+              <code class="font-mono text-xs bg-surface-subtle px-1.5 py-0.5 rounded border border-line"
+                    th:text="${master.downloadAuth} ?: 'ROLE_MEMBER'">ROLE_MEMBER</code>
+              <span class="ml-1 text-xs text-fg-subtle"
+                    th:switch="${master.downloadAuth}">
+                <span th:case="'ANONYMOUS'">— 누구나</span>
+                <span th:case="'ROLE_MEMBER'">— 회원 이상</span>
+                <span th:case="'ROLE_EMPLOYEE'">— 직원 이상</span>
+                <span th:case="'ROLE_STAFF'">— STAFF 이상</span>
+                <span th:case="'OWNER_PRIVACY'" class="text-warning-fg font-medium">— 본인 + ROLE_PRIVACY (ADMIN 자동 통과 X)</span>
+                <span th:case="'ROLE_MANAGER'">— 책임자 이상</span>
+                <span th:case="'ROLE_ADMIN'">— 전체관리자</span>
+                <span th:case="*">— 미지정</span>
+              </span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+    </div>
+
+    <section th:if="${master.aggregator}"
+             class="mt-4 bg-secondary-5/40 border border-secondary-10 rounded-large p-5">
+      <div class="flex items-center gap-2 mb-3">
+        <h2 class="text-sm font-semibold text-secondary-90">통합 게시판 (전체글 보기)</h2>
+        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-10 text-secondary-80">read-only</span>
+      </div>
+      <p class="text-xs text-secondary-90/80 mb-3">
+        이 게시판은 아래 대상 게시판들의 글을 한 화면에 모아서 보여주는 뷰입니다.
+        작성·수정·삭제는 비활성화되며, 글 관리는 각 대상 게시판에서 직접 수행하세요.
+      </p>
+      <div class="bg-surface border border-secondary-10 rounded p-3">
+        <div class="text-xs text-fg-subtle mb-2">
+          대상 <strong class="text-fg-strong" th:text="${#lists.size(master.groupedBoardIdList)}">0</strong>개 게시판
+        </div>
+        <ul class="space-y-1 text-sm">
+          <li th:each="gid : ${master.groupedBoardIdList}" class="flex items-center gap-2">
+            <code class="font-mono text-[11px] text-fg-subtle" th:text="${gid}">id</code>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="mt-4 bg-surface border border-line rounded-large p-5">
+      <h2 class="text-sm font-semibold text-fg mb-3">감사 정보</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">생성자</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${master.createdBy} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">생성일시</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(master.createdAt)}">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">수정자</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${master.updatedBy} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">수정일시</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(master.updatedAt)}">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">생성 IP</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${master.createdIp} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">수정 IP</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${master.updatedIp} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2 md:col-span-2">
+          <dt class="text-fg-subtle">PK</dt>
+          <dd class="font-mono text-xs text-fg-subtle" th:text="${master.bbsMasterId}">id</dd>
+        </div>
+      </dl>
+    </section>
+
+    <p class="mt-4 text-xs text-fg-subtle">
+      ※ 댓글 화면 / 파일 첨부는 다음 단계(B3 + B2.2)에서 추가됩니다.
+    </p>
+
+  </section>
+</body>
+</html>

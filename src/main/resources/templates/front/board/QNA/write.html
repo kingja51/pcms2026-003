@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${mode == 'edit'} ? '글 수정' : '글쓰기'">글쓰기</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-body-sm text-fg-subtle mb-4">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}" class="hover:underline"
+         th:text="${master.bbsName}">게시판</a>
+      <span class="mx-1" aria-hidden="true">/</span>
+      <span aria-current="page" th:text="${mode == 'edit'} ? '수정' : '글쓰기'">글쓰기</span>
+    </nav>
+
+    <h1 class="text-heading-md font-bold text-fg-strong mb-6"
+        th:text="${mode == 'edit'} ? '글 수정' : '글쓰기'">글쓰기</h1>
+
+    <div th:if="${error}" role="alert" class="krds-alert krds-alert-danger mb-4">
+      <span class="shrink-0 font-bold text-danger-icon" aria-hidden="true">✕</span>
+      <p th:text="${error}"></p>
+    </div>
+    <div th:if="${errors}" role="alert" class="krds-alert krds-alert-danger mb-4">
+      <span class="shrink-0 font-bold text-danger-icon" aria-hidden="true">✕</span>
+      <ul class="list-disc list-inside">
+        <li th:each="e : ${errors}" th:text="${e.defaultMessage}">err</li>
+      </ul>
+    </div>
+
+    <form id="boardWriteForm"
+          th:action="${mode == 'edit'}
+                     ? @{/bbs/{sc}/{bc}/{aid}(sc=${siteCode}, bc=${bbsCode}, aid=${form.articleId})}
+                     : @{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+          method="post" th:object="${form}"
+          class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:field="*{bbsMasterId}"/>
+      <input type="hidden" th:field="*{articleId}"/>
+      <th:block th:if="${master?.captchaYn == 'Y'}"
+                th:replace="~{fragments/captcha-v3 :: widget(action='bbs_write', formId='boardWriteForm')}"/>
+
+      <div th:if="${categories != null and !#lists.isEmpty(categories)}">
+        <label for="categoryId" class="block text-label-md font-bold text-fg mb-1.5">카테고리</label>
+        <select id="categoryId" th:field="*{categoryId}" class="krds-input">
+          <option value="">— 선택 안 함 —</option>
+          <option th:each="c : ${categories}"
+                  th:value="${c.categoryId}"
+                  th:text="${c.categoryName}">잡담</option>
+        </select>
+      </div>
+
+      <div th:if="${canEditWriterName}">
+        <label for="writerName" class="block text-label-md font-bold text-fg mb-1.5">
+          작성자명
+          <span class="text-body-xs text-fg-subtle font-normal">(비워두면 본인 이름으로 저장)</span>
+        </label>
+        <input id="writerName" type="text" th:field="*{writerName}" maxlength="100"
+               placeholder="예: 홍보팀, 익명, 게스트"
+               class="krds-input"/>
+      </div>
+
+      <div>
+        <label for="title" class="block text-label-md font-bold text-fg mb-1.5">
+          제목 <span class="text-danger-50">*</span>
+        </label>
+        <input id="title" type="text" th:field="*{title}" required maxlength="300"
+               class="krds-input"/>
+      </div>
+
+      <div th:if="${master.fileYn == 'Y'}">
+        <label class="block text-label-md font-bold text-fg mb-2">
+          첨부파일
+          <span class="text-body-xs text-fg-subtle font-normal">
+            (최대 <span th:text="${master.fileCountMax}">5</span>개,
+             파일당 <span th:text="${master.fileSizeMaxMb}">10</span> MB)
+          </span>
+        </label>
+        <div th:replace="~{fragments/file-picker :: picker(
+            inputName='attachmentsJson',
+            category='ANY',
+            multiple=true,
+            existingFiles=${existingFiles},
+            readOnly=false,
+            entityType='BBS',
+            entityId=${form.articleId},
+            siteId=${master.siteId},
+            maxFiles=${master.fileCountMax},
+            fileGroupId=${fileGroupId}
+        )}"></div>
+      </div>
+
+      <div>
+        <label for="content" class="block text-label-md font-bold text-fg mb-1.5">
+          본문 <span class="text-danger-50">*</span>
+        </label>
+        <textarea id="content" th:field="*{content}" required rows="14"
+                  class="krds-input"></textarea>
+      </div>
+
+      <div class="flex items-center gap-6 flex-wrap text-body-sm text-fg">
+        <label class="inline-flex items-center gap-2">
+          <input type="checkbox" name="secretYn" value="Y"
+                 th:checked="${mode == 'edit' ? form.secretYn == 'Y' : (form.secretYn == null or form.secretYn != 'N')}"
+                 class="size-5 accent-primary-50"/>
+          <span>🔒 비밀글 (작성자/관리자만 본문 조회)</span>
+        </label>
+        <!--
+          공지 토글은 관리자만 적용 가능. 폼은 항상 노출하지만 Service 가
+          비-관리자 입력은 무시한다.
+        -->
+        <label class="inline-flex items-center gap-2"
+               sec:authorize="hasAnyRole('STAFF','EMPLOYEE','ADMIN')"
+               xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+          <input type="checkbox" name="noticeYn" value="Y"
+                 th:checked="${form.noticeYn == 'Y'}"
+                 class="size-5 accent-primary-50"/>
+          <span>📌 공지 (관리자만)</span>
+        </label>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="${mode == 'edit'}
+                     ? @{/bbs/{sc}/{bc}/{aid}(sc=${siteCode}, bc=${bbsCode}, aid=${form.articleId})}
+                     : @{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+           class="krds-btn krds-btn-tertiary">취소</a>
+        <button type="submit" class="krds-btn krds-btn-primary"
+                th:text="${mode == 'edit'} ? '저장' : '등록'">등록</button>
+      </div>
+    </form>
+
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+  </section>
+</body>
+</html>

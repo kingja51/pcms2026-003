@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${article.title} + ' — ' + ${master.bbsName}">자료실</title>
+</head>
+<body>
+  <section layout:fragment="content" 
+           th:with="canManage=${master.bbsMasterId == article.bbsMasterId}">
+
+    <nav aria-label="상위 경로" class="text-body-sm text-fg-subtle mb-4 flex items-center gap-2">
+      <a th:href="@{/}" class="hover:underline">🏠 홈</a>
+      <span class="text-fg-disabled" aria-hidden="true">›</span>
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}" class="hover:underline"
+         th:text="${master.bbsName}">자료실</a>
+      <span class="text-fg-disabled" aria-hidden="true">›</span>
+      <span class="text-fg font-bold" aria-current="page">상세</span>
+    </nav>
+
+    <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+      <span class="text-success-icon font-bold shrink-0" aria-hidden="true">✓</span>
+      <p th:text="${message}"></p>
+    </div>
+    <div th:if="${error}" role="alert" aria-live="polite" class="krds-alert krds-alert-danger mb-4">
+      <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+      <p th:text="${error}"></p>
+    </div>
+
+    <!-- 비밀글 차단 -->
+    <div th:unless="${canSeeBody}"
+         class="bg-surface-subtle border border-line rounded-large p-12 text-center mb-8">
+      <p class="text-heading-md mb-2" aria-hidden="true">🔒</p>
+      <p class="text-body-md text-fg-subtle">비밀글입니다. 작성자 또는 관리자만 본문을 볼 수 있습니다.</p>
+    </div>
+
+    <th:block th:if="${canSeeBody}">
+
+      <!-- 헤더 -->
+      <header class="border-t-2 border-t-line-strong border-b border-b-line pt-5 pb-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span th:if="${article.noticeYn == 'Y'}" class="krds-badge bg-danger-surface text-danger-fg">공지</span>
+          <span th:if="${article.secretYn == 'Y'}" class="krds-badge bg-surface-subtle text-fg-subtle">🔒 비밀</span>
+          <span th:if="${article.categoryName != null and !#strings.isEmpty(article.categoryName)}"
+                class="krds-badge bg-primary-5 text-primary-50" th:text="${article.categoryName}">카테고리</span>
+        </div>
+        <h1 class="text-heading-md text-fg-strong mt-1.5 mb-2.5" th:text="${article.title}">자료명</h1>
+        <div class="flex items-center gap-4 flex-wrap text-body-sm text-fg-subtle pt-2.5 border-t border-dashed border-divider">
+          <span class="inline-flex items-center gap-1.5">✍ <span th:text="${article.writerName}">등록자</span></span>
+          <span th:text="${@fmt.dt(article.createdAt)}">2026-04-27</span>
+          <span class="inline-flex items-center gap-1.5">👁 <span th:text="${article.viewCount}">0</span></span>
+        </div>
+      </header>
+
+      <!-- 첨부파일 다운로드 — 공용 조각(공지 포맷 표준) -->
+      <th:block th:replace="~{fragments/bbs-attachments :: box(files=${existingFiles})}"/>
+
+      <!-- 첨부 없을 때 안내 -->
+      <div th:if="${master.fileYn == 'Y' and #lists.isEmpty(existingFiles)}"
+           class="my-6 p-8 border border-dashed border-line rounded-xlarge text-center text-body-sm text-fg-disabled">
+        첨부된 파일이 없습니다.
+      </div>
+
+      <!-- 본문 설명 -->
+      <article th:if="${article.content != null and !#strings.isEmpty(article.content)}"
+               class="py-3 text-body-md text-fg whitespace-pre-wrap break-keep [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded-medium"><th:block
+          th:replace="~{fragments/bbs-content :: render(content=${article.content}, htmlYn=${master.htmlYn})}"></th:block></article>
+
+      <!-- 좋아요 / 신고 -->
+      <div class="flex items-center justify-end mt-4">
+        <th:block th:replace="~{fragments/bbs-like-report :: actions(
+            type='ARTICLE',
+            id=${article.articleId},
+            likeCount=${article.likeCount},
+            liked=${articleLikedByMe})}"/>
+      </div>
+
+    </th:block>
+
+    <!-- 액션 -->
+    <!-- 이전글/다음글 -->
+    <th:block th:replace="~{fragments/bbs-prev-next :: nav(prev=${prevArticle}, next=${nextArticle})}"/>
+
+    <div class="flex items-center justify-between gap-2 pt-6 mt-6 border-t border-line">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+         class="krds-btn krds-btn-tertiary">목록</a>
+      <div class="flex items-center gap-2" th:if="${canManage and (canEdit or canDelete)}">
+        <a th:if="${canEdit}"
+           th:href="@{/bbs/{sc}/{bc}/{aid}/edit(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+           class="krds-btn krds-btn-primary">수정</a>
+        <form th:if="${canDelete}"
+              th:action="@{/bbs/{sc}/{bc}/{aid}/delete(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+              method="post"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit"
+                  class="krds-btn bg-danger-50 text-white hover:bg-danger-60">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 댓글 (master.commentYn='Y' 일 때만) -->
+    <section th:if="${canSeeBody and master.commentYn == 'Y'}"
+             xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+             class="mt-10 pt-6 border-t border-line" id="comments">
+      <h2 class="text-heading-xs text-fg-strong mb-4">
+        댓글 <span class="text-fg-subtle" th:text="'(' + ${article.commentCount} + ')'">(0)</span>
+      </h2>
+      <ul th:if="${not #lists.isEmpty(comments)}" class="space-y-3 mb-6">
+        <li th:each="cm : ${comments}" class="border-l-2 border-divider pl-4">
+          <div class="text-body-xs text-fg-subtle mb-1">
+            <strong class="text-fg" th:text="${cm.writerName}">작성자</strong>
+            <span class="mx-1">·</span>
+            <span th:text="${@fmt.dt(cm.createdAt)}">-</span>
+          </div>
+          <p th:if="${cm.status == 'PUBLISHED'}" class="text-body-sm whitespace-pre-wrap text-fg"
+             th:text="${cm.content}">내용</p>
+          <p th:unless="${cm.status == 'PUBLISHED'}" class="text-body-sm text-fg-disabled italic">관리자에 의해 가려진 댓글입니다.</p>
+          <th:block th:replace="~{fragments/bbs-like-report :: commentActions(cm=${cm}, commentLikedIds=${commentLikedIds})}"/>
+        </li>
+      </ul>
+      <p th:if="${#lists.isEmpty(comments)}" class="text-body-sm text-fg-subtle mb-4">첫 번째 댓글을 남겨보세요.</p>
+      <form sec:authorize="isAuthenticated()"
+            th:action="@{/bbs/{sc}/{bc}/{aid}/comments(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+            method="post" th:object="${commentForm}"
+            class="bg-surface-subtle border border-line rounded-large p-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <textarea th:field="*{content}" required rows="3" maxlength="4000"
+                  placeholder="댓글을 입력하세요"
+                  class="krds-input"></textarea>
+        <div class="mt-2 flex justify-end">
+          <button type="submit" class="krds-btn krds-btn-sm krds-btn-primary">댓글 등록</button>
+        </div>
+      </form>
+      <div sec:authorize="!isAuthenticated()"
+           class="bg-surface-subtle border border-line rounded-large p-4 text-center text-body-sm text-fg-subtle">
+        <a th:href="@{/member/login}" class="krds-link">로그인</a> 후 댓글 작성이 가능합니다.
+      </div>
+    </section>
+
+    <script th:src="@{/js/bbs-like-report.js}" th:attr="nonce=${cspNonce}" defer></script>
+  </section>
+</body>
+</html>

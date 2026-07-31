@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head><title>Department Fragments</title></head>
+<body>
+  <!--
+    부서 코드 중복확인 결과 fragment (htmx partial).
+    status: INVALID / AVAILABLE / TAKEN.
+  -->
+  <div th:fragment="code-result" class="mt-1 text-xs" role="status" aria-live="polite">
+    <span th:if="${status == 'INVALID'}"
+          class="text-fg-subtle">부서 코드 형식을 확인하세요 (영대문자/숫자/언더스코어, 2자 이상).</span>
+    <span th:if="${status == 'AVAILABLE'}" class="text-success-fg">
+      사용 가능한 코드입니다: <strong th:text="${departmentCode}">DEV_TEAM</strong>
+    </span>
+    <span th:if="${status == 'TAKEN'}"     class="text-danger-fg">
+      이미 사용 중인 코드입니다: <strong th:text="${departmentCode}">DEV_TEAM</strong>
+    </span>
+  </div>
+</body>
+</html>

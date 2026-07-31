@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<!--
+  제네릭 콘텐츠 페이지(placeholder) — templates/{siteCode}/{slug}.html 이 없고 tb_menu 에
+  /{sc}/{slug} 링크가 선언된 경우 GenericSiteUsrController 가 렌더(pageTitle=메뉴명).
+  실제 콘텐츠는 개별 템플릿 파일 승격 또는 콘텐츠 동기화로 교체한다.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${pageTitle} ?: '콘텐츠'">콘텐츠</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div class="max-w-content mx-auto px-4 py-12">
+    <h1 class="text-heading-xl font-bold text-fg-strong" th:text="${pageTitle} ?: '콘텐츠'">페이지 제목</h1>
+
+    <div class="mt-8 bg-surface border border-line rounded-large px-6 py-16 text-center">
+      <p class="text-heading-sm font-medium text-fg">콘텐츠 준비 중입니다</p>
+      <p class="text-body-md text-fg-subtle mt-2">
+        <span th:text="${siteContext?.site?.siteName} ?: ${siteCode}">사이트</span>의
+        <strong th:text="${pageTitle} ?: '이'">이</strong> 페이지는 아직 작성되지 않았습니다.
+      </p>
+      <div class="mt-6">
+        <a th:href="@{/{sc}/home(sc=${siteCode})}" class="krds-btn krds-btn-tertiary">홈으로</a>
+      </div>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

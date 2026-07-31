@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|파일 상세 - ${file.originalName}|">파일 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/file}" class="hover:underline">파일</a>
+      <span class="mx-1">/</span>
+      <span th:text="${file.originalName}">파일.pdf</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong break-all" th:text="${file.originalName}">파일</h1>
+        <div class="mt-2 flex items-center gap-2 text-sm">
+          <span th:class="|inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+            ${file.virusScanStatus == 'CLEAN'    ? 'bg-success-surface text-success-fg' :
+              file.virusScanStatus == 'INFECTED' ? 'bg-danger-surface text-danger-fg' :
+              file.virusScanStatus == 'ERROR'    ? 'bg-warning-surface text-warning-fg' :
+                                                   'bg-surface-subtler text-fg-subtle'}|"
+                th:text="${file.virusScanStatus}">PENDING</span>
+          <span class="text-fg-subtle">· <span th:text="${file.sizeBytes}">0</span> bytes</span>
+          <span class="text-fg-subtle">· 다운로드 <span th:text="${file.downloadCount}">0</span></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <!-- 목록으로 -->
+        <a th:href="@{/admin/system/file}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">목록</a>
+
+        <!-- 뷰어 — pdf/txt/hwp/hwpx/doc/docx/xlsx/pptx 만 노출. 새 창으로 인플레이스 표시.
+             FilePreviewUsrController 가 형식별 분기. INFECTED/PENDING 등은 뷰어 자체에서 차단. -->
+        <a th:if="${file.originalName != null
+                   and #strings.toLowerCase(file.originalName) matches '.+[.](pdf|txt|hwp|hwpx|doc|docx|xlsx|pptx)$'}"
+           th:href="@{/file/preview/{fid}(fid=${file.fileId})}"
+           target="_blank" rel="noopener" data-viewer-popup
+           class="inline-flex items-center px-3 py-1.5 rounded bg-success-50 text-fg-on text-sm font-medium hover:bg-success-60"
+           title="새 창에서 뷰어로 열기">🔍 뷰어</a>
+
+        <!-- 다운로드 (한개) — 관리자 경로. 검사 상태 무관 활성 (검증 목적) -->
+        <a th:href="@{/admin/system/file/{fid}/download(fid=${file.fileId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60"
+           th:title="${file.virusScanStatus == 'INFECTED'}
+                     ? '경고: INFECTED 상태입니다. 검증 목적으로만 다운로드하세요.'
+                     : '원본 파일 다운로드'">다운로드 (한개)</a>
+
+        <!-- 다운로드 (그룹 ZIP) — 그룹 내 CLEAN 파일 묶음 -->
+        <a th:if="${!#strings.isEmpty(file.fileGroupId)}"
+           th:href="@{/fileDown/group/{gid}(gid=${file.fileGroupId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70"
+           title="같은 그룹의 CLEAN 파일 전체를 ZIP 으로">다운로드 (그룹 ZIP)</a>
+
+        <form th:action="@{/admin/system/file/{fid}(fid=${file.fileId})}" method="post" class="inline"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="_method" value="delete"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm hover:bg-danger-surface">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <!-- 이미지 미리보기 — 썸네일 있으면 표시, 없으면 "처리 중" 플레이스홀더 -->
+    <section th:if="${file.isImage()}"
+             class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-3">미리보기</h2>
+
+      <!-- 썸네일 생성 완료 -->
+      <a th:if="${!#strings.isEmpty(file.thumbnailPath)}"
+         th:href="@{/admin/system/file/{fid}/download(fid=${file.fileId})}"
+         title="클릭해서 원본 다운로드">
+        <img th:src="@{/admin/system/file/{fid}/thumb(fid=${file.fileId})}"
+             th:alt="${file.originalName}"
+             class="rounded border border-line max-w-full h-auto"
+             loading="lazy"/>
+      </a>
+
+      <!-- 썸네일 미생성 (비동기 처리 중) — 플레이스홀더 + 새로고침 안내 -->
+      <div th:if="${#strings.isEmpty(file.thumbnailPath)}"
+           class="rounded border border-dashed border-line bg-surface-subtle px-6 py-10 text-center">
+        <svg xmlns="http://www.w3.org/2000/svg" class="mx-auto h-12 w-12 text-fg-disabled"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        <p class="mt-3 text-sm text-fg-subtle">썸네일 생성 중입니다.</p>
+        <p class="mt-1 text-xs text-fg-subtle">
+          대용량 이미지나 동시 다수 업로드 시 수 초 소요됩니다. 잠시 후 새로고침해 주세요.
+        </p>
+        <a th:href="@{/admin/system/file/{fid}/download(fid=${file.fileId})}"
+           class="mt-3 inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-xs hover:bg-surface-subtle">
+          원본 다운로드
+        </a>
+      </div>
+
+      <p th:if="${file.virusScanStatus != 'CLEAN'}"
+         class="mt-2 text-xs text-warning-fg">
+        ClamAV 검사 상태: <span th:text="${file.virusScanStatus}" class="font-mono"></span>.
+        일반 사용자 다운로드(/fileDown/..)는 CLEAN 이 아니면 차단되지만, 관리자는 검증 목적으로 접근 가능합니다.
+      </p>
+    </section>
+
+    <!-- 6중 방어 스택 통과 결과 -->
+    <section class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-3">업로드 방어 스택</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div><dt class="inline text-fg-subtle">확장자 (#1): </dt>
+             <dd class="inline font-mono text-fg-strong" th:text="${file.extension}">pdf</dd></div>
+        <div><dt class="inline text-fg-subtle">Tika MIME (#2): </dt>
+             <dd class="inline font-mono text-fg-strong" th:text="${file.mimeDetected}">application/pdf</dd></div>
+        <div><dt class="inline text-fg-subtle">Client MIME: </dt>
+             <dd class="inline font-mono text-fg-subtle" th:text="${file.mimeClient} ?: '—'">—</dd></div>
+        <div><dt class="inline text-fg-subtle">이미지 재인코딩 (#3): </dt>
+             <dd class="inline text-fg-strong">
+               <span th:if="${file.isReencoded()}" class="text-success-fg">적용됨</span>
+               <span th:unless="${file.isReencoded()}" class="text-fg-subtle">해당 없음</span>
+             </dd></div>
+        <div class="md:col-span-2"><dt class="inline text-fg-subtle">SHA-256 FIM (#4): </dt>
+             <dd class="inline font-mono text-xs text-fg-strong break-all" th:text="${file.fileHash}">-</dd></div>
+        <div class="md:col-span-2"><dt class="inline text-fg-subtle">저장 경로 (#5): </dt>
+             <dd class="inline font-mono text-xs text-fg-strong break-all" th:text="${file.storedPath}">-</dd></div>
+        <div class="md:col-span-2" th:if="${!#strings.isEmpty(file.thumbnailPath)}">
+             <dt class="inline text-fg-subtle">썸네일 경로: </dt>
+             <dd class="inline font-mono text-xs text-fg-strong break-all" th:text="${file.thumbnailPath}">-</dd></div>
+        <div class="md:col-span-2">
+          <dt class="text-fg-subtle mb-2 block">검사 상태 (#6)</dt>
+          <dd>
+            <div class="flex items-center gap-3 flex-wrap">
+              <!-- 현재 상태 배지 -->
+              <span th:class="|inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold font-mono
+                ${file.virusScanStatus == 'CLEAN'    ? 'bg-success-10 text-success-fg ring-1 ring-success-30' :
+                  file.virusScanStatus == 'INFECTED' ? 'bg-danger-10 text-danger-fg ring-1 ring-danger-30' :
+                  file.virusScanStatus == 'ERROR'    ? 'bg-warning-10 text-warning-fg ring-1 ring-warning-30' :
+                                                       'bg-surface-subtler text-fg ring-1 ring-line'}|"
+                    th:text="${file.virusScanStatus}">PENDING</span>
+
+              <!-- 상태 변경 폼 — 인라인 배치 -->
+              <form th:action="@{/admin/system/file/{fid}/scan-status(fid=${file.fileId})}" method="post"
+                    class="flex items-center gap-2">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <select name="status"
+                        class="rounded-md border border-line bg-surface px-2.5 py-1.5 text-xs text-fg
+                               focus:outline-none focus:ring-2 focus:ring-brand-50 focus:border-brand-50">
+                  <option value="PENDING"  th:selected="${file.virusScanStatus == 'PENDING'}">PENDING — 재검사 대기</option>
+                  <option value="CLEAN"    th:selected="${file.virusScanStatus == 'CLEAN'}">CLEAN — 안전</option>
+                  <option value="INFECTED" th:selected="${file.virusScanStatus == 'INFECTED'}">INFECTED — 악성</option>
+                  <option value="ERROR"    th:selected="${file.virusScanStatus == 'ERROR'}">ERROR — 검사 오류</option>
+                </select>
+                <button type="submit"
+                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-brand-50 text-fg-on
+                               text-xs font-medium hover:bg-brand-60 active:bg-brand-70 transition-colors
+                               focus:outline-none focus:ring-2 focus:ring-brand-50 focus:ring-offset-1">
+                  상태 변경
+                </button>
+              </form>
+            </div>
+            <p class="mt-1.5 text-xs text-fg-disabled">PENDING 으로 변경하면 ClamAV 재검사 대기 상태가 됩니다.</p>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- 메타 -->
+    <section class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-3">메타</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+        <div><dt class="inline text-fg-subtle">파일ID: </dt>
+             <dd class="inline font-mono text-xs text-fg-strong" th:text="${file.fileId}">-</dd></div>
+        <div><dt class="inline text-fg-subtle">그룹ID: </dt>
+             <dd class="inline font-mono text-xs text-fg-strong" th:text="${file.fileGroupId}">-</dd></div>
+        <div><dt class="inline text-fg-subtle">엔티티: </dt>
+             <dd class="inline font-mono text-fg-strong" th:text="${file.entityType} + ' · ' + ${file.entityId}">-</dd></div>
+        <div><dt class="inline text-fg-subtle">저장 파일명: </dt>
+             <dd class="inline font-mono text-xs text-fg-strong break-all" th:text="${file.storedName}">-</dd></div>
+        <div><dt class="inline text-fg-subtle">업로드: </dt>
+             <dd class="inline text-fg"
+                 th:text="${file.createdBy} + ' · ' + ${@fmt.dt(file.createdAt)}">-</dd></div>
+        <div><dt class="inline text-fg-subtle">수정: </dt>
+             <dd class="inline text-fg"
+                 th:text="${file.updatedBy} + ' · ' + ${@fmt.dt(file.updatedAt)}">-</dd></div>
+      </dl>
+    </section>
+
+    <!-- 다운로드 내역 (최근 20건) -->
+    <section class="bg-surface border border-line rounded-large p-5 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold text-fg">다운로드 내역 (최근 20건)</h2>
+        <span class="text-xs text-fg-subtle">
+          누적 <strong class="text-fg-strong" th:text="${file.downloadCount}">0</strong> 회
+        </span>
+      </div>
+      <div th:if="${#lists.isEmpty(downloads)}"
+           class="py-6 text-center text-sm text-fg-subtle">
+        아직 다운로드 이력이 없습니다.
+      </div>
+      <div th:unless="${#lists.isEmpty(downloads)}" class="overflow-x-auto">
+        <table class="min-w-full text-xs">
+          <thead class="bg-surface-subtle text-fg-subtle">
+            <tr class="text-left">
+              <th class="px-3 py-2 font-semibold">일시</th>
+              <th class="px-3 py-2 font-semibold">타입</th>
+              <th class="px-3 py-2 font-semibold">사용자</th>
+              <th class="px-3 py-2 font-semibold">IP</th>
+              <th class="px-3 py-2 font-semibold text-right">바이트</th>
+              <th class="px-3 py-2 font-semibold">User-Agent</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-divider">
+            <tr th:each="d : ${downloads}" class="hover:bg-surface-subtle">
+              <td class="px-3 py-1.5 font-mono text-fg" th:text="${@fmt.dt(d.downloadedAt)}">-</td>
+              <td class="px-3 py-1.5">
+                <span th:class="|inline-flex items-center px-1.5 py-0.5 rounded font-medium
+                  ${d.downloadType == 'ADMIN'     ? 'bg-warning-surface text-warning-fg' :
+                    d.downloadType == 'GROUP_ZIP' ? 'bg-surface-subtler text-fg' :
+                                                     'bg-info-surface text-info-fg'}|"
+                      th:text="${d.downloadType}">SINGLE</span>
+              </td>
+              <td class="px-3 py-1.5">
+                <span class="text-fg-strong" th:text="${d.actorLoginId} ?: '-'">-</span>
+                <span class="text-fg-subtle ml-1" th:text="${d.actorUserType} ?: ''"></span>
+              </td>
+              <td class="px-3 py-1.5 font-mono text-fg-subtle" th:text="${d.clientIp} ?: '-'">-</td>
+              <td class="px-3 py-1.5 text-right font-mono text-fg" th:text="${d.sizeBytes} ?: 0">0</td>
+              <td class="px-3 py-1.5 text-fg-subtle truncate max-w-xs" th:title="${d.userAgent}"
+                  th:text="${d.userAgent} ?: '-'">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 하단 네비게이션 -->
+    <div class="flex items-center justify-end gap-2 mt-4">
+      <a th:href="@{/admin/system/file}"
+         class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">← 목록</a>
+    </div>
+
+  </section>
+</body>
+</html>

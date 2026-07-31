@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<!--
+  NICE CheckPlus 안심본인인증 — 진입(팝업 호출) 페이지 (구 checkplus_main.jsp)
+    · 컨트롤러: GET /member/identity/nice → NiceCheckUsrController.launch
+    · 흐름: 사이트 자격 + REQ_SEQ 로 fnEncode 한 EncodeData 를 hidden form 에 실어
+            사용자 클릭 시 NICE 팝업 URL 로 POST.
+    · 팝업 윈도우는 NICE 가 결제완료 페이지처럼 popup target 을 강제하므로 htmx 가
+      아닌 일반 window.open + form.submit 으로 구현 (NICE 공식 가이드).
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>본인인증</title>
+  <script th:inline="javascript" th:nonce="${cspNonce}">
+    /*<![CDATA[*/
+    window.name = "Parent_window";
+
+    // 부모창 — 팝업이 인증 완료 후 보내는 신호 listen.
+    //   (1) localStorage storage 이벤트  : 모든 브라우저
+    //   (2) BroadcastChannel postMessage : 모던 브라우저
+    //   둘 중 하나만 들어와도 navigate. 중복 호출 방지를 위해 1회 처리.
+    var niceHandled = false;
+
+    function handleNiceDone(nextUrl) {
+      if (niceHandled || !nextUrl) return;
+      niceHandled = true;
+      window.location.href = nextUrl;
+    }
+
+    window.addEventListener('storage', function (e) {
+      if (e.key === 'NICE_AUTH_DONE' && e.newValue) {
+        try {
+          var data = JSON.parse(e.newValue);
+          handleNiceDone(data.nextUrl);
+        } catch (err) { /* malformed — 무시 */ }
+      }
+    });
+
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        var bc = new BroadcastChannel('nice-auth');
+        bc.addEventListener('message', function (ev) {
+          if (ev.data && ev.data.type === 'NICE_AUTH_DONE') {
+            handleNiceDone(ev.data.nextUrl);
+          }
+        });
+      }
+    } catch (e) { /* 미지원 환경 */ }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('niceStartBtn');
+      if (btn) {
+        btn.addEventListener('click', function () {
+          window.open('', 'popupChk',
+            'width=500,height=550,top=100,left=100,menubar=no,status=no,toolbar=no,scrollbars=no');
+          var f = document.forms.form_chk;
+          f.action = /*[[${popupUrl}]]*/ 'https://nice.checkplus.co.kr/CheckPlusSafeModel/checkplus.cb';
+          f.target = "popupChk";
+          f.submit();
+        });
+      }
+    });
+    /*]]>*/
+  </script>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-md mx-auto">
+
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6 md:p-8">
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-900">본인인증</h1>
+        <p class="text-sm text-slate-500 mt-1">NICE 안심본인인증 서비스로 본인 확인을 진행합니다.</p>
+      </div>
+
+      <!-- 암호화 실패 등 시스템 메시지 -->
+      <div th:if="${message}" role="alert" aria-live="polite"
+           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p th:text="${message}">본인인증을 시작할 수 없습니다.</p>
+      </div>
+
+      <!-- NICE 안심본인인증 진입 폼 -->
+      <form name="form_chk" method="post" th:if="${encData != null}">
+        <input type="hidden" name="m" value="checkplusService"/>
+        <input type="hidden" name="EncodeData" th:value="${encData}"/>
+
+        <button type="button" id="niceStartBtn"
+                class="w-full inline-flex items-center justify-center px-4 py-3 rounded-md
+                       bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800
+                       focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2">
+          본인인증 시작
+        </button>
+      </form>
+
+      <p class="mt-4 text-xs text-slate-500 leading-5">
+        ※ 본인인증 창은 새 창(팝업)으로 열립니다. 팝업 차단을 해제해 주세요.<br/>
+        ※ 인증 완료 후 결과는 자동으로 이 페이지에 반영됩니다.
+      </p>
+    </div>
+  </section>
+</body>
+</html>

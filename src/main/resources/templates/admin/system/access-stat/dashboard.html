@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>접근 통계</title>
+  <!-- 자동 새로고침 — autoRefreshSec 초마다 페이지 reload (실시간 통계) -->
+  <meta http-equiv="refresh" th:attr="content=${autoRefreshSec}"/>
+  <!-- Chart.js v4 — strict-dynamic 정책 하에서 nonce 붙은 script 가 로드 -->
+  <script th:src="@{/js/vendor/chart.umd.min.js}"
+          th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <span>접근 통계</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">접근 통계</h1>
+        <p class="mt-1 text-sm text-fg-subtle">
+          오늘(<span class="font-mono" th:text="${to}">2026-04-27</span>) 까지 포함 — 오늘 분은 매 30분 자동 갱신, 어제 이전은 02:00 배치.
+        </p>
+        <!-- 실시간 갱신 배너 + 즉시 적용 버튼 -->
+        <div class="mt-2 flex items-center gap-2 flex-wrap">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded bg-success-surface border border-success-border text-success-fg text-xs">
+            <span class="inline-block w-2 h-2 rounded-full bg-success-40 animate-pulse"></span>
+            <span>실시간</span>
+            <span class="text-fg-disabled">·</span>
+            <span>마지막 로드 <span class="font-mono" th:text="${@fmt.dt(loadedAt)}">-</span></span>
+            <span class="text-fg-disabled">·</span>
+            <span>다음 갱신까지 <span id="autoRefreshCountdown" class="font-mono font-semibold">-</span></span>
+          </div>
+
+          <!-- 즉시 적용 — POST /refresh → 오늘 분 재집계 후 이 화면으로 redirect -->
+          <form id="liveRefreshForm" method="post"
+                th:action="@{/admin/system/access-stat/refresh}"
+                class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="period" th:value="${period}"/>
+            <input type="hidden" name="siteId" th:value="${siteId}"/>
+            <button type="submit" id="liveRefreshBtn"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-brand-50 text-fg-on text-xs font-medium hover:bg-brand-60 disabled:opacity-60 disabled:cursor-wait">
+              <svg id="liveRefreshIcon" class="w-3.5 h-3.5"
+                   xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                   stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              <span id="liveRefreshLabel">실시간 적용</span>
+            </button>
+          </form>
+        </div>
+
+        <!-- flash message — 재집계 결과 표시 (1회성) -->
+        <div th:if="${message}"
+             class="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded bg-success-surface border border-success-border text-success-fg text-xs"
+             th:text="${message}">완료</div>
+        <div th:if="${error}"
+             class="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded bg-danger-surface border border-danger-border text-danger-fg text-xs"
+             th:text="${error}">오류</div>
+      </div>
+
+      <!-- 기간/사이트 필터 -->
+      <div class="flex items-end gap-2 flex-wrap">
+        <div class="inline-flex rounded border border-line overflow-hidden">
+          <a th:href="@{/admin/system/access-stat(period='day', siteId=${siteId})}"
+             th:classappend="${period == 'day'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs">일</a>
+          <a th:href="@{/admin/system/access-stat(period='week', siteId=${siteId})}"
+             th:classappend="${period == 'week'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">주</a>
+          <a th:href="@{/admin/system/access-stat(period='month', siteId=${siteId})}"
+             th:classappend="${period == 'month'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">월</a>
+          <a th:href="@{/admin/system/access-stat(period='year', siteId=${siteId})}"
+             th:classappend="${period == 'year'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">년</a>
+        </div>
+        <form method="get" th:action="@{/admin/system/access-stat}">
+          <input type="hidden" name="period" th:value="${period}"/>
+          <select name="siteId" data-action="submit-on-change"
+                  class="rounded border border-line px-2 py-1.5 text-xs">
+            <option value="">전체 사이트</option>
+            <option th:each="s : ${sites}"
+                    th:value="${s.siteId}"
+                    th:text="|${s.siteName} (${s.siteCode})|"
+                    th:selected="${siteId == s.siteId}">site</option>
+          </select>
+        </form>
+      </div>
+    </div>
+
+    <!-- 요약 카드 -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div class="bg-surface border border-line rounded p-4">
+        <p class="text-xs text-fg-subtle">PV (페이지뷰)</p>
+        <p class="mt-1 text-heading-lg font-bold text-fg-strong"
+           th:text="${#numbers.formatInteger(summary['totalPv'] ?: 0, 1, 'COMMA')}">0</p>
+      </div>
+      <div class="bg-surface border border-line rounded p-4">
+        <p class="text-xs text-fg-subtle">UV (방문자)</p>
+        <p class="mt-1 text-heading-lg font-bold text-fg-strong"
+           th:text="${#numbers.formatInteger(summary['totalUv'] ?: 0, 1, 'COMMA')}">0</p>
+      </div>
+      <div class="bg-surface border border-line rounded p-4">
+        <p class="text-xs text-fg-subtle">평균 응답시간 (ms)</p>
+        <p class="mt-1 text-heading-lg font-bold text-fg-strong"
+           th:text="${summary['avgResponseMs'] ?: 0}">0</p>
+      </div>
+      <div class="bg-surface border border-line rounded p-4">
+        <p class="text-xs text-fg-subtle">에러 (4xx + 5xx)</p>
+        <p class="mt-1 text-heading-lg font-bold"
+           th:classappend="${(summary['err4xx'] ?: 0) + (summary['err5xx'] ?: 0) > 0}
+                            ? 'text-danger-fg' : 'text-fg-strong'"
+           th:text="${#numbers.formatInteger((summary['err4xx'] ?: 0) + (summary['err5xx'] ?: 0), 1, 'COMMA')}">0</p>
+      </div>
+    </div>
+
+    <!-- ① 일별 PV/UV 추이 (line) — stat_access_daily -->
+    <section class="bg-surface border border-line rounded-large p-4 mb-6">
+      <h2 class="text-base font-bold text-fg-strong mb-3">① 일별 PV / UV 추이</h2>
+      <div class="h-64"><canvas id="chartSeries"></canvas></div>
+    </section>
+
+    <!-- 2/3열 — 사이트별 + 사용자 유형별 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">② 사이트별 트래픽 점유율</h2>
+        <div class="h-64"><canvas id="chartSiteShare"></canvas></div>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">③ 사용자 유형별 분포</h2>
+        <div class="h-64"><canvas id="chartUserType"></canvas></div>
+      </section>
+    </div>
+
+    <!-- ④ 시간대별 트래픽 -->
+    <section class="bg-surface border border-line rounded-large p-4 mb-6">
+      <h2 class="text-base font-bold text-fg-strong mb-3">④ 시간대별 트래픽 패턴 (0~23시)</h2>
+      <div class="h-64"><canvas id="chartHourly"></canvas></div>
+    </section>
+
+    <!-- ⑤ 인기 페이지 TOP -->
+    <section class="bg-surface border border-line rounded-large p-4 mb-6">
+      <h2 class="text-base font-bold text-fg-strong mb-3">⑤ 인기 페이지 TOP 20</h2>
+      <div class="h-96"><canvas id="chartTopPages"></canvas></div>
+    </section>
+
+    <!-- ⑥ stat_daily_visit (visit/unique/pv 3 시리즈) -->
+    <section class="bg-surface border border-line rounded-large p-4 mb-6">
+      <h2 class="text-base font-bold text-fg-strong mb-3">
+        ⑥ 일별 방문 통계 <span class="text-xs text-fg-subtle font-normal">(stat_daily_visit)</span>
+      </h2>
+      <p class="text-xs text-fg-subtle mb-3">
+        방문(visit) = 세션 수 · 순방문자(unique) = DISTINCT IP · PV = 페이지뷰
+      </p>
+      <div class="h-72"><canvas id="chartDailyVisit"></canvas></div>
+    </section>
+
+    <!-- 사이트별 누적 KPI 표 -->
+    <section class="bg-surface border border-line rounded-large p-4 mb-6">
+      <h2 class="text-base font-bold text-fg-strong mb-3">사이트별 누적 KPI (기간 합산)</h2>
+      <table class="w-full text-sm" th:if="${not #lists.isEmpty(dailyVisitBySite)}">
+        <thead class="bg-surface-subtle text-fg-subtle text-xs uppercase">
+          <tr>
+            <th class="px-3 py-2 text-left">사이트</th>
+            <th class="px-3 py-2 text-right">방문(visit)</th>
+            <th class="px-3 py-2 text-right">순방문자(unique)</th>
+            <th class="px-3 py-2 text-right">페이지뷰(PV)</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="r : ${dailyVisitBySite}">
+            <td class="px-3 py-2">
+              <code class="font-mono text-xs bg-surface-subtler px-1.5 py-0.5 rounded"
+                    th:text="${r.siteCode} ?: '-'">site</code>
+            </td>
+            <td class="px-3 py-2 text-right font-mono"
+                th:text="${#numbers.formatInteger(r.visitCount, 1, 'COMMA')}">0</td>
+            <td class="px-3 py-2 text-right font-mono"
+                th:text="${#numbers.formatInteger(r.uniqueCount, 1, 'COMMA')}">0</td>
+            <td class="px-3 py-2 text-right font-mono font-semibold"
+                th:text="${#numbers.formatInteger(r.pvCount, 1, 'COMMA')}">0</td>
+          </tr>
+        </tbody>
+        <tfoot class="bg-surface-subtler border-t-2 border-line">
+          <tr class="font-semibold text-fg-strong">
+            <td class="px-3 py-2 text-left">
+              합계
+              <span class="ml-1 text-xs text-fg-subtle font-normal"
+                    th:text="|(${#lists.size(dailyVisitBySite)}개 사이트)|">(N개 사이트)</span>
+            </td>
+            <td class="px-3 py-2 text-right font-mono"
+                th:text="${#numbers.formatInteger(dailyVisitTotalVisit, 1, 'COMMA')}">0</td>
+            <td class="px-3 py-2 text-right font-mono"
+                th:text="${#numbers.formatInteger(dailyVisitTotalUnique, 1, 'COMMA')}">0</td>
+            <td class="px-3 py-2 text-right font-mono text-brand-70"
+                th:text="${#numbers.formatInteger(dailyVisitTotalPv, 1, 'COMMA')}">0</td>
+          </tr>
+        </tfoot>
+      </table>
+      <p th:if="${#lists.isEmpty(dailyVisitBySite)}" class="text-sm text-fg-subtle py-8 text-center">
+        해당 기간 집계 데이터가 없습니다.
+      </p>
+    </section>
+
+    <!-- 데이터 페이로드 (script 안의 JSON 파싱) -->
+    <script th:attr="nonce=${cspNonce}" th:inline="javascript">
+      /*<![CDATA[*/
+      window.STATS = /*[(${chartsJson})]*/ {};
+      window.AUTO_REFRESH_SEC = /*[[${autoRefreshSec}]]*/ 600;
+      /*]]>*/
+    </script>
+    <script th:src="@{/js/access-stat-chart.js}" th:attr="nonce=${cspNonce}"></script>
+    <script th:src="@{/js/access-stat-refresh.js}" th:attr="nonce=${cspNonce}"></script>
+
+  </section>
+</body>
+</html>

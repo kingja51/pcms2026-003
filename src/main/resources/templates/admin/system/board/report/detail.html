@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>신고 상세 — 모더레이션</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board}" class="hover:underline">게시판</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board/report}" class="hover:underline">신고 모더레이션</a>
+      <span class="mx-1">/</span>
+      <span>상세</span>
+    </nav>
+
+    <div th:if="${message}" class="mb-4 p-3 rounded bg-success-surface text-success-fg text-sm"
+         th:text="${message}"></div>
+    <div th:if="${error}" class="mb-4 p-3 rounded bg-danger-surface text-danger-fg text-sm"
+         th:text="${error}"></div>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">신고 상세</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          접수 <span th:text="${#temporals.format(report.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/board/report}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">목록</a>
+        <span th:switch="${report.status}">
+          <span th:case="'PENDING'"  class="px-3 py-1 rounded bg-warning-10 text-warning-fg text-sm"
+                th:text="${@code.label('BBS_REPORT_STATUS', report.status)}">대기</span>
+          <span th:case="'REVIEWED'" class="px-3 py-1 rounded bg-success-10 text-success-fg text-sm"
+                th:text="${@code.label('BBS_REPORT_STATUS', report.status)}">완료</span>
+          <span th:case="'REJECTED'" class="px-3 py-1 rounded bg-surface-subtler text-fg-subtle text-sm"
+                th:text="${@code.label('BBS_REPORT_STATUS', report.status)}">기각</span>
+          <span th:case="*"          class="px-3 py-1 rounded bg-surface-subtle text-fg-subtle text-sm"
+                th:text="${@code.label('BBS_REPORT_STATUS', report.status)}">-</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- 좌측: 신고 정보 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="font-bold text-fg-strong mb-4">신고 정보</h2>
+        <dl class="text-sm space-y-3">
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">대상 종류</dt>
+            <dd class="text-fg-strong"
+                th:text="${@code.label('BBS_REPORT_TARGET', report.targetType)}">게시글</dd>
+          </div>
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">대상 ID</dt>
+            <dd class="text-fg-strong font-mono text-xs break-all" th:text="${report.targetId}">uuid</dd>
+          </div>
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">신고된 콘텐츠</dt>
+            <dd class="text-fg-strong max-w-md" th:text="${report.targetTitle ?: '(삭제됨 또는 접근 불가)'}">title</dd>
+          </div>
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">신고 사유</dt>
+            <dd>
+              <span class="inline-block px-2 py-0.5 rounded bg-surface-subtler text-fg text-xs"
+                    th:text="${@code.label('BBS_REPORT_REASON', report.reasonCode)}">스팸/광고</span>
+            </dd>
+          </div>
+          <div class="flex" th:if="${!#strings.isEmpty(report.reasonText)}">
+            <dt class="w-28 text-fg-subtle">추가 설명</dt>
+            <dd class="text-fg-strong whitespace-pre-line" th:text="${report.reasonText}">설명</dd>
+          </div>
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">신고자</dt>
+            <dd class="text-fg-strong">
+              <span th:text="${report.reporterLoginId ?: report.reporterUserId}">user</span>
+              <span class="text-xs text-fg-subtle ml-2"
+                    th:text="'(' + ${report.reporterUserType} + ')'">(MEMBER)</span>
+            </dd>
+          </div>
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">신고자 IP</dt>
+            <dd class="text-fg-strong font-mono text-xs" th:text="${report.createdIp}">ip</dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- 우측: 검토 처리 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="font-bold text-fg-strong mb-4">검토 처리</h2>
+
+        <!-- 이미 처리됨 -->
+        <div th:if="${report.status != 'PENDING'}" class="space-y-3 text-sm">
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">처리 상태</dt>
+            <dd class="text-fg-strong"
+                th:text="${@code.label('BBS_REPORT_STATUS', report.status)}">완료</dd>
+          </div>
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">처리자</dt>
+            <dd class="text-fg-strong font-mono text-xs break-all"
+                th:text="${report.reviewedBy ?: '-'}">admin01</dd>
+          </div>
+          <div class="flex">
+            <dt class="w-28 text-fg-subtle">처리 시각</dt>
+            <dd class="text-fg-strong"
+                th:text="${report.reviewedAt != null ? #temporals.format(report.reviewedAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">date</dd>
+          </div>
+          <div class="flex" th:if="${!#strings.isEmpty(report.reviewNote)}">
+            <dt class="w-28 text-fg-subtle">처리 메모</dt>
+            <dd class="text-fg-strong whitespace-pre-line" th:text="${report.reviewNote}">note</dd>
+          </div>
+        </div>
+
+        <!-- PENDING — 처리 폼 -->
+        <form th:if="${report.status == 'PENDING'}"
+              method="post" th:action="@{/admin/system/board/report/{id}/review(id=${report.reportId})}"
+              class="space-y-4">
+          <input type="hidden" name="${_csrf.parameterName}"
+                 th:if="${_csrf}" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+          <p class="text-sm text-fg-subtle">
+            신고된 콘텐츠를 직접 확인 후 처리 상태를 선택하세요. 콘텐츠 자체의 차단/삭제는
+            <strong>게시글/댓글 관리 화면</strong>에서 별도로 진행해야 합니다.
+          </p>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-1">처리 상태</label>
+            <select name="status" required
+                    class="w-full border border-line rounded px-2 py-1.5 text-sm">
+              <!-- 처리 상태 — PENDING 은 진입 전 상태이므로 select 에서 제외 -->
+              <option th:each="o : ${@code.options('BBS_REPORT_STATUS')}"
+                      th:if="${o.code != 'PENDING'}"
+                      th:value="${o.code}"
+                      th:text="|${o.codeName} (${o.code})|">완료 (REVIEWED)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-1">처리 메모 (선택, 1000자 이내)</label>
+            <textarea name="reviewNote" rows="3" maxlength="1000"
+                      class="w-full border border-line rounded px-2 py-1.5 text-sm"
+                      placeholder="검토 결과 / 후속 조치 메모"></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2">
+            <a th:href="@{/admin/system/board/report}"
+               class="px-3 py-1.5 border border-line rounded text-sm hover:bg-surface-subtle">취소</a>
+            <button type="submit"
+                    class="px-3 py-1.5 bg-gray-90 text-fg-on text-sm rounded hover:bg-gray-70">
+              처리 완료
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+
+
+  </section>
+</body>
+</html>

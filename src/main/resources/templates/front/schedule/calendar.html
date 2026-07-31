@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>일정 캘린더</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* 구조적 스타일만 유지 — 색은 KRDS CSS 변수 (Design.md §2) */
+    .pcms-cal__cell {
+      min-height: 96px;
+      padding: 6px 8px;
+      border-right: 1px solid var(--c-divider);
+      border-bottom: 1px solid var(--c-divider);
+      font-size: 13px;
+      background: var(--c-surface);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .pcms-cal__cell:nth-child(7n) { border-right: 0; }
+    .pcms-cal__cell--out { background: var(--c-surface-subtle); color: var(--c-fg-disabled); }
+    .pcms-cal__cell--today { background: var(--c-warning-surface); }
+
+    .pcms-cal__num { font-weight: 700; color: var(--c-fg-strong); }
+    .pcms-cal__num--sun,
+    .pcms-cal__num--holiday { color: var(--c-danger-text); }
+    .pcms-cal__num--sat { color: var(--c-info-text); }
+
+    /* 일정 칩 = 브랜드 틴트 — 템플릿/테마(--brand-*) 전환에 본문도 반응 (상태색 아님) */
+    .pcms-cal__entry {
+      display: block;
+      padding: 2px 4px;
+      border-radius: var(--radius-small);
+      background: var(--color-brand-5);
+      color: var(--color-brand-60);
+      font-size: 13px;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pcms-cal__entry:hover { background: var(--color-brand-10); }
+    .pcms-cal__entry--holiday { background: var(--c-danger-surface); color: var(--c-danger-text); }
+
+    @media (max-width: 640px) {
+      .pcms-cal__cell { min-height: 64px; }
+    }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="program-page-wide">
+
+      <div class="flex items-center justify-between gap-4 mb-6">
+        <h1 class="text-heading-lg font-bold text-fg-strong">일정 캘린더</h1>
+        <div class="flex items-center gap-2">
+          <a th:href="@{/schedule/{masterId}/week(masterId=${scheduleMasterId})}"
+             class="krds-btn krds-btn-tertiary krds-btn-sm">📋 주간 보기</a>
+          <a th:href="@{/schedule/{masterId}(masterId=${scheduleMasterId})}"
+             class="krds-btn krds-btn-tertiary krds-btn-sm">목록 보기</a>
+        </div>
+      </div>
+
+      <div class="pcms-cal bg-surface border border-line rounded-large overflow-hidden">
+        <header class="pcms-cal__head flex items-center justify-between px-4 py-3 border-b border-divider">
+          <h2 class="pcms-cal__title text-heading-sm text-fg-strong"
+              th:text="${cm.ym.year} + '년 ' + ${cm.ym.monthValue} + '월'">2026년 4월</h2>
+          <nav class="pcms-cal__nav inline-flex items-center gap-1.5 text-body-sm" aria-label="월 이동">
+            <a th:href="@{/schedule/{masterId}/calendar(masterId=${scheduleMasterId}, year=${cm.prev.year}, month=${cm.prev.monthValue})}"
+               class="inline-flex items-center px-2.5 py-1 rounded-small border border-line bg-surface text-fg hover:bg-surface-subtle">←</a>
+            <a th:href="@{/schedule/{masterId}/calendar(masterId=${scheduleMasterId})}"
+               class="inline-flex items-center px-2.5 py-1 rounded-small border border-line bg-surface text-fg hover:bg-surface-subtle">오늘</a>
+            <a th:href="@{/schedule/{masterId}/calendar(masterId=${scheduleMasterId}, year=${cm.next.year}, month=${cm.next.monthValue})}"
+               class="inline-flex items-center px-2.5 py-1 rounded-small border border-line bg-surface text-fg hover:bg-surface-subtle">→</a>
+          </nav>
+        </header>
+
+        <div class="pcms-cal__grid grid grid-cols-7">
+          <div class="py-2 text-center text-label-xs font-bold text-danger-fg bg-surface-subtle border-b border-divider">일</div>
+          <div class="py-2 text-center text-label-xs font-bold text-fg-subtle bg-surface-subtle border-b border-divider">월</div>
+          <div class="py-2 text-center text-label-xs font-bold text-fg-subtle bg-surface-subtle border-b border-divider">화</div>
+          <div class="py-2 text-center text-label-xs font-bold text-fg-subtle bg-surface-subtle border-b border-divider">수</div>
+          <div class="py-2 text-center text-label-xs font-bold text-fg-subtle bg-surface-subtle border-b border-divider">목</div>
+          <div class="py-2 text-center text-label-xs font-bold text-fg-subtle bg-surface-subtle border-b border-divider">금</div>
+          <div class="py-2 text-center text-label-xs font-bold text-info-fg bg-surface-subtle border-b border-divider">토</div>
+
+          <th:block th:each="week : ${cm.weeks}">
+            <div th:each="d : ${week.days}"
+                 th:with="hs=${holidaysByDate.get(d.key)},
+                          scs=${schedulesByDate.get(d.key)},
+                          isOut=${!d.inMonth},
+                          isToday=${d.today},
+                          numMod=${hs != null and !hs.empty ? 'holiday' : (d.sunday ? 'sun' : (d.saturday ? 'sat' : ''))}"
+                 th:class="${'pcms-cal_' + '_cell' + (isOut ? ' pcms-cal_' + '_cell--out' : '') + (isToday ? ' pcms-cal_' + '_cell--today' : '')}">
+              <span th:text="${d.dayOfMonth}"
+                    th:classappend="${numMod.empty ? '' : 'pcms-cal__num--' + numMod}"
+                    class="pcms-cal__num">1</span>
+
+              <th:block th:if="${hs != null}">
+                <span th:each="h : ${hs}"
+                      class="pcms-cal__entry pcms-cal__entry--holiday"
+                      th:text="${h.holidayName}"
+                      th:title="${h.holidayName}">공휴일</span>
+              </th:block>
+
+              <th:block th:if="${scs != null}">
+                <a th:each="sc : ${scs}"
+                   th:href="@{/schedule/{masterId}/{id}(masterId=${scheduleMasterId}, id=${sc.scheduleId})}"
+                   class="pcms-cal__entry"
+                   th:attr="style=${sc.colorCode != null ? ('background:' + sc.colorCode + '20;color:' + sc.colorCode) : ''},
+                            title=${sc.scheduleTitle}"
+                   th:text="${sc.scheduleTitle}">일정</a>
+              </th:block>
+            </div>
+          </th:block>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+</body>
+</html>

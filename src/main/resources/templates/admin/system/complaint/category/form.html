@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>카테고리 등록·수정</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/complaint}" class="hover:underline">민원</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/complaint/{id}(id=${master.complaintMasterId})}"
+       class="hover:underline" th:text="${master.masterName}">마스터</a>
+    <span class="mx-1">/</span>
+    <span th:text="${mode == 'create' ? '카테고리 등록' : '카테고리 수정'}">등록</span>
+  </nav>
+
+  <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+      th:text="${mode == 'create' ? '카테고리 등록' : '카테고리 수정'}">등록</h1>
+
+  <div th:if="${error}" role="alert"
+       class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+  <form th:object="${form}" method="post"
+        th:action="${mode == 'create'}
+                  ? @{/admin/system/complaint/{mid}/category(mid=${master.complaintMasterId})}
+                  : @{/admin/system/complaint/{mid}/category/{cid}(mid=${master.complaintMasterId},cid=${categoryId})}"
+        class="bg-surface border border-line rounded-large p-6 space-y-4">
+
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <input type="hidden" th:field="*{complaintMasterId}"/>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="categoryCode" class="block text-xs font-medium text-fg-subtle mb-1">카테고리 코드 <span class="text-danger-fg">*</span></label>
+        <input id="categoryCode" type="text" th:field="*{categoryCode}" required maxlength="50"
+               placeholder="영문 시작, 영문/숫자/_"
+               class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"
+               th:readonly="${mode == 'edit'}"/>
+      </div>
+      <div>
+        <label for="categoryName" class="block text-xs font-medium text-fg-subtle mb-1">카테고리 이름 <span class="text-danger-fg">*</span></label>
+        <input id="categoryName" type="text" th:field="*{categoryName}" required maxlength="100"
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+      </div>
+    </div>
+
+    <div>
+      <label for="description" class="block text-xs font-medium text-fg-subtle mb-1">설명</label>
+      <textarea id="description" th:field="*{description}" rows="2" maxlength="500"
+                class="block w-full rounded border border-line px-3 py-2 text-sm resize-none"></textarea>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label for="sortOrder" class="block text-xs font-medium text-fg-subtle mb-1">정렬 순서</label>
+        <input id="sortOrder" type="number" th:field="*{sortOrder}" min="0"
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+      </div>
+      <div class="flex items-end pb-2">
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" th:field="*{useYn}" value="Y"
+                 class="rounded border-line text-brand-50"/>
+          <span>사용 여부</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-3 pt-2">
+      <a th:href="@{/admin/system/complaint/{id}(id=${master.complaintMasterId})}"
+         class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">취소</a>
+      <button type="submit"
+              class="inline-flex items-center px-5 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60"
+              th:text="${mode == 'create' ? '등록' : '저장'}">등록</button>
+    </div>
+  </form>
+
+</section>
+</body>
+</html>

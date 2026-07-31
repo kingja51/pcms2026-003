@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>일정</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="program-page-wide">
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <h1 class="text-heading-lg font-bold text-fg-strong">일정</h1>
+        <div class="flex items-center gap-2">
+          <a th:href="@{/schedule/{masterId}/week(masterId=${scheduleMasterId})}"
+             class="krds-btn krds-btn-tertiary krds-btn-sm">📋 주간 보기</a>
+          <a th:href="@{/schedule/{masterId}/calendar(masterId=${scheduleMasterId})}"
+             class="krds-btn krds-btn-tertiary krds-btn-sm">📅 월간 보기</a>
+        </div>
+      </div>
+
+      <form th:action="@{/schedule/{masterId}(masterId=${scheduleMasterId})}" method="get"
+            class="bg-surface border border-line rounded-large p-4 mb-4 flex items-end gap-3 flex-wrap">
+        <div class="flex-1 min-w-[200px]">
+          <label class="block text-label-xs font-medium text-fg-subtle mb-1">제목 검색</label>
+          <input name="keyword" type="text" th:value="${search?.keyword}" placeholder="일정 제목"
+                 class="krds-input"/>
+        </div>
+        <div th:with="currentYear=${T(java.time.Year).now().value}">
+          <label class="block text-label-xs font-medium text-fg-subtle mb-1">연도</label>
+          <select name="year" class="krds-input w-auto">
+            <option value="">전체</option>
+            <option th:each="y : ${#numbers.sequence(currentYear, 2020)}"
+                    th:value="${y}"
+                    th:text="${y}"
+                    th:selected="${search?.year != null and search.year == y}">2026</option>
+          </select>
+        </div>
+        <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+        <a th:href="@{/schedule/{masterId}(masterId=${scheduleMasterId})}" class="krds-btn krds-btn-tertiary">초기화</a>
+      </form>
+
+      <div th:if="${#lists.isEmpty(page.content)}"
+           class="bg-surface border border-line rounded-large py-16 text-center text-fg-subtle">
+        검색 조건에 해당하는 일정이 없습니다.
+      </div>
+
+      <div th:unless="${#lists.isEmpty(page.content)}" class="space-y-4">
+        <div th:each="group : ${groupedSchedules}"
+             class="bg-surface border border-line rounded-large overflow-hidden">
+          <div class="px-4 py-2 bg-surface-subtle border-b border-line flex items-baseline gap-2">
+            <span class="text-body-md font-bold text-fg-strong" th:text="${group.key}">2026-04</span>
+            <span class="text-body-xs text-fg-subtle" th:text="'· ' + ${#lists.size(group.value)} + '건'">· 0건</span>
+          </div>
+          <ul class="divide-y divide-divider">
+            <li th:each="row : ${group.value}" class="p-4">
+              <div class="flex items-center gap-2 mb-1 text-body-xs text-fg-subtle">
+                <span th:text="${@fmt.dtm(row.startAt)}">-</span>
+                <span>~</span>
+                <span th:text="${@fmt.dtm(row.endAt)}">-</span>
+                <span th:if="${row.allDayYn == 'Y'}" class="ml-1 krds-badge bg-surface-subtle text-fg-subtle">종일</span>
+              </div>
+              <a th:href="@{/schedule/{masterId}/{id}(masterId=${row.scheduleMasterId}, id=${row.scheduleId})}"
+                 class="text-fg-strong hover:text-primary-60 font-bold" th:text="${row.scheduleTitle}">제목</a>
+              <span th:if="${row.scheduleCategory}" class="ml-2 krds-badge bg-primary-5 text-primary-50"
+                    th:text="${row.scheduleCategory}">분류</span>
+              <p th:if="${row.location}" class="mt-1 text-body-sm text-fg-subtle">📍 <span th:text="${row.location}">장소</span></p>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <nav th:if="${page.totalPages > 1}" class="mt-4">
+        <ul class="flex items-center justify-center gap-1 text-body-sm">
+          <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+            <a th:href="@{/schedule(page=${p}, pageSize=${page.pageSize},
+                         keyword=${search.keyword}, year=${search.year})}"
+               th:text="${p}"
+               th:class="${p == page.page} ? 'inline-flex items-center justify-center size-10 rounded-medium bg-primary-50 text-white' : 'inline-flex items-center justify-center size-10 rounded-medium border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+
+  </section>
+</body>
+</html>

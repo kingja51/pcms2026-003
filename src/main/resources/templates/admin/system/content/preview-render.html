@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath}__}"
+      lang="ko">
+<head>
+  <title th:text="${title} ?: '미리보기'">미리보기</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div th:if="${previewMode == 'live'}"
+       class="bg-warning-surface border border-warning-border text-warning-fg text-xs px-3 py-2 rounded mb-4"
+       role="status">
+    <strong>LIVE PREVIEW</strong> — 저장되지 않은 본문입니다. 실제 파일/DB 와 다를 수 있습니다.
+  </div>
+
+  <article class="prose max-w-none" th:utext="${body} ?: '<p class=&quot;text-fg-disabled&quot;>(본문 없음)</p>'">
+  </article>
+
+</section>
+</body>
+</html>

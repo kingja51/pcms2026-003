@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head><title>교수 실적 등록·수정</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span>
+      <a th:href="@{/admin/dept/faculty-program}" class="hover:underline">교수 실적</a> <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit' ? '수정' : '등록'}">등록</span>
+    </nav>
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6" th:text="${mode == 'edit' ? '교수 실적 수정' : '교수 실적 등록'}">교수 실적 등록</h1>
+    <form th:action="${mode == 'edit'} ? @{/admin/dept/faculty-program/{id}(id=${item.programId})} : @{/admin/dept/faculty-program}"
+          method="post" class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" name="returnFaculty" th:if="${returnFaculty}" th:value="${returnFaculty}"/>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="md:col-span-2"><label class="block text-xs font-medium text-fg-subtle mb-1">교수 <span class="text-danger-fg">*</span></label>
+          <select name="facultyId" required class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">선택</option>
+            <option th:each="f : ${faculties}" th:value="${f.facultyId}"
+                    th:text="'[' + ${f.siteCode} + '] ' + ${f.nameKo} + (${f.position} != null ? ' · ' + ${f.position} : '')"
+                    th:selected="${f.facultyId == item.facultyId}">교수</option></select></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">유형 <span class="text-danger-fg">*</span></label>
+          <select name="programType" required class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">선택</option>
+            <option th:each="t : ${types}" th:value="${t.name()}" th:text="${t.labelKo} + ' (' + ${t.labelEn} + ')'"
+                    th:selected="${t.name() == item.programType}">유형</option></select></div>
+      </div>
+      <div><label class="block text-xs font-medium text-fg-subtle mb-1">명칭 <span class="text-danger-fg">*</span></label>
+        <input name="title" th:value="${item.title}" required maxlength="500" placeholder="논문명 / 저서명 / 과제명 / 활동내용 / 출원등록명 / 수상명"
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">기관</label>
+          <input name="organization" th:value="${item.organization}" maxlength="200" placeholder="학술지명 / 출판사 / 지원기관명 / 수상기관"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">활동역할 (학술활동)</label>
+          <input name="roleDesc" th:value="${item.roleDesc}" maxlength="200" placeholder="예: 한국사회체육학회 이사 겸 편집위원"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">일자 (게재/발행/등록/수상일)</label>
+          <input name="issueDate" th:value="${item.issueDate}" maxlength="20" placeholder="예: 2025.12.31"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">기간 시작 (연구/활동)</label>
+          <input name="beginDate" th:value="${item.beginDate}" maxlength="20" placeholder="예: 2026.05.01"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">기간 종료 (연구/활동)</label>
+          <input name="endDate" th:value="${item.endDate}" maxlength="20" placeholder="예: 2027.04.30"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">등록번호 (지식재산권)</label>
+          <input name="regNo" th:value="${item.regNo}" maxlength="60" placeholder="예: 10-2936704"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">구분 (국내/국외 · 교내/교외)</label>
+          <input name="category" th:value="${item.category}" maxlength="20" placeholder="예: 국내 / 교내"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">정렬순서</label>
+          <input name="sortOrder" type="number" th:value="${item.sortOrder}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div><label class="inline-flex items-center gap-2 text-sm text-fg">
+        <input type="checkbox" name="useYn" value="Y" th:checked="${item.useYn == null or item.useYn == 'Y'}"/> 사용</label></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60" th:text="${mode == 'edit' ? '수정' : '등록'}">등록</button>
+        <a th:href="${returnFaculty} != null ? @{/admin/dept/faculty/{id}(id=${returnFaculty})} : @{/admin/dept/faculty-program}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line text-fg text-sm hover:bg-surface-subtle">취소</a>
+      </div>
+    </form>
+  </section>
+</body>
+</html>

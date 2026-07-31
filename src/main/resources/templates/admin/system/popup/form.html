@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>팝업 등록·수정</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/popup}" class="hover:underline">팝업</a>
+      <span class="mx-1">/</span>
+      <span th:text="${mode == 'create' ? '등록' : '수정'}">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'create' ? '팝업 등록' : '팝업 수정'}">팝업 등록</h1>
+
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:object="${form}" method="post"
+          th:action="${mode == 'create'} ? @{/admin/system/popup} : @{/admin/system/popup/{id}(id=${form.popupId})}"
+          class="space-y-6 bg-surface border border-line rounded-large p-6">
+
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:if="${mode == 'edit'}" th:field="*{popupId}"/>
+
+      <fieldset class="space-y-4">
+        <legend class="text-base font-semibold text-fg-strong">기본 정보</legend>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="siteId" class="block text-xs font-medium text-fg-subtle mb-1">사이트 <span class="text-danger-fg">*</span></label>
+            <select id="siteId" th:field="*{siteId}" required
+                    class="block w-full rounded border border-line px-3 py-2 text-sm">
+              <option value="">선택</option>
+              <option th:each="s : ${sites}" th:value="${s.siteId}"
+                      th:text="${s.siteCode} + ' · ' + ${s.siteName}">site</option>
+            </select>
+          </div>
+          <div>
+            <label for="popupType" class="block text-xs font-medium text-fg-subtle mb-1">유형 <span class="text-danger-fg">*</span></label>
+            <select id="popupType" th:field="*{popupType}" required
+                    class="block w-full rounded border border-line px-3 py-2 text-sm">
+              <option th:each="t : ${popupTypes}" th:value="${t.name()}" th:text="${t.name()}">LAYER</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label for="popupTitle" class="block text-xs font-medium text-fg-subtle mb-1">제목 (관리용) <span class="text-danger-fg">*</span></label>
+          <input id="popupTitle" type="text" th:field="*{popupTitle}" required maxlength="200"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+
+        <div>
+          <label for="popupContent" class="block text-xs font-medium text-fg-subtle mb-1">본문 (HTML 허용)</label>
+          <textarea id="popupContent" th:field="*{popupContent}" rows="6"
+                    class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"></textarea>
+          <p class="text-[11px] text-fg-subtle mt-1">서버에서 OWASP Sanitizer 로 위험 태그(script/style/iframe 등) 자동 제거 후 저장됩니다.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">이미지 <span class="text-fg-disabled">(IMAGE 카테고리, 1개)</span></label>
+          <div th:replace="~{fragments/file-picker :: picker(
+              inputName='imagePickerJson',
+              category='IMAGE',
+              multiple=false,
+              existingFiles=${existingFiles},
+              readOnly=false,
+              entityType='POPUP',
+              entityId=${form.popupId},
+              siteId=${form.siteId},
+              maxFiles=1,
+              fileGroupId=${fileGroupId})}"></div>
+          <input type="hidden" th:field="*{fileGroupId}"/>
+          <p class="text-[11px] text-fg-subtle mt-1">picker 로 업로드된 이미지는 file_group 으로 묶여 저장됩니다. 그룹 단위로 다운로드/삭제됩니다.</p>
+        </div>
+
+        <div>
+          <label for="linkUrl" class="block text-xs font-medium text-fg-subtle mb-1">링크 URL</label>
+          <input id="linkUrl" type="url" th:field="*{linkUrl}" maxlength="1000"
+                 placeholder="https://..."
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+      </fieldset>
+
+      <fieldset class="space-y-4">
+        <legend class="text-base font-semibold text-fg-strong">레이아웃 (LAYER/MODAL 한정)</legend>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">너비(px)</label>
+            <input type="number" th:field="*{widthPx}" min="0"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">높이(px)</label>
+            <input type="number" th:field="*{heightPx}" min="0"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">X 좌표</label>
+            <input type="number" th:field="*{positionX}"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">Y 좌표</label>
+            <input type="number" th:field="*{positionY}"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="space-y-4">
+        <legend class="text-base font-semibold text-fg-strong">노출 일정</legend>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">노출 시작 <span class="text-danger-fg">*</span></label>
+            <input type="datetime-local" th:field="*{showFrom}" required
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">노출 종료 <span class="text-danger-fg">*</span></label>
+            <input type="datetime-local" th:field="*{showTo}" required
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">노출 요일 (체크 안 하면 전 요일)</label>
+          <div class="flex flex-wrap gap-3 text-sm" th:with="days=${form.showDays ?: ''}">
+            <th:block th:each="d : ${ {'MON','TUE','WED','THU','FRI','SAT','SUN'} }">
+              <label class="inline-flex items-center gap-1.5">
+                <input type="checkbox" name="showDays" th:value="${d}"
+                       th:checked="${days.contains(d)}"
+                       class="rounded border-line"/>
+                <span th:text="${d}">MON</span>
+              </label>
+            </th:block>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">시작 시각 (선택)</label>
+            <input type="time" th:field="*{showTimeFrom}"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">종료 시각 (선택)</label>
+            <input type="time" th:field="*{showTimeTo}"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset class="space-y-4">
+        <legend class="text-base font-semibold text-fg-strong">옵션</legend>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">"오늘 그만보기" 쿠키 일수</label>
+            <input type="number" th:field="*{cookieDays}" min="0" max="365"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-fg-subtle mb-1">정렬 순서</label>
+            <input type="number" th:field="*{sortOrder}" min="0"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div class="flex items-end">
+            <label class="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" name="useYn" value="Y"
+                     th:checked="${form.useYn == 'Y'}"
+                     class="rounded border-line"/>
+              사용함
+            </label>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="flex items-center justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="@{/admin/system/popup}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">목록</a>
+        <a th:href="@{/admin/system/popup}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60"
+                th:text="${mode == 'create' ? '등록' : '수정'}">등록</button>
+      </div>
+    </form>
+
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+  </section>
+</body>
+</html>

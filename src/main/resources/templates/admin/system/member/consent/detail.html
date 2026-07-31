@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>동의 이력 상세</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a> /
+      <a th:href="@{/admin/system/member/consent}" class="hover:underline">동의 이력</a> /
+      <span>상세</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-4">동의 이력 상세</h1>
+
+    <div class="bg-surface border border-line rounded-large p-5">
+      <dl class="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-y-3 text-sm">
+        <dt class="text-fg-subtle">이력 ID</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${row.memberConsentId}">-</dd>
+
+        <dt class="text-fg-subtle">회원 ID</dt>
+        <dd>
+          <a th:href="@{/admin/system/member/{id}(id=${row.memberId})}"
+             class="font-mono text-xs text-brand-60 hover:underline" th:text="${row.memberId}">-</a>
+        </dd>
+
+        <dt class="text-fg-subtle">동의 유형</dt>
+        <dd class="text-fg-strong" th:text="${row.consentType}">TERMS</dd>
+
+        <dt class="text-fg-subtle">약관 버전</dt>
+        <dd class="text-fg-strong" th:text="${row.consentVersion} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">동의 여부</dt>
+        <dd>
+          <span th:if="${row.agreeYn == 'Y'}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">Y (동의)</span>
+          <span th:if="${row.agreeYn == 'N'}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-danger-surface text-danger-fg">N (철회)</span>
+        </dd>
+
+        <dt class="text-fg-subtle">동의 일시</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${@fmt.dt(row.agreedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">접속 IP</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${row.clientIp} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">User-Agent</dt>
+        <dd class="font-mono text-xs text-fg break-all" th:text="${row.userAgent} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle pt-3 border-t border-divider">등록 일시</dt>
+        <dd class="font-mono text-xs text-fg-subtle pt-3 border-t border-divider" th:text="${@fmt.dt(row.createdAt)}">-</dd>
+
+        <dt class="text-fg-subtle">등록자</dt>
+        <dd class="font-mono text-xs text-fg-subtle" th:text="${row.createdBy} ?: '-'">-</dd>
+      </dl>
+    </div>
+
+    <div class="mt-6">
+      <a th:href="@{/admin/system/member/consent}"
+         class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">목록</a>
+    </div>
+
+  </section>
+</body>
+</html>

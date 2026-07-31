@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>OAuth 매핑 상세</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a> /
+      <a th:href="@{/admin/system/member/oauth}" class="hover:underline">OAuth 매핑</a> /
+      <span>상세</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-4">OAuth 매핑 상세</h1>
+
+    <div class="bg-surface border border-line rounded-large p-5">
+      <dl class="grid grid-cols-1 md:grid-cols-[160px_1fr] gap-y-3 text-sm">
+        <dt class="text-fg-subtle">매핑 ID</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${row.memberOauthId}">-</dd>
+
+        <dt class="text-fg-subtle">회원 ID</dt>
+        <dd><a th:href="@{/admin/system/member/{id}(id=${row.memberId})}" class="font-mono text-xs text-brand-60 hover:underline" th:text="${row.memberId}">-</a></dd>
+
+        <dt class="text-fg-subtle">Provider</dt>
+        <dd>
+          <span th:with="p=${row.provider}"
+                th:class="${p == 'NAVER'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg'
+                         : (${p == 'KAKAO'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-surface text-warning-fg'
+                                              : 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-info-surface text-info-fg')"
+                th:text="${p}">NAVER</span>
+        </dd>
+
+        <dt class="text-fg-subtle">Provider 사용자 ID</dt>
+        <dd class="font-mono text-xs text-fg-strong break-all" th:text="${row.providerUserId}">-</dd>
+
+        <dt class="text-fg-subtle">연결 당시 이메일</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${row.emailAtLink} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">연결 당시 이름</dt>
+        <dd class="text-fg" th:text="${row.nameAtLink} ?: '-'">-</dd>
+
+        <dt class="text-fg-subtle">연결 일시</dt>
+        <dd class="font-mono text-xs text-fg-strong" th:text="${@fmt.dt(row.linkedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">직전 OAuth 로그인</dt>
+        <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(row.lastLoginAt)}">-</dd>
+
+        <dt class="text-fg-subtle">사용 여부</dt>
+        <dd>
+          <span th:if="${row.useYn == 'Y'}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">Y</span>
+          <span th:if="${row.useYn == 'N'}" class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-danger-surface text-danger-fg">N</span>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t border-divider">등록 일시</dt>
+        <dd class="font-mono text-xs text-fg-subtle pt-3 border-t border-divider" th:text="${@fmt.dt(row.createdAt)}">-</dd>
+
+        <dt class="text-fg-subtle">수정 일시</dt>
+        <dd class="font-mono text-xs text-fg-subtle" th:text="${@fmt.dt(row.updatedAt)}">-</dd>
+      </dl>
+    </div>
+
+    <div class="mt-6">
+      <a th:href="@{/admin/system/member/oauth}" class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">목록</a>
+    </div>
+  </section>
+</body>
+</html>

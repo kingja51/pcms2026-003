@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>세부사업별 집행현황</title></head>
+<body>
+<section layout:fragment="content" 
+         th:with="thisYear=${T(java.time.Year).now().value}">
+
+  <header class="mb-4">
+    <h1 class="text-2xl font-bold text-slate-900 mb-1">세부사업별 집행현황</h1>
+    <p class="text-sm text-slate-500">기준일 <strong th:text="${ymd}">-</strong></p>
+  </header>
+
+  <form method="get" th:action="@{|/lfios/${siteCode}/expense/business|}"
+        class="bg-white border border-slate-200 rounded p-3 mb-4 grid grid-cols-2 md:grid-cols-6 gap-2 text-sm">
+    <select name="fisYear" class="border rounded px-2 py-1" title="회계년도">
+      <option th:each="y : ${#numbers.sequence(2018, thisYear)}" th:value="${y}"
+              th:text="${y} + '년'" th:selected="${#strings.toString(y) == search.fisYear}"></option>
+    </select>
+    <select name="fisFgCd" class="border rounded px-2 py-1" title="회계구분">
+      <option value="">회계구분(전체)</option>
+      <option value="1" th:selected="${search.fisFgCd == '1'}">일반회계</option>
+      <option value="2" th:selected="${search.fisFgCd == '2'}">특별회계</option>
+      <option value="4" th:selected="${search.fisFgCd == '4'}">기금회계</option>
+    </select>
+    <select name="deptCd" class="border rounded px-2 py-1" title="부서">
+      <option value="">부서(전체)</option>
+      <option th:each="d : ${deptInfos}" th:value="${d.deptCd}" th:text="${d.deptNm}"
+              th:selected="${d.deptCd == search.deptCd}"></option>
+    </select>
+    <select name="fldCd" class="border rounded px-2 py-1" title="분야">
+      <option value="">분야(전체)</option>
+      <option th:each="f : ${flds}" th:value="${f.fldCd}" th:text="${f.fldNm}"
+              th:selected="${f.fldCd == search.fldCd}"></option>
+    </select>
+    <input type="text" name="dbizNm" th:value="${search.dbizNm}" placeholder="세부사업명" class="border rounded px-2 py-1"/>
+    <button class="bg-slate-900 text-white rounded px-3 py-1 font-semibold">검색</button>
+  </form>
+
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-xs text-slate-500">총 <strong th:text="${page.totalElements}">0</strong>건 (단위 : 원)</span>
+    <a th:href="@{|/lfios/${siteCode}/expense/business/excel|(fisYear=${search.fisYear}, fisFgCd=${search.fisFgCd},
+                  deptCd=${search.deptCd}, fldCd=${search.fldCd}, dbizNm=${search.dbizNm})}"
+       class="inline-flex items-center gap-1 px-3 py-1 rounded border border-emerald-600 bg-white text-emerald-700 text-sm font-semibold hover:bg-emerald-50">
+      ⬇ 엑셀 다운로드
+    </a>
+  </div>
+
+  <div class="overflow-x-auto bg-white rounded border border-slate-200">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50">
+        <tr class="text-slate-600">
+          <th class="px-3 py-2 text-left">회계구분 / 부서명</th>
+          <th class="px-3 py-2 text-left">세부사업명</th>
+          <th class="px-3 py-2">사업구분</th>
+          <th class="px-3 py-2">분야</th>
+          <th class="px-3 py-2 text-right">예산현액</th>
+          <th class="px-3 py-2 text-right">지출액</th>
+          <th class="px-3 py-2 text-right">집행잔액</th>
+          <th class="px-3 py-2 text-right">집행률</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="r : ${page.content}" class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="px-3 py-2" th:text="${r.fisFgNm} + ' / ' + ${r.deptNm}"></td>
+          <td class="px-3 py-2" th:text="${r.dbizNm}"></td>
+          <td class="px-3 py-2 text-center" th:text="${r.subsdBgtFgNm}"></td>
+          <td class="px-3 py-2 text-center" th:text="${r.fldNm}"></td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${r.bgtCurrAmt})}">0</td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${r.expdAmt})}">0</td>
+          <td class="px-3 py-2 text-right"
+              th:text="${#numbers.formatInteger((r.bgtCurrAmt ?: 0) - (r.expdAmt ?: 0), 1, 'COMMA')}"></td>
+          <td class="px-3 py-2 text-right"
+              th:text="${((r.bgtCurrAmt ?: 0) > 0 ? #numbers.formatDecimal((r.expdAmt ?: 0) * 100.0 / r.bgtCurrAmt, 1, 3) : '0') + ' %'}"></td>
+        </tr>
+        <tr th:if="${page.content.isEmpty()}">
+          <td colspan="8" class="px-3 py-12 text-center text-slate-400">데이터가 없습니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="text-xs text-slate-500 mt-2">지출액은 세부사업별 집행 결과입니다.</p>
+  <nav th:replace="~{front/lfios/fragments :: pager(|/lfios/${siteCode}/expense/business|, ${page}, ${search})}"></nav>
+</section>
+</body>
+</html>

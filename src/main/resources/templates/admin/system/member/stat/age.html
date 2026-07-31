@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>회원 연령대 통계</title>
+  <script th:src="@{/js/vendor/chart.umd.min.js}" th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a> /
+      <span>연령대 통계</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">회원 연령대 통계</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          <span th:text="${currentYear}">2026</span>년 기준 동적 계산 — birth_year 4자리 (PIPA 일반 개인정보, 통계 목적)
+        </p>
+      </div>
+      <div class="text-right">
+        <p class="text-xs text-fg-subtle">총 합계</p>
+        <p class="text-heading-lg font-bold text-fg-strong" th:text="${#numbers.formatInteger(total, 1, 'COMMA')}">0</p>
+        <p class="text-xs text-fg-subtle">명</p>
+      </div>
+    </div>
+
+    <form th:action="@{/admin/system/member/stat/age}" method="get"
+          class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[2fr_2fr_auto] gap-3 items-end">
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">사이트 ID (선택)</label>
+          <input name="siteId" type="text" th:value="${siteId}" maxlength="40" placeholder="비우면 전체"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">범위</label>
+          <select name="scope" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="active" th:selected="${scope == 'active'}">활성 회원만 (tb_member)</option>
+            <option value="all"    th:selected="${scope == 'all'}">활성 + 휴면 합산</option>
+          </select>
+        </div>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">검색</button>
+      </div>
+    </form>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4">
+      <!-- 차트 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-sm font-semibold text-fg mb-3">연령대 분포</h2>
+        <div th:if="${total == 0}" class="text-sm text-fg-subtle py-12 text-center">
+          조회된 회원이 없습니다.
+        </div>
+        <div th:unless="${total == 0}">
+          <canvas id="ageChart" height="100"></canvas>
+        </div>
+      </div>
+
+      <!-- 표 -->
+      <div class="bg-surface border border-line rounded-large overflow-hidden">
+        <table class="min-w-full divide-y divide-line text-sm">
+          <thead class="bg-surface-subtle">
+            <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+              <th class="px-4 py-3">연령대</th>
+              <th class="px-4 py-3 text-right">회원수</th>
+              <th class="px-4 py-3 text-right">비율</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-divider">
+            <tr th:each="r : ${rows}" class="hover:bg-surface-subtle">
+              <td class="px-4 py-2.5">
+                <span th:if="${r.ageGroupStart == null}" class="text-fg-disabled italic">미입력</span>
+                <span th:if="${r.ageGroupStart != null and r.ageGroupStart >= 80}">80대+</span>
+                <span th:if="${r.ageGroupStart != null and r.ageGroupStart &lt; 80}"
+                      th:text="${r.ageGroupStart} + '대'">20대</span>
+              </td>
+              <td class="px-4 py-2.5 text-right font-mono text-fg-strong"
+                  th:text="${#numbers.formatInteger(r.memberCount, 1, 'COMMA')}">0</td>
+              <td class="px-4 py-2.5 text-right font-mono text-fg-subtle text-xs"
+                  th:text="${total == 0 ? '-' : #numbers.formatDecimal(100.0 * r.memberCount / total, 1, 1) + '%'}">0%</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(rows)}">
+              <td colspan="3" class="px-4 py-10 text-center text-fg-subtle">데이터 없음</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 차트 페이로드 + 렌더 -->
+    <script id="ageChartPayload" type="application/json" th:utext="${chartJson}">{}</script>
+    <script th:nonce="${cspNonce}" th:inline="none">
+      (function () {
+        var el = document.getElementById('ageChart');
+        if (!el || typeof Chart === 'undefined') return;
+        try {
+          var payload = JSON.parse(document.getElementById('ageChartPayload').textContent);
+          new Chart(el, {
+            type: 'bar',
+            data: {
+              labels: payload.labels,
+              datasets: [{
+                label: '회원수',
+                data: payload.data,
+                backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                borderColor: 'rgb(59, 130, 246)',
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              plugins: { legend: { display: false } },
+              scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+            }
+          });
+        } catch (e) { console.warn('age chart error', e); }
+      })();
+    </script>
+
+  </section>
+</body>
+</html>

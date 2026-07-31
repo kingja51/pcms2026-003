@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>일정 관리</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> / <span>일정</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">일정 관리</h1>
+        <p class="text-sm text-fg-subtle mt-1">총 <strong th:text="${page.totalElements}">0</strong> 건</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a id="btn-week" th:href="@{/admin/system/schedule/week(scheduleMasterId=${search?.scheduleMasterId})}"
+           data-base="/admin/system/schedule/week"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm hover:bg-surface-subtle">📋 주간 보기</a>
+        <a id="btn-calendar" th:href="@{/admin/system/schedule/calendar(scheduleMasterId=${search?.scheduleMasterId})}"
+           data-base="/admin/system/schedule/calendar"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm hover:bg-surface-subtle">📅 월간 보기</a>
+        <a id="btn-new" th:href="@{/admin/system/schedule/new(scheduleMasterId=${search?.scheduleMasterId})}"
+           data-base="/admin/system/schedule/new"
+           class="px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">+ 새 일정</a>
+      </div>
+    </div>
+
+    <div th:if="${message}" class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}"   class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"            th:text="${error}"></div>
+
+    <form th:action="@{/admin/system/schedule}" method="get" class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_180px_120px_140px_140px_auto] gap-3 items-end">
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">제목 검색</label>
+          <input name="keyword" type="text" th:value="${search?.keyword}" placeholder="일정 제목"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">일정 마스터</label>
+          <select id="filter-master" name="scheduleMasterId" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">전체</option>
+            <option th:each="m : ${masters}" th:value="${m.scheduleMasterId}"
+                    th:text="${m.siteCode} + ' · ' + ${m.masterTitle}"
+                    th:selected="${search?.scheduleMasterId == m.scheduleMasterId}">master</option>
+          </select>
+        </div>
+        <div th:with="currentYear=${T(java.time.Year).now().value}">
+          <label class="block text-xs font-medium text-fg-subtle mb-1">연도</label>
+          <select name="year" class="block w-full rounded border border-line px-3 py-2 text-sm font-mono">
+            <option value="">전체</option>
+            <option th:each="y : ${#numbers.sequence(currentYear, 2020)}"
+                    th:value="${y}"
+                    th:text="${y}"
+                    th:selected="${search?.year != null and search.year == y}">2026</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">분류</label>
+          <input name="scheduleCategory" type="text" maxlength="30"
+                 th:value="${search?.scheduleCategory}"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">사용</label>
+          <select name="useYn" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">전체</option>
+            <option value="Y" th:selected="${search?.useYn == 'Y'}">사용중</option>
+            <option value="N" th:selected="${search?.useYn == 'N'}">사용중지</option>
+          </select>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium">검색</button>
+          <a th:href="@{/admin/system/schedule}" class="px-4 py-2 rounded border border-line bg-surface text-fg text-sm">초기화</a>
+        </div>
+      </div>
+    </form>
+
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase">
+            <th class="px-4 py-3">제목</th>
+            <th class="px-4 py-3">마스터</th>
+            <th class="px-4 py-3">분류</th>
+            <th class="px-4 py-3">기간</th>
+            <th class="px-4 py-3">사용</th>
+            <th class="px-4 py-3 text-right">작업</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-2.5">
+              <a th:href="@{/admin/system/schedule/{id}(id=${row.scheduleId})}" class="text-brand-60 hover:underline font-medium" th:text="${row.scheduleTitle}">제목</a>
+              <span th:if="${row.allDayYn == 'Y'}" class="ml-1 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-surface-subtler text-fg-subtle">종일</span>
+            </td>
+            <td class="px-4 py-2.5 text-fg">
+              <span th:text="${row.siteCode}">-</span>
+              <span class="text-fg-disabled ml-1" th:text="'· ' + ${row.masterTitle ?: ''}">· master</span>
+            </td>
+            <td class="px-4 py-2.5 text-fg" th:text="${row.scheduleCategory ?: '-'}">-</td>
+            <td class="px-4 py-2.5 text-fg font-mono text-xs">
+              <span th:text="${@fmt.dt(row.startAt)}">-</span> ~ <span th:text="${@fmt.dt(row.endAt)}">-</span>
+            </td>
+            <td class="px-4 py-2.5">
+              <span th:if="${row.useYn == 'Y'}"  class="inline-flex px-2 py-0.5 rounded text-xs bg-success-surface text-success-fg">사용중</span>
+              <span th:unless="${row.useYn == 'Y'}" class="inline-flex px-2 py-0.5 rounded text-xs bg-surface-subtler text-fg-subtle">중지</span>
+            </td>
+            <td class="px-4 py-2.5 whitespace-nowrap text-right">
+              <a th:href="@{/admin/system/schedule/{id}/edit(id=${row.scheduleId})}"
+                 class="inline-flex items-center justify-center w-7 h-7 rounded border border-line bg-surface align-middle text-brand-60 hover:bg-surface-subtle mr-1" title="수정"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><span class="sr-only">수정</span></a>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(page.content)}">
+            <td colspan="6" class="px-4 py-10 text-center text-fg-subtle">등록된 일정이 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <script th:nonce="${cspNonce}">
+      (function() {
+        var sel = document.getElementById('filter-master');
+        if (!sel) return;
+        var btnIds = ['btn-week', 'btn-calendar', 'btn-new'];
+        function syncLinks() {
+          var v = sel.value || '';
+          btnIds.forEach(function(id) {
+            var a = document.getElementById(id);
+            if (!a) return;
+            var base = a.getAttribute('data-base');
+            a.setAttribute('href', v ? (base + '?scheduleMasterId=' + encodeURIComponent(v)) : base);
+          });
+        }
+        sel.addEventListener('change', syncLinks);
+        syncLinks();
+      })();
+    </script>
+
+    <nav th:if="${page.totalPages > 1}" class="mt-4">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/admin/system/schedule(page=${p}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, scheduleMasterId=${search.scheduleMasterId},
+                       year=${search.year},
+                       scheduleCategory=${search.scheduleCategory}, useYn=${search.useYn})}"
+             th:text="${p}"
+             th:class="${p == page.page} ? 'inline-flex justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on' : 'inline-flex justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

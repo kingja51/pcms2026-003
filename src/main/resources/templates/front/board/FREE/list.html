@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${master.bbsName}">게시판</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="flex items-end justify-between gap-4 mb-6 border-b border-line pb-3">
+      <div>
+        <h1 class="text-heading-md font-bold text-fg-strong" th:text="${master.bbsName}">게시판</h1>
+        <p class="text-body-sm text-fg-subtle mt-1">총
+          <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/bbs/{sc}/{bc}/write(sc=${siteCode}, bc=${bbsCode})}"
+           class="krds-btn krds-btn-primary">+ 글쓰기</a>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="krds-alert krds-alert-success mb-4">
+      <span class="text-success-icon font-bold shrink-0" aria-hidden="true">✓</span>
+      <p th:text="${message}"></p>
+    </div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="krds-alert krds-alert-danger mb-4">
+      <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+      <p th:text="${error}"></p>
+    </div>
+
+    <nav th:if="${categories != null and !#lists.isEmpty(categories)}"
+         aria-label="카테고리" class="mb-3 flex items-center gap-2 flex-wrap">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+         th:classappend="${search?.categoryId == null or search?.categoryId == ''} ? ' border-primary-50 text-primary-50 bg-primary-5 font-bold' : ' border-line text-fg-subtle hover:bg-surface-subtle'"
+         class="krds-tag">전체</a>
+      <a th:each="c : ${categories}"
+         th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode}, categoryId=${c.categoryId})}"
+         th:classappend="${search?.categoryId == c.categoryId} ? ' border-primary-50 text-primary-50 bg-primary-5 font-bold' : ' border-line text-fg-subtle hover:bg-surface-subtle'"
+         class="krds-tag"
+         th:text="${c.categoryName}">잡담</a>
+    </nav>
+
+    <form th:action="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}" method="get"
+          role="search" aria-label="게시판 검색"
+          class="program-search">
+      <input type="hidden" name="categoryId" th:value="${search?.categoryId}"/>
+      <div class="program-search__field program-search__field--grow">
+        <label for="keyword" class="program-search__label">검색어</label>
+        <input id="keyword" name="keyword" type="text"
+               th:value="${search?.keyword}" maxlength="100"
+               placeholder="제목 또는 작성자로 검색"
+               class="krds-input"/>
+      </div>
+      <div class="program-search__field">
+        <label for="searchType" class="program-search__label">구분</label>
+        <select id="searchType" name="searchType" class="krds-input">
+          <option value=""        th:selected="${search?.searchType == null or search?.searchType == ''}">제목+작성자</option>
+          <option value="TITLE"   th:selected="${search?.searchType == 'TITLE'}">제목</option>
+          <option value="WRITER"  th:selected="${search?.searchType == 'WRITER'}">작성자</option>
+        </select>
+      </div>
+      <div class="program-search__actions">
+        <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+        <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+           class="krds-btn krds-btn-tertiary">초기화</a>
+      </div>
+    </form>
+
+    <ul class="divide-y divide-divider border-y border-line">
+      <li th:each="row : ${page.content}" class="py-3 flex items-baseline gap-3">
+        <div class="flex-1 min-w-0">
+          <a th:href="@{/bbs/{sc}/{bc}/{aid}(sc=${siteCode}, bc=${bbsCode}, aid=${row.articleId})}"
+             class="text-fg-strong hover:underline truncate block">
+            <span th:if="${row.noticeYn == 'Y'}"
+                  class="krds-badge bg-danger-surface text-danger-fg mr-1">공지</span>
+            <span th:if="${row.secretYn == 'Y'}"
+                  class="krds-badge bg-surface-subtle text-fg-subtle mr-1">🔒</span>
+            <span th:if="${row.categoryName != null and !#strings.isEmpty(row.categoryName)}"
+                  class="krds-badge bg-primary-5 text-primary-50 mr-1"
+                  th:text="${row.categoryName}">카테고리</span>
+            <span th:text="${row.title}">제목</span>
+            <span th:if="${row.commentCount > 0}"
+                  class="ml-1 text-body-xs text-primary-50 font-bold"
+                  th:text="'[' + ${row.commentCount} + ']'">[3]</span>
+          </a>
+        </div>
+        <div class="text-body-xs text-fg-subtle shrink-0 hidden sm:block"
+             th:text="${row.writerName}">작성자</div>
+        <div class="text-body-xs text-fg-subtle shrink-0 w-24 text-right"
+             th:text="${@fmt.d(row.createdAt)}">2026-04-25</div>
+        <div class="text-body-xs text-fg-subtle shrink-0 w-12 text-right"
+             th:text="${row.viewCount}">0</div>
+      </li>
+      <li th:if="${#lists.isEmpty(page.content)}"
+          class="py-12 text-center text-body-md text-fg-subtle">아직 게시글이 없습니다.</li>
+    </ul>
+
+    <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-6">
+      <ul class="flex items-center justify-center gap-1 text-body-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode},
+                       page=${p}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, searchType=${search.searchType})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center size-10 rounded-medium bg-primary-50 text-white'
+                       : 'inline-flex items-center justify-center size-10 rounded-medium border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${mode == 'edit'} ? '메뉴 수정' : '메뉴 등록'">메뉴 등록</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/site}" class="hover:underline">사이트 목록</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/site/{id}(id=${site.siteId})}"
+         class="hover:underline font-mono" th:text="${site.siteCode}">SITE</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/site/{id}/menu(id=${site.siteId})}" class="hover:underline">메뉴</a>
+      <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit'} ? '수정' : '등록'">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'edit'} ? '메뉴 수정' : '메뉴 등록'">메뉴 등록</h1>
+
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+    <div th:if="${errors}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg">
+      <ul class="list-disc pl-5 space-y-1">
+        <li th:each="e : ${errors}" th:text="${e.defaultMessage}">오류</li>
+      </ul>
+    </div>
+
+    <form th:object="${form}"
+          th:action="${mode == 'edit'}
+                      ? @{/admin/system/site/{sid}/menu/{mid}(sid=${site.siteId}, mid=${form.menuId})}
+                      : @{/admin/system/site/{sid}/menu(sid=${site.siteId})}"
+          method="post" autocomplete="off" class="space-y-6">
+
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:field="*{siteId}"/>
+      <input type="hidden" th:if="${mode == 'edit'}" th:field="*{menuId}"/>
+
+      <fieldset class="bg-surface border border-line rounded-large p-6">
+        <legend class="px-2 text-sm font-semibold text-fg-subtle uppercase tracking-wide">기본 정보</legend>
+
+        <div class="space-y-4 mt-3">
+
+          <div>
+            <label for="siteSummary" class="block text-sm font-medium text-fg mb-1">사이트</label>
+            <output id="siteSummary" class="block text-sm text-fg-subtle"
+                    th:text="|${site.siteName} (${site.siteCode})|">사이트명</output>
+          </div>
+
+          <div>
+            <label for="parentMenuId" class="block text-sm font-medium text-fg mb-1">상위 메뉴</label>
+            <select id="parentMenuId" th:field="*{parentMenuId}"
+                    class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+              <option value="">(루트)</option>
+              <option th:each="p : ${parents}"
+                      th:value="${p.menuId}"
+                      th:text="|${#strings.repeat('— ', p.depth - 1)}${p.menuName} [${p.menuType}]|">상위 메뉴</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="menuName" class="block text-sm font-medium text-fg mb-1">
+              메뉴명 <span class="text-danger-fg" aria-hidden="true">*</span>
+            </label>
+            <input id="menuName" type="text" th:field="*{menuName}" required maxlength="100"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+          </div>
+
+          <div>
+            <label for="menuType" class="block text-sm font-medium text-fg mb-1">
+              타입 <span class="text-danger-fg" aria-hidden="true">*</span>
+            </label>
+            <select id="menuType" th:field="*{menuType}" required
+                    class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+              <option value="CONTENT">CONTENT (콘텐츠 페이지)</option>
+              <option value="BOARD">BOARD (게시판)</option>
+              <option value="URL">URL (직접 링크)</option>
+              <option value="FOLDER">FOLDER (하위 메뉴 컨테이너)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="linkTargetId" class="block text-sm font-medium text-fg mb-1">연결 대상 ID</label>
+            <input id="linkTargetId" type="text" th:field="*{linkTargetId}" maxlength="36"
+                   placeholder="content_id 또는 bbs_master_id (CONTENT/BOARD 타입용)"
+                   aria-describedby="linkTargetId-help"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm font-mono focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+            <small id="linkTargetId-help" class="block mt-1 text-xs text-fg-subtle">
+              CONTENT/BOARD 타입일 때 필수. UUID v7 36자.
+            </small>
+          </div>
+
+          <div>
+            <label for="linkUrl" class="block text-sm font-medium text-fg mb-1">링크 URL</label>
+            <input id="linkUrl" type="text" th:field="*{linkUrl}" maxlength="1000"
+                   placeholder="https://... 또는 /path (URL 타입용)"
+                   aria-describedby="linkUrl-help"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm font-mono focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+            <small id="linkUrl-help" class="block mt-1 text-xs text-fg-subtle">URL 타입일 때 필수.</small>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="authRequiredYn" class="block text-sm font-medium text-fg mb-1">인증 필요 여부</label>
+              <select id="authRequiredYn" th:field="*{authRequiredYn}"
+                      class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+                <option value="N">N (공개)</option>
+                <option value="Y">Y (로그인 필요)</option>
+              </select>
+            </div>
+            <div>
+              <label for="useYn" class="block text-sm font-medium text-fg mb-1">사용 여부</label>
+              <select id="useYn" th:field="*{useYn}"
+                      class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+                <option value="Y">사용</option>
+                <option value="N">미사용</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </fieldset>
+
+      <nav aria-label="폼 작업" class="flex items-center gap-2">
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60"
+                th:text="${mode == 'edit'} ? '수정' : '등록'">저장</button>
+        <a th:href="${mode == 'edit'}
+                     ? @{/admin/system/site/{sid}/menu/{mid}(sid=${site.siteId}, mid=${form.menuId})}
+                     : @{/admin/system/site/{sid}/menu(sid=${site.siteId})}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+      </nav>
+    </form>
+  </section>
+</body>
+</html>

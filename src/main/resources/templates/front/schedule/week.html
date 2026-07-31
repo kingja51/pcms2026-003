@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>주간 일정</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* 구조적 스타일만 유지 — 색은 KRDS CSS 변수 (Design.md §2) */
+    .pcms-week__grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+    }
+    .pcms-week__col {
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--c-divider);
+      min-height: 360px;
+    }
+    .pcms-week__col:nth-child(7n) { border-right: 0; }
+    .pcms-week__col--today { background: var(--c-warning-surface); }
+
+    .pcms-week__col-head {
+      padding: 10px 8px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--c-fg-subtle);
+      background: var(--c-surface-subtle);
+      border-bottom: 1px solid var(--c-divider);
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .pcms-week__col-head--sun { color: var(--c-danger-text); }
+    .pcms-week__col-head--sat { color: var(--c-info-text); }
+
+    .pcms-week__date { font-size: 17px; font-weight: 700; color: var(--c-fg-strong); }
+    .pcms-week__col--today .pcms-week__date { color: var(--c-warning-text); }
+
+    /* 일정 칩 = 브랜드 틴트 — 템플릿/테마(--brand-*) 전환에 본문도 반응 (상태색 아님) */
+    .pcms-week__entry {
+      display: block;
+      padding: 6px 8px;
+      border-radius: var(--radius-small);
+      background: var(--color-brand-5);
+      color: var(--color-brand-60);
+      font-size: 13px;
+      text-decoration: none;
+      border-left: 3px solid var(--color-brand-50);
+    }
+    .pcms-week__entry:hover { background: var(--color-brand-10); }
+    .pcms-week__entry--holiday {
+      background: var(--c-danger-surface);
+      color: var(--c-danger-text);
+      border-left-color: var(--c-danger-icon);
+      font-weight: 700;
+    }
+    .pcms-week__entry-time { display: block; font-size: 13px; color: var(--c-fg-subtle); margin-bottom: 2px; }
+    .pcms-week__entry-title { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    @media (max-width: 640px) {
+      .pcms-week__grid { grid-template-columns: 1fr; }
+      .pcms-week__col  { border-right: 0; border-bottom: 1px solid var(--c-divider); min-height: auto; }
+      .pcms-week__col-head { text-align: left; flex-direction: row; align-items: baseline; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="program-page-wide">
+
+      <div class="flex items-center justify-between gap-16 mb-16">
+        <h1 class="text-heading-lg font-bold text-fg-strong">주간 일정</h1>
+        <div class="flex items-center gap-8">
+          <a th:href="@{/schedule/{masterId}/calendar(masterId=${scheduleMasterId})}"
+             class="krds-btn krds-btn-tertiary krds-btn-sm">📅 월간 보기</a>
+          <a th:href="@{/schedule/{masterId}(masterId=${scheduleMasterId})}"
+             class="krds-btn krds-btn-tertiary krds-btn-sm">목록 보기</a>
+        </div>
+      </div>
+
+      <div class="pcms-cal bg-surface border border-line rounded-large overflow-hidden">
+        <header class="pcms-cal__head flex items-center justify-between px-16 py-12 border-b border-divider">
+          <h2 class="pcms-cal__title text-heading-sm text-fg-strong">
+            <span th:text="${cw.weekStart}">2026-04-26</span>
+            <span class="text-fg-disabled mx-8">~</span>
+            <span th:text="${cw.weekEnd}">2026-05-02</span>
+          </h2>
+          <nav class="pcms-cal__nav inline-flex items-center gap-6 text-body-sm" aria-label="주 이동">
+            <a th:href="@{/schedule/{masterId}/week(masterId=${scheduleMasterId}, date=${cw.prev})}"
+               class="inline-flex items-center px-10 py-4 rounded-small border border-line bg-surface text-fg hover:bg-surface-subtle">← 이전 주</a>
+            <a th:href="@{/schedule/{masterId}/week(masterId=${scheduleMasterId})}"
+               class="inline-flex items-center px-10 py-4 rounded-small border border-line bg-surface text-fg hover:bg-surface-subtle">이번 주</a>
+            <a th:href="@{/schedule/{masterId}/week(masterId=${scheduleMasterId}, date=${cw.next})}"
+               class="inline-flex items-center px-10 py-4 rounded-small border border-line bg-surface text-fg hover:bg-surface-subtle">다음 주 →</a>
+          </nav>
+        </header>
+
+        <div class="pcms-week__grid">
+          <div th:each="d : ${cw.days}"
+               th:with="hs=${holidaysByDate.get(d.key)},
+                        scs=${schedulesByDate.get(d.key)},
+                        isToday=${d.today}"
+               th:class="${'pcms-week_' + '_col' + (isToday ? ' pcms-week_' + '_col--today' : '')}">
+            <div th:with="dowMod=${hs != null and !hs.empty ? 'sun' : (d.sunday ? 'sun' : (d.saturday ? 'sat' : ''))}"
+                 th:class="${'pcms-week_' + '_col-head' + (dowMod.empty ? '' : ' pcms-week_' + '_col-head--' + dowMod)}">
+              <span th:text="${#strings.arraySplit('일,월,화,수,목,금,토', ',')[d.dow.value % 7]}">월</span>
+              <span class="pcms-week__date" th:text="${d.monthValue + '/' + d.dayOfMonth}">4/26</span>
+            </div>
+            <div class="pcms-week__body flex-1 p-8 flex flex-col gap-6">
+              <th:block th:if="${hs != null}">
+                <span th:each="h : ${hs}"
+                      class="pcms-week__entry pcms-week__entry--holiday"
+                      th:text="${h.holidayName}"
+                      th:title="${h.holidayName}">공휴일</span>
+              </th:block>
+              <th:block th:if="${scs != null}">
+                <a th:each="sc : ${scs}"
+                   th:href="@{/schedule/{masterId}/{id}(masterId=${scheduleMasterId}, id=${sc.scheduleId})}"
+                   class="pcms-week__entry"
+                   th:attr="style=${sc.colorCode != null ? ('background:' + sc.colorCode + '20;border-left-color:' + sc.colorCode + ';color:' + sc.colorCode) : ''},
+                            title=${sc.scheduleTitle}">
+                  <span class="pcms-week__entry-time"
+                        th:if="${sc.allDayYn != 'Y'}"
+                        th:text="${#temporals.format(sc.startAt, 'HH:mm')} + '–' + ${#temporals.format(sc.endAt, 'HH:mm')}">09:00–10:00</span>
+                  <span class="pcms-week__entry-time" th:if="${sc.allDayYn == 'Y'}">종일</span>
+                  <span class="pcms-week__entry-title" th:text="${sc.scheduleTitle}">일정</span>
+                </a>
+              </th:block>
+              <div th:if="${(hs == null or hs.empty) and (scs == null or scs.empty)}"
+                   class="pcms-week__empty text-body-xs text-fg-disabled text-center py-16">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+</body>
+</html>

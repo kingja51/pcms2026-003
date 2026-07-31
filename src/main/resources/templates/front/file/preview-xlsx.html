@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{front/layouts/VIEWER/viewer}"
+      lang="ko">
+<head>
+  <title th:text="|미리보기 · ${originalName}|">미리보기</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* 시트 탭 — 엑셀 하단 탭 느낌 */
+    .xlsx-tabs {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 8px;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-bottom: none;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+    }
+    .xlsx-tab {
+      padding: 6px 14px;
+      font-size: 13px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px 6px 0 0;
+      cursor: pointer;
+      color: #475569;
+      transition: background .15s;
+      font-weight: 500;
+    }
+    .xlsx-tab:hover {
+      background: #f8fafc;
+      color: #0f172a;
+    }
+    .xlsx-tab.is-active {
+      background: #0f172a;
+      color: white;
+      border-color: #0f172a;
+    }
+    /* 시트 본문 — 풀스크린에 가깝게 */
+    .xlsx-stage {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      padding: 0;
+      min-height: 400px;
+      overflow: auto;
+      max-height: calc(100vh - 140px);
+    }
+    /* SheetJS 가 생성한 HTML 테이블 — 가독성 개선 */
+    .xlsx-stage table {
+      border-collapse: collapse;
+      font-size: 13px;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      width: max-content;
+      min-width: 100%;
+    }
+    .xlsx-stage td {
+      border: 1px solid #e2e8f0;
+      padding: 6px 10px;
+      white-space: nowrap;
+      vertical-align: top;
+      background: white;
+    }
+    .xlsx-stage td:empty::after {
+      content: '\00a0';
+    }
+    /* 첫 행을 헤더 톤 — 휴리스틱 */
+    .xlsx-stage tr:first-child td {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #0f172a;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .xlsx-status {
+      padding: 4px 8px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .xlsx-status.is-error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <!-- 헤더 1줄: 파일명 + 다운로드. -->
+    <header class="mb-1 flex items-center justify-between gap-3 flex-wrap">
+      <h1 class="min-w-0 flex-1 text-base font-semibold text-slate-900 truncate"
+          th:text="${originalName}" th:title="${originalName}">파일명.xlsx</h1>
+      <a th:href="@{${downloadUrl}}"
+         class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+        ⬇ 원본 다운로드
+      </a>
+    </header>
+
+    <!-- 헤더 2줄: 진행 상태 (1줄, 인라인) -->
+    <div id="xlsx-status" class="xlsx-status mb-2" role="status" aria-live="polite">
+      ⏳ 엔진 로딩 중…
+    </div>
+
+    <!-- 시트 탭 + 본문 컨테이너 — 파싱 후 동적 채워짐. 초기엔 hidden. -->
+    <div id="xlsx-shell" class="hidden">
+      <div id="xlsx-tabs" class="xlsx-tabs" role="tablist"></div>
+      <div id="xlsx-stage" class="xlsx-stage" role="tabpanel"></div>
+    </div>
+
+    <!-- SheetJS ESM 동적 import + 시트별 HTML 테이블 렌더 -->
+    <script type="module" th:attr="nonce=${cspNonce}" th:inline="javascript">
+      const inlineUrl   = /*[[${inlineUrl}]]*/ '';
+      const downloadUrl = /*[[${downloadUrl}]]*/ '';
+      const status      = document.getElementById('xlsx-status');
+      const shell       = document.getElementById('xlsx-shell');
+      const tabsEl      = document.getElementById('xlsx-tabs');
+      const stageEl     = document.getElementById('xlsx-stage');
+
+      const setStatus = (msg, error) => {
+        status.textContent = msg;
+        status.classList.toggle('is-error', !!error);
+      };
+
+      try {
+        setStatus('⏳ SheetJS 엔진 로딩 중...');
+        const XLSX = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm');
+
+        setStatus('⏳ 파일 다운로드 중...');
+        const res = await fetch(inlineUrl, { credentials: 'same-origin' });
+        if (!res.ok) {
+          throw new Error('파일 응답 ' + res.status + ' ' + res.statusText);
+        }
+        const buf = await res.arrayBuffer();
+
+        setStatus('⏳ 워크북 파싱 중...');
+        const wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellStyles: true });
+        const sheetNames = wb.SheetNames || [];
+        if (sheetNames.length === 0) {
+          throw new Error('시트가 없는 워크북입니다.');
+        }
+
+        // 시트 캐시 — 한 번 그리면 재방문 시 즉시 표시
+        const renderedHtml = new Map();
+        const renderSheet = (name) => {
+          if (!renderedHtml.has(name)) {
+            const sheet = wb.Sheets[name];
+            const html = XLSX.utils.sheet_to_html(sheet, { editable: false, header: '' });
+            renderedHtml.set(name, html);
+          }
+          stageEl.innerHTML = renderedHtml.get(name);
+          // 활성 탭 토글
+          tabsEl.querySelectorAll('.xlsx-tab').forEach(b => {
+            b.classList.toggle('is-active', b.dataset.sheet === name);
+            b.setAttribute('aria-selected', b.dataset.sheet === name ? 'true' : 'false');
+          });
+        };
+
+        // 시트 탭 생성
+        sheetNames.forEach((name, i) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'xlsx-tab';
+          btn.role = 'tab';
+          btn.dataset.sheet = name;
+          btn.textContent = name;
+          btn.addEventListener('click', () => renderSheet(name));
+          tabsEl.appendChild(btn);
+        });
+
+        // 첫 시트 표시
+        renderSheet(sheetNames[0]);
+
+        setStatus(`✅ ${sheetNames.length} 시트 · SheetJS v0.18.5`);
+        shell.classList.remove('hidden');
+      } catch (e) {
+        console.error('[SheetJS] 렌더 실패:', e);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.className = 'text-blue-600 hover:underline font-medium';
+        a.textContent = '원본 다운로드';
+        status.classList.add('is-error');
+        status.innerHTML = '';
+        const msg = document.createElement('span');
+        msg.textContent = '⚠️ 미리보기 실패: ' + (e && e.message ? e.message : '알 수 없는 오류') + ' — ';
+        status.appendChild(msg);
+        status.appendChild(a);
+      }
+    </script>
+
+  </section>
+</body>
+</html>

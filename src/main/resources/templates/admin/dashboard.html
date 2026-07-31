@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>관리자 대시보드</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <!-- 헤더 -->
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">관리자 대시보드</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          <span th:text="${@mask.loginId(loginId)}">ad***01</span> 님 환영합니다 ·
+          <span class="font-mono text-xs ml-1" th:text="${userType}">ADMIN</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/access-stat}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-line bg-surface text-sm hover:bg-surface-subtle">
+          📊 접근 통계
+        </a>
+        <a th:href="@{/admin/me/2fa/setup}"
+           class="inline-flex items-center gap-1 px-3 py-1.5 rounded border border-line bg-surface text-sm hover:bg-surface-subtle">
+          🔐 2FA 설정
+        </a>
+      </div>
+    </div>
+
+    <!-- ── KPI 7종 카드 그리드 ── -->
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
+      <a th:href="@{/admin/system/member}"
+         class="block bg-surface border border-line rounded-large p-4 hover:shadow-md hover:border-brand-30 transition">
+        <div class="text-xs text-fg-subtle">활성 회원</div>
+        <div class="mt-1 text-heading-lg font-bold text-brand-60"
+             th:text="${#numbers.formatInteger(summary.memberActive(), 1, 'COMMA')}">0</div>
+      </a>
+      <a th:href="@{/admin/system/board}"
+         class="block bg-surface border border-line rounded-large p-4 hover:shadow-md hover:border-success-30 transition">
+        <div class="text-xs text-fg-subtle">게시글 (게시중)</div>
+        <div class="mt-1 text-heading-lg font-bold text-success-fg"
+             th:text="${#numbers.formatInteger(summary.articlePublished(), 1, 'COMMA')}">0</div>
+      </a>
+      <a th:href="@{/admin/system/content}"
+         class="block bg-surface border border-line rounded-large p-4 hover:shadow-md hover:border-secondary-30 transition">
+        <div class="text-xs text-fg-subtle">콘텐츠 (게시중)</div>
+        <div class="mt-1 text-heading-lg font-bold text-secondary-60"
+             th:text="${#numbers.formatInteger(summary.contentPublished(), 1, 'COMMA')}">0</div>
+      </a>
+      <a th:href="@{/admin/system/survey}"
+         class="block bg-surface border border-line rounded-large p-4 hover:shadow-md hover:border-point-30 transition">
+        <div class="text-xs text-fg-subtle">설문 (진행중)</div>
+        <div class="mt-1 text-heading-lg font-bold text-point-60"
+             th:text="${#numbers.formatInteger(summary.surveyPublished(), 1, 'COMMA')}">0</div>
+      </a>
+      <a th:href="@{/admin/system/board/report}"
+         class="block bg-surface border border-line rounded-large p-4 hover:shadow-md hover:border-danger-30 transition">
+        <div class="text-xs text-fg-subtle">미처리 신고</div>
+        <div class="mt-1 text-heading-lg font-bold"
+             th:classappend="${summary.reportPending() > 0} ? 'text-danger-fg' : 'text-fg-disabled'"
+             th:text="${#numbers.formatInteger(summary.reportPending(), 1, 'COMMA')}">0</div>
+      </a>
+      <a th:href="@{/admin/system/popup}"
+         class="block bg-surface border border-line rounded-large p-4 hover:shadow-md hover:border-warning-30 transition">
+        <div class="text-xs text-fg-subtle">팝업 (활성)</div>
+        <div class="mt-1 text-heading-lg font-bold text-warning-fg"
+             th:text="${#numbers.formatInteger(summary.popupActive(), 1, 'COMMA')}">0</div>
+      </a>
+      <a th:href="@{/admin/system/banner}"
+         class="block bg-surface border border-line rounded-large p-4 hover:shadow-md hover:border-information-30 transition">
+        <div class="text-xs text-fg-subtle">배너 (활성)</div>
+        <div class="mt-1 text-heading-lg font-bold text-info-fg"
+             th:text="${#numbers.formatInteger(summary.bannerActive(), 1, 'COMMA')}">0</div>
+      </a>
+    </div>
+
+    <!-- ── 빠른 작업 ── -->
+    <section class="mb-8">
+      <h2 class="text-base font-semibold text-fg-strong mb-3">⚡ 빠른 작업</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
+        <a th:href="@{/admin/system/site}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🏢 사이트</a>
+        <a th:href="@{/admin/system/template}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🎨 템플릿</a>
+        <a th:href="@{/admin/system/menu}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🧭 메뉴</a>
+        <a th:href="@{/admin/system/file}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">📁 파일</a>
+        <a th:href="@{/admin/system/holiday}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🎉 공휴일</a>
+        <a th:href="@{/admin/system/schedule}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">📅 일정</a>
+        <a th:href="@{/admin/system/admin}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">👤 관리자</a>
+        <a th:href="@{/admin/system/role}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🔑 역할</a>
+        <a th:href="@{/admin/system/employee}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🧑‍💼 직원</a>
+        <a th:href="@{/admin/system/code}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🏷️ 공통코드</a>
+        <a th:href="@{/admin/system/search}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">🔎 검색 색인</a>
+        <a th:href="@{/admin/system/log/access}" class="block px-3 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle hover:border-line-strong">📜 로그</a>
+      </div>
+    </section>
+
+    <!-- ── 최근 활동 3열 ── -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
+
+      <!-- 최근 게시글 -->
+      <section class="bg-surface border border-line rounded-large p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-semibold text-fg-strong">📝 최근 게시글</h2>
+          <a th:href="@{/admin/system/board}" class="text-xs text-brand-60 hover:underline">전체 →</a>
+        </div>
+        <ul class="space-y-2 text-sm">
+          <li th:each="a : ${recentArticles}" class="border-b border-divider pb-2 last:border-0">
+            <a th:href="${a.link()}" class="block hover:bg-surface-subtle -mx-2 px-2 py-1 rounded">
+              <div class="font-medium text-fg-strong truncate" th:text="${a.title()}">제목</div>
+              <div class="text-xs text-fg-subtle mt-0.5 flex items-center gap-2">
+                <span th:text="${a.subtitle()}">작성자</span>
+                <span class="ml-auto font-mono" th:text="${@fmt.dt(a.occurredAt())}">-</span>
+              </div>
+            </a>
+          </li>
+          <li th:if="${#lists.isEmpty(recentArticles)}" class="text-center text-fg-subtle py-6 text-sm">
+            최근 게시글이 없습니다.
+          </li>
+        </ul>
+      </section>
+
+      <!-- 미처리 신고 -->
+      <section class="bg-surface border border-line rounded-large p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-semibold text-fg-strong">🚨 미처리 신고</h2>
+          <a th:href="@{/admin/system/board/report}" class="text-xs text-brand-60 hover:underline">전체 →</a>
+        </div>
+        <ul class="space-y-2 text-sm">
+          <li th:each="r : ${recentReports}" class="border-b border-divider pb-2 last:border-0">
+            <a th:href="${r.link()}" class="block hover:bg-surface-subtle -mx-2 px-2 py-1 rounded">
+              <div class="font-medium text-fg-strong truncate" th:text="${r.title()}">신고</div>
+              <div class="text-xs text-fg-subtle mt-0.5 flex items-center gap-2">
+                <span th:text="${r.subtitle()}">사유</span>
+                <span class="ml-auto font-mono" th:text="${@fmt.dt(r.occurredAt())}">-</span>
+              </div>
+            </a>
+          </li>
+          <li th:if="${#lists.isEmpty(recentReports)}" class="text-center text-fg-disabled py-6 text-sm">
+            ✓ 미처리 신고가 없습니다.
+          </li>
+        </ul>
+      </section>
+
+      <!-- 최근 가입 회원 -->
+      <section class="bg-surface border border-line rounded-large p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-base font-semibold text-fg-strong">👥 최근 가입 회원</h2>
+          <a th:href="@{/admin/system/member}" class="text-xs text-brand-60 hover:underline">전체 →</a>
+        </div>
+        <ul class="space-y-2 text-sm">
+          <li th:each="m : ${recentMembers}" class="border-b border-divider pb-2 last:border-0">
+            <a th:href="${m.link()}" class="block hover:bg-surface-subtle -mx-2 px-2 py-1 rounded">
+              <div class="font-medium text-fg-strong truncate font-mono" th:text="${m.title()}">loginId</div>
+              <div class="text-xs text-fg-subtle mt-0.5 flex items-center gap-2">
+                <span class="inline-flex px-1.5 py-0.5 rounded bg-surface-subtler text-fg-subtle"
+                      th:text="${m.subtitle()}">ACTIVE</span>
+                <span class="ml-auto font-mono" th:text="${@fmt.dt(m.occurredAt())}">-</span>
+              </div>
+            </a>
+          </li>
+          <li th:if="${#lists.isEmpty(recentMembers)}" class="text-center text-fg-subtle py-6 text-sm">
+            최근 가입 회원이 없습니다.
+          </li>
+        </ul>
+      </section>
+    </div>
+
+    <!-- ── 내 정보 + 사이트 + 권한 ── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <section class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-3">내 정보</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-fg-subtle">유형</dt>
+            <dd>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-90 text-fg-on"
+                    th:text="${userType}">ADMIN</span>
+            </dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-fg-subtle">로그인 ID</dt>
+            <dd class="font-mono text-fg-strong" th:text="${@mask.loginId(loginId)}">ad***01</dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-fg-subtle">고유번호</dt>
+            <dd class="font-mono text-fg-strong text-xs" th:text="${uniqId}">1</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section th:if="${siteContext}" class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-3">현재 사이트</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-fg-subtle">사이트</dt>
+            <dd class="font-medium text-fg-strong truncate"
+                th:text="|${siteContext.site.siteName} (${siteContext.site.siteCode})|"></dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-fg-subtle">도메인</dt>
+            <dd class="font-mono text-fg text-xs truncate" th:text="${siteContext.site.domain} ?: '-'"></dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-fg-subtle">기본 템플릿</dt>
+            <dd class="text-fg-strong" th:text="${siteContext.template?.templateName} ?: '미지정'"></dd>
+          </div>
+          <div class="flex items-center justify-between gap-3">
+            <dt class="text-fg-subtle">루트 메뉴 수</dt>
+            <dd class="font-mono text-fg-strong" th:text="${#lists.size(siteContext.menuTree)}"></dd>
+          </div>
+        </dl>
+      </section>
+
+      <section th:unless="${siteContext}" class="bg-warning-surface border border-warning-border rounded-large p-5">
+        <h2 class="text-xs font-semibold text-warning-fg uppercase tracking-wide mb-2">현재 사이트</h2>
+        <p class="text-sm text-warning-fg">사이트 컨텍스트가 해석되지 않았습니다.</p>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-3">권한 목록</h2>
+        <ul class="flex flex-wrap gap-1.5">
+          <li th:each="a : ${#authentication.authorities}"
+              class="inline-flex items-center px-2 py-1 rounded bg-info-surface text-info-fg text-xs font-mono break-all"
+              th:text="${a.authority}">ROLE_X</li>
+        </ul>
+        <details class="mt-3">
+          <summary class="cursor-pointer text-xs text-fg-subtle hover:text-fg">역할 ID CSV 보기</summary>
+          <p class="mt-2 font-mono text-[11px] break-all bg-surface-subtle rounded p-2 text-fg"
+             th:text="${roleIds} ?: '-'">-</p>
+        </details>
+      </section>
+    </div>
+
+  </section>
+</body>
+</html>

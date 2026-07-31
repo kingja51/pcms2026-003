@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>운영 모니터링 HTTP</title>
+  <script th:src="@{/js/vendor/chart.umd.min.js}"
+          th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/monitoring}" class="hover:underline">운영 모니터링</a> /
+      <span>HTTP</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">운영 모니터링 — HTTP 거래소</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          actuator <code class="text-xs bg-surface-subtler px-1.5 py-0.5 rounded">/actuator/httpexchanges</code> 의 최근 N건(기본 100) 분석 · 10초마다 자동 갱신
+        </p>
+      </div>
+      <a th:href="@{/actuator/httpexchanges}" target="_blank" rel="noopener"
+         class="px-3 py-1.5 rounded border border-line bg-surface text-xs hover:bg-surface-subtle">/actuator/httpexchanges ↗</a>
+    </div>
+
+    <!-- KPI 5종 -->
+    <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">총 요청 수</div>
+        <div class="mt-1 text-heading-lg font-bold font-mono text-fg-strong" id="kpiTotal" th:text="${stats.total()}">0</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">평균 응답 (ms)</div>
+        <div class="mt-1 text-heading-lg font-bold font-mono text-fg-strong"
+             id="kpiAvg" th:text="${#numbers.formatDecimal(stats.avgMs(), 1, 1)}">0.0</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">95p 응답 (ms)</div>
+        <div class="mt-1 text-heading-lg font-bold font-mono text-fg-strong"
+             id="kpiP95" th:text="${#numbers.formatDecimal(stats.p95Ms(), 1, 1)}">0.0</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">최대 응답 (ms)</div>
+        <div class="mt-1 text-heading-lg font-bold font-mono text-fg-strong"
+             id="kpiMax" th:text="${#numbers.formatDecimal(stats.maxMs(), 1, 1)}">0.0</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">에러율 (4xx+5xx)</div>
+        <div class="mt-1 text-heading-lg font-bold font-mono"
+             th:classappend="${stats.errorRatePct() > 1.0} ? 'text-danger-fg' : 'text-fg-strong'"
+             id="kpiErr" th:text="${#numbers.formatDecimal(stats.errorRatePct(), 1, 2)}">0.00</div>
+      </div>
+    </div>
+
+    <!-- 차트 그리드 1: 상태/메서드/응답시간 (도넛 3) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">① 상태 코드 분포</h2>
+        <div class="h-56"><canvas id="chartStatus"></canvas></div>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">② HTTP 메서드 분포</h2>
+        <div class="h-56"><canvas id="chartMethod"></canvas></div>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">③ 응답시간 히스토그램</h2>
+        <div class="h-56"><canvas id="chartLatency"></canvas></div>
+      </section>
+    </div>
+
+    <!-- 차트 그리드 2: TOP URI 막대 + 분당 추이 라인 -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4 lg:col-span-2">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">④ TOP 10 요청 URI (요청수)</h2>
+        <div class="h-72"><canvas id="chartTopUri"></canvas></div>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-sm font-bold text-fg-strong mb-2">⑤ 분당 요청 추이 (최근 30분)</h2>
+        <div class="h-72"><canvas id="chartTimeline"></canvas></div>
+      </section>
+    </div>
+
+    <!-- 테이블 그리드 — 느린 요청 + 에러 요청 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+      <section class="bg-surface border border-line rounded-large overflow-hidden">
+        <h2 class="text-sm font-bold text-fg-strong px-4 py-3 border-b border-line">⑥ 가장 느린 요청 TOP 10</h2>
+        <table class="min-w-full divide-y divide-line text-xs">
+          <thead class="bg-surface-subtle">
+            <tr class="text-left text-fg-subtle uppercase">
+              <th class="px-3 py-2">시각</th>
+              <th class="px-3 py-2">메서드</th>
+              <th class="px-3 py-2">URI</th>
+              <th class="px-3 py-2 text-right">상태</th>
+              <th class="px-3 py-2 text-right">응답(ms)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-divider" id="slowestTable">
+            <tr th:each="r : ${stats.slowest()}" class="hover:bg-surface-subtle">
+              <td class="px-3 py-1.5 font-mono" th:text="${r.timestamp()}">-</td>
+              <td class="px-3 py-1.5 font-mono" th:text="${r.method()}">GET</td>
+              <td class="px-3 py-1.5 truncate max-w-xs" th:text="${r.uri()}" th:title="${r.uri()}">-</td>
+              <td class="px-3 py-1.5 text-right font-mono"
+                  th:classappend="${r.status() >= 500} ? 'text-danger-fg' : (${r.status() >= 400} ? 'text-warning-fg' : '')"
+                  th:text="${r.status()}">200</td>
+              <td class="px-3 py-1.5 text-right font-mono font-semibold"
+                  th:text="${#numbers.formatDecimal(r.timeMs(), 1, 1)}">0</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(stats.slowest())}">
+              <td colspan="5" class="px-3 py-6 text-center text-fg-subtle">데이터 없음</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large overflow-hidden">
+        <h2 class="text-sm font-bold text-fg-strong px-4 py-3 border-b border-line">⑦ 에러 요청 (4xx+5xx)</h2>
+        <table class="min-w-full divide-y divide-line text-xs">
+          <thead class="bg-surface-subtle">
+            <tr class="text-left text-fg-subtle uppercase">
+              <th class="px-3 py-2">시각</th>
+              <th class="px-3 py-2">메서드</th>
+              <th class="px-3 py-2">URI</th>
+              <th class="px-3 py-2 text-right">상태</th>
+              <th class="px-3 py-2 text-right">ms</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-divider" id="errorsTable">
+            <tr th:each="r : ${stats.errors()}" class="hover:bg-surface-subtle">
+              <td class="px-3 py-1.5 font-mono" th:text="${r.timestamp()}">-</td>
+              <td class="px-3 py-1.5 font-mono" th:text="${r.method()}">GET</td>
+              <td class="px-3 py-1.5 truncate max-w-xs" th:text="${r.uri()}" th:title="${r.uri()}">-</td>
+              <td class="px-3 py-1.5 text-right font-mono font-semibold"
+                  th:classappend="${r.status() >= 500} ? 'text-danger-fg' : 'text-warning-fg'"
+                  th:text="${r.status()}">404</td>
+              <td class="px-3 py-1.5 text-right font-mono"
+                  th:text="${#numbers.formatDecimal(r.timeMs(), 1, 1)}">0</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(stats.errors())}">
+              <td colspan="5" class="px-3 py-6 text-center text-fg-subtle">✓ 에러 요청 없음</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </div>
+
+    <!-- 부트스트랩 -->
+    <script th:nonce="${cspNonce}" th:inline="javascript">
+      /*<![CDATA[*/
+      window.HTTP_STATS_BOOTSTRAP = /*[[${stats}]]*/ {};
+      window.HTTP_STATS_API = /*[[@{/admin/system/monitoring/http/snapshot}]]*/ '/admin/system/monitoring/http/snapshot';
+      window.HTTP_STATS_REFRESH_MS = 10000;
+      /*]]>*/
+    </script>
+    <script th:src="@{/js/monitoring-http.js}" th:attr="nonce=${cspNonce}"></script>
+
+  </section>
+</body>
+</html>

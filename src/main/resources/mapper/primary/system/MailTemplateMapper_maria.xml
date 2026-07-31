@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.system.mail.mapper.MailTemplateMapper">
+
+  <sql id="cols">
+    mail_template_id, template_code, template_name, subject, body_html,
+    sender_email, sender_name, description, variables_hint,
+    use_yn, delete_yn,
+    created_by, created_ip, created_at,
+    updated_by, updated_ip, updated_at
+  </sql>
+
+  <sql id="listCols">
+    mail_template_id, template_code, template_name, subject,
+    sender_email, sender_name, description, variables_hint,
+    use_yn, delete_yn,
+    created_by, created_ip, created_at,
+    updated_by, updated_ip, updated_at,
+    (body_html IS NOT NULL) AS has_body
+  </sql>
+
+  <sql id="filter">
+    WHERE delete_yn = 'N'
+    <if test="search.useYn != null and search.useYn != ''">
+      AND use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (template_code LIKE CONCAT('%', #{search.keyword}, '%')
+        OR template_name LIKE CONCAT('%', #{search.keyword}, '%')
+        OR subject       LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.system.mail.dto.MailTemplate">
+    SELECT <include refid="listCols"/>
+      FROM tb_mail_template
+    <include refid="filter"/>
+    ORDER BY template_code
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1) FROM tb_mail_template
+    <include refid="filter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.system.mail.dto.MailTemplate">
+    SELECT <include refid="cols"/>
+      FROM tb_mail_template
+     WHERE mail_template_id = #{mailTemplateId}
+       AND delete_yn = 'N'
+  </select>
+
+  <select id="findActiveByCode" resultType="com.gonet.primary.system.mail.dto.MailTemplate">
+    SELECT <include refid="cols"/>
+      FROM tb_mail_template
+     WHERE template_code = #{templateCode}
+       AND use_yn    = 'Y'
+       AND delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    SELECT COUNT(1) FROM tb_mail_template
+     WHERE template_code = #{templateCode}
+       AND delete_yn = 'N'
+    <if test="excludeId != null and excludeId != ''">
+      AND mail_template_id &lt;&gt; #{excludeId}
+    </if>
+  </select>
+
+  <!--
+    행이 존재하지 않으면 결과 0건 → primitive int 에 null 매핑 NPE.
+    COUNT 집계는 항상 1행 반환하여 안전. body_html 채워진 행 수를 직접 카운트.
+  -->
+  <select id="existsBodyByCode" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_mail_template
+     WHERE template_code = #{templateCode}
+       AND delete_yn     = 'N'
+       AND body_html IS NOT NULL
+       AND body_html &lt;&gt; ''
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.system.mail.dto.MailTemplate">
+    INSERT INTO tb_mail_template (
+      mail_template_id, template_code, template_name, subject, body_html,
+      sender_email, sender_name, description, variables_hint,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{mailTemplateId}, #{templateCode}, #{templateName}, #{subject}, #{bodyHtml},
+      #{senderEmail}, #{senderName}, #{description}, #{variablesHint},
+      COALESCE(#{useYn},'Y'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.system.mail.dto.MailTemplate">
+    UPDATE tb_mail_template SET
+      <if test="templateCode != null and templateCode != ''">template_code=#{templateCode},</if>
+      <if test="templateName != null and templateName != ''">template_name=#{templateName},</if>
+      <if test="subject != null and subject != ''">subject=#{subject},</if>
+      <if test="bodyHtml != null and bodyHtml != ''">body_html=#{bodyHtml},</if>
+      <if test="senderEmail != null and senderEmail != ''">sender_email=#{senderEmail},</if>
+      <if test="senderName != null and senderName != ''">sender_name=#{senderName},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      <if test="variablesHint != null and variablesHint != ''">variables_hint=#{variablesHint},</if>
+      use_yn=COALESCE(#{useYn}, use_yn),
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE mail_template_id = #{mailTemplateId}
+       AND delete_yn        = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_mail_template
+       SET delete_yn  = 'Y',
+           use_yn     = 'N',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE mail_template_id = #{mailTemplateId}
+       AND delete_yn        = 'N'
+  </update>
+
+  <update id="updateBodyIfNullByCode">
+    UPDATE tb_mail_template
+       SET body_html  = #{bodyHtml},
+           updated_by = 'SEEDER',
+           updated_ip = '127.0.0.1',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE template_code = #{templateCode}
+       AND delete_yn = 'N'
+       AND (body_html IS NULL OR body_html = '')
+  </update>
+
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_mail_template
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+</mapper>

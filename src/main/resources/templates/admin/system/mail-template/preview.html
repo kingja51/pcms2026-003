@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<!--
+  미리보기 응답 — form.html 의 fetch 가 본 응답을 파싱해
+  subject 는 <meta name="preview-subject"> 에서,
+  body  는 <template id="preview-body"> 내부 HTML 에서 꺼내 iframe srcdoc 으로 주입한다.
+
+  * layout-admin 을 decorate 하지 않음 — 순수 HTML 로 반환하여 iframe 에서 독립 렌더.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="preview-subject" th:attr="content=${subject}"/>
+  <title>Mail Preview</title>
+</head>
+<body>
+  <template id="preview-body" th:utext="${bodyHtml}"></template>
+</body>
+</html>

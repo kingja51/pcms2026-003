@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>일정 등록·수정</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/schedule}" class="hover:underline">일정</a> /
+      <span th:text="${mode == 'create' ? '등록' : '수정'}">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'create' ? '일정 등록' : '일정 수정'}">일정 등록</h1>
+
+    <div th:if="${error}" class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:object="${form}" method="post"
+          th:action="${mode == 'create'} ? @{/admin/system/schedule} : @{/admin/system/schedule/{id}(id=${form.scheduleId})}"
+          class="space-y-5 bg-surface border border-line rounded-large p-6">
+
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:if="${mode == 'edit'}" th:field="*{scheduleId}"/>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">
+            일정 마스터 <span class="text-danger-fg">*</span>
+            <span class="text-fg-disabled ml-1 font-normal">(사이트/메뉴 컨텍스트는 마스터에서 결정)</span>
+          </label>
+          <select th:field="*{scheduleMasterId}" required class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">선택</option>
+            <option th:each="m : ${masters}" th:value="${m.scheduleMasterId}"
+                    th:text="${m.siteCode} + ' · ' + ${m.masterTitle}">master</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">분류 (자유 문자열)</label>
+          <input type="text" th:field="*{scheduleCategory}" maxlength="30"
+                 placeholder="예: EVENT / MEETING / NOTICE"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-fg-subtle mb-1">제목 <span class="text-danger-fg">*</span></label>
+        <input type="text" th:field="*{scheduleTitle}" required maxlength="200"
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-fg-subtle mb-1">본문 (HTML 허용)</label>
+        <textarea th:field="*{scheduleContent}" rows="6"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"></textarea>
+        <p class="text-[11px] text-fg-subtle mt-1">서버에서 OWASP Sanitizer 로 위험 태그 자동 제거 후 저장됩니다.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">시작 <span class="text-danger-fg">*</span></label>
+          <input type="datetime-local" th:field="*{startAt}" required
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">종료 <span class="text-danger-fg">*</span></label>
+          <input type="datetime-local" th:field="*{endAt}" required
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">장소</label>
+          <input type="text" th:field="*{location}" maxlength="200"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">링크 URL</label>
+          <input type="url" th:field="*{linkUrl}" maxlength="1000" placeholder="https://..."
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" name="allDayYn" value="Y"
+                   th:checked="${form.allDayYn == 'Y'}" class="rounded border-line"/>
+            종일 일정
+          </label>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">색상 (#RRGGBB)</label>
+          <input type="text" th:field="*{colorCode}" maxlength="10" placeholder="#3b82f6"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"/>
+        </div>
+        <div class="flex items-end">
+          <label class="inline-flex items-center gap-2 text-sm">
+            <input type="checkbox" name="useYn" value="Y"
+                   th:checked="${form.useYn == 'Y'}" class="rounded border-line"/>
+            사용함
+          </label>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="@{/admin/system/schedule}" class="px-4 py-2 rounded border border-line bg-surface text-fg text-sm">취소</a>
+        <button type="submit" class="px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium"
+                th:text="${mode == 'create' ? '등록' : '수정'}">등록</button>
+      </div>
+    </form>
+
+  </section>
+</body>
+</html>

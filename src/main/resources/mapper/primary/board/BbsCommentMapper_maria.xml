@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_bbs_comment CRUD Mapper.
+  AuditInterceptor 가 INSERT/UPDATE 시 6감사컬럼 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.board.comment.mapper.BbsCommentMapper">
+
+  <sql id="commentColumns">
+    c.comment_id, c.article_id, c.parent_comment_id,
+    c.writer_user_id, c.writer_user_type, c.writer_name,
+    c.content, c.secret_yn, c.like_count, c.report_count, c.depth,
+    c.client_ip, c.status, c.delete_yn,
+    c.created_by, c.created_ip, c.created_at,
+    c.updated_by, c.updated_ip, c.updated_at
+  </sql>
+
+  <!--
+    스레드 정렬:
+      root_created_at = COALESCE(parent.created_at, self.created_at)
+      그 안에서 root 가 먼저(depth ASC), 그 다음 답글(created_at ASC).
+    상위 root 가 먼저 나오고 그 자식이 바로 따라붙는 흐름.
+  -->
+  <select id="findByArticleId" resultType="com.gonet.primary.board.comment.dto.BbsComment">
+    SELECT <include refid="commentColumns"/>
+      FROM tb_bbs_comment c
+      LEFT JOIN tb_bbs_comment p ON p.comment_id = c.parent_comment_id
+     WHERE c.article_id = #{articleId}
+       AND c.delete_yn  = 'N'
+     ORDER BY COALESCE(p.created_at, c.created_at) ASC,
+              COALESCE(p.comment_id, c.comment_id) ASC,
+              c.depth ASC,
+              c.created_at ASC
+  </select>
+
+  <select id="countByArticleId" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_bbs_comment
+     WHERE article_id = #{articleId}
+       AND delete_yn  = 'N'
+       AND status     = 'PUBLISHED'
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.board.comment.dto.BbsComment">
+    SELECT <include refid="commentColumns"/>
+      FROM tb_bbs_comment c
+     WHERE c.comment_id = #{commentId}
+       AND c.delete_yn  = 'N'
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.board.comment.dto.BbsComment">
+    INSERT INTO tb_bbs_comment (
+      comment_id, article_id, parent_comment_id,
+      writer_user_id, writer_user_type, writer_name,
+      content, secret_yn, depth,
+      client_ip, status, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{commentId}, #{articleId}, #{parentCommentId},
+      #{writerUserId}, #{writerUserType}, #{writerName},
+      #{content}, #{secretYn}, #{depth},
+      #{clientIp}, #{status}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.board.comment.dto.BbsComment">
+    UPDATE tb_bbs_comment SET
+      <if test="content != null and content != ''">content=#{content},</if>
+      <if test="secretYn != null and secretYn != ''">secret_yn=#{secretYn},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE comment_id = #{commentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_bbs_comment
+       SET delete_yn  = 'Y',
+           status     = 'DELETED',
+           updated_at = NOW()
+     WHERE comment_id = #{commentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="updateStatus">
+    UPDATE tb_bbs_comment
+       SET status     = #{status},
+           updated_at = NOW()
+     WHERE comment_id = #{commentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!--
+    like_count / report_count 비정규화 동기화. 좋아요/신고 토글 직후 호출.
+    6감사컬럼 미주입 — created/updated_by 보존.
+  -->
+  <update id="updateLikeCount">
+    UPDATE tb_bbs_comment
+       SET like_count = #{likeCount}
+     WHERE comment_id = #{commentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="updateReportCount">
+    UPDATE tb_bbs_comment
+       SET report_count = #{reportCount}
+     WHERE comment_id = #{commentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!-- H-1 race 가드 — 원자적 증감 (GREATEST 클램프). -->
+  <update id="incrementLikeCount">
+    UPDATE tb_bbs_comment
+       SET like_count = GREATEST(like_count + #{delta}, 0)
+     WHERE comment_id = #{commentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="incrementReportCount">
+    UPDATE tb_bbs_comment
+       SET report_count = GREATEST(report_count + #{delta}, 0)
+     WHERE comment_id   = #{commentId}
+       AND delete_yn    = 'N'
+  </update>
+
+  <update id="markStatusReportedIfPublished">
+    UPDATE tb_bbs_comment
+       SET status     = 'REPORTED',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE comment_id = #{commentId}
+       AND delete_yn  = 'N'
+       AND status     = 'PUBLISHED'
+  </update>
+
+  <!-- 회원 대시보드 — 본인 작성 최신 댓글. JOIN article + master + site -->
+  <select id="findRecentByCreatedBy" resultType="com.gonet.primary.board.comment.dto.BbsComment">
+    SELECT <include refid="commentColumns"/>,
+           a.title    AS article_title,
+           m.bbs_code AS bbs_code,
+           m.bbs_name AS bbs_name,
+           s.site_code AS site_code
+      FROM tb_bbs_comment c
+      LEFT JOIN tb_bbs_article a ON a.article_id    = c.article_id
+      LEFT JOIN tb_bbs_master  m ON m.bbs_master_id = a.bbs_master_id
+      LEFT JOIN tb_site        s ON s.site_id       = m.site_id
+     WHERE c.delete_yn  = 'N'
+       AND c.created_by = #{createdBy}
+       AND c.status    &lt;&gt; 'DELETED'
+     ORDER BY c.created_at DESC
+     LIMIT #{limit}
+  </select>
+
+
+    <!-- Soft-delete retention — RetentionScheduler 가 cutoff 를 계산해 전달 (bucket 별 30/90/180일) -->
+    <delete id="purgeSoftDeletedOlderThan">
+        DELETE FROM tb_bbs_comment
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </delete>
+
+    <select id="countSoftDeletedOlderThan" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_bbs_comment
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </select>
+
+</mapper>

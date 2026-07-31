@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_popup CRUD Mapper.
+  감사컬럼은 AuditInterceptor 가 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.popup.mapper.PopupMapper">
+
+  <sql id="popupColumns">
+    p.popup_id, p.site_id, p.popup_title, p.popup_content, p.popup_type,
+    p.link_url, p.file_group_id,
+    p.width_px, p.height_px, p.position_x, p.position_y,
+    p.show_from, p.show_to, p.show_days, p.show_time_from, p.show_time_to,
+    p.cookie_days, p.sort_order,
+    p.use_yn, p.delete_yn,
+    p.created_by, p.created_ip, p.created_at,
+    p.updated_by, p.updated_ip, p.updated_at,
+    s.site_code AS site_code,
+    s.site_name AS site_name
+  </sql>
+
+  <sql id="listFilter">
+    WHERE p.delete_yn = 'N'
+    <if test="search.siteId != null and search.siteId != ''">
+      AND p.site_id = #{search.siteId}
+    </if>
+    <if test="search.popupType != null and search.popupType != '' and search.popupType != 'ALL'">
+      AND p.popup_type = #{search.popupType}
+    </if>
+    <if test="search.useYn != null and search.useYn != '' and search.useYn != 'ALL'">
+      AND p.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND p.popup_title LIKE CONCAT('%', #{search.keyword}, '%')
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.popup.dto.Popup">
+    SELECT <include refid="popupColumns"/>
+      FROM tb_popup p
+      LEFT JOIN tb_site s ON s.site_id = p.site_id
+    <include refid="listFilter"/>
+    ORDER BY p.sort_order ASC, p.updated_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_popup p
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.popup.dto.Popup">
+    SELECT <include refid="popupColumns"/>
+      FROM tb_popup p
+      LEFT JOIN tb_site s ON s.site_id = p.site_id
+     WHERE p.popup_id  = #{popupId}
+       AND p.delete_yn = 'N'
+  </select>
+
+  <select id="findActiveBySiteId" resultType="com.gonet.primary.popup.dto.Popup">
+    <![CDATA[
+    SELECT
+    ]]>
+    <include refid="popupColumns"/>
+    <![CDATA[
+      FROM tb_popup p
+      LEFT JOIN tb_site s ON s.site_id = p.site_id
+     WHERE p.delete_yn  = 'N'
+       AND p.use_yn     = 'Y'
+       AND p.site_id    = #{siteId}
+       AND p.show_from <= #{now}
+       AND p.show_to   >= #{now}
+     ORDER BY p.sort_order ASC, p.created_at DESC
+    ]]>
+  </select>
+
+  <select id="maxSortOrderBySite" resultType="java.lang.Integer">
+    SELECT MAX(sort_order)
+      FROM tb_popup
+     WHERE site_id = #{siteId}
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.popup.dto.Popup">
+    INSERT INTO tb_popup (
+      popup_id, site_id, popup_title, popup_content, popup_type,
+      link_url, file_group_id,
+      width_px, height_px, position_x, position_y,
+      show_from, show_to, show_days, show_time_from, show_time_to,
+      cookie_days, sort_order,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{popupId}, #{siteId}, #{popupTitle}, #{popupContent}, #{popupType},
+      #{linkUrl}, #{fileGroupId},
+      #{widthPx}, #{heightPx}, #{positionX}, #{positionY},
+      #{showFrom}, #{showTo}, #{showDays}, #{showTimeFrom}, #{showTimeTo},
+      #{cookieDays}, #{sortOrder},
+      #{useYn}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.popup.dto.Popup">
+    UPDATE tb_popup SET
+      <if test="popupTitle != null and popupTitle != ''">popup_title=#{popupTitle},</if>
+      <if test="popupContent != null and popupContent != ''">popup_content=#{popupContent},</if>
+      <if test="popupType != null and popupType != ''">popup_type=#{popupType},</if>
+      <if test="linkUrl != null and linkUrl != ''">link_url=#{linkUrl},</if>
+      <if test="fileGroupId != null and fileGroupId != ''">file_group_id=#{fileGroupId},</if>
+      <if test="widthPx != null">width_px=#{widthPx},</if>
+      <if test="heightPx != null">height_px=#{heightPx},</if>
+      <if test="positionX != null">position_x=#{positionX},</if>
+      <if test="positionY != null">position_y=#{positionY},</if>
+      <if test="showFrom != null">show_from=#{showFrom},</if>
+      <if test="showTo != null">show_to=#{showTo},</if>
+      <if test="showDays != null and showDays != ''">show_days=#{showDays},</if>
+      <if test="showTimeFrom != null">show_time_from=#{showTimeFrom},</if>
+      <if test="showTimeTo != null">show_time_to=#{showTimeTo},</if>
+      <if test="cookieDays != null">cookie_days=#{cookieDays},</if>
+      <if test="sortOrder != null">sort_order=#{sortOrder},</if>
+      <if test="useYn != null and useYn != ''">use_yn=#{useYn},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE popup_id       = #{popupId}
+       AND delete_yn      = 'N'
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_popup
+       SET use_yn         = #{useYn},
+           updated_at     = NOW()
+     WHERE popup_id       = #{popupId}
+       AND delete_yn      = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_popup
+       SET delete_yn      = 'Y',
+           use_yn         = 'N',
+           updated_at     = NOW()
+     WHERE popup_id       = #{popupId}
+       AND delete_yn      = 'N'
+  </update>
+
+    <!-- Soft-delete retention — RetentionScheduler 가 cutoff 를 계산해 전달 (bucket 별 30/90/180일) -->
+    <delete id="purgeSoftDeletedOlderThan">
+        DELETE FROM tb_popup
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </delete>
+
+    <select id="countSoftDeletedOlderThan" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_popup
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </select>
+
+</mapper>

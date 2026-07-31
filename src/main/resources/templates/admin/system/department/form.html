@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${mode == 'edit'} ? '부서 수정' : '부서 등록'">부서 폼</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-2xl mx-auto">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/department}" class="hover:underline">부서</a>
+      <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit'} ? '수정' : '새 부서'">새 부서</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'edit'} ? '부서 수정' : '부서 등록'">부서 폼</h1>
+
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+    <div th:if="${errors}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg">
+      <ul class="list-disc pl-5">
+        <li th:each="e : ${errors}" th:text="${e.defaultMessage}">error</li>
+      </ul>
+    </div>
+
+    <form th:action="${mode == 'edit'}
+                     ? @{/admin/system/department/{id}(id=${form.departmentId})}
+                     : @{/admin/system/department}"
+          method="post"
+          th:object="${form}"
+          class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:field="*{departmentId}"/>
+
+      <div>
+        <label for="parentDepartmentId" class="block text-sm font-medium text-fg mb-1">
+          상위 부서
+        </label>
+        <select id="parentDepartmentId" th:field="*{parentDepartmentId}"
+                class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+          <option value="">(루트 부서)</option>
+          <option th:each="p : ${parentOptions}"
+                  th:value="${p.departmentId}"
+                  th:text="|[${p.departmentCode}] ${p.departmentName}|"
+                  th:disabled="${mode == 'edit' and p.departmentId == form.departmentId}"></option>
+        </select>
+        <p class="text-xs text-fg-subtle mt-1">
+          비어 있으면 최상위(depth=1). 깊이는 상위 부서의 depth+1 로 자동 계산.
+        </p>
+      </div>
+
+      <div>
+        <label for="departmentCode" class="block text-sm font-medium text-fg mb-1">
+          부서 코드 <span class="text-danger-fg">*</span>
+        </label>
+        <div class="flex gap-2">
+          <input id="departmentCode" type="text" th:field="*{departmentCode}"
+                 minlength="2" maxlength="30" required
+                 pattern="^[A-Z][A-Z0-9_]+$"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none uppercase font-mono"/>
+          <button type="button" th:if="${mode != 'edit'}"
+                  hx-get="/admin/system/department/check-code"
+                  hx-include="#departmentCode"
+                  hx-target="#departmentCodeCheckResult"
+                  hx-swap="innerHTML"
+                  class="shrink-0 whitespace-nowrap inline-flex items-center px-3 py-2 rounded border border-line bg-surface text-sm font-medium text-fg hover:bg-surface-subtle focus:outline-none focus:ring-2 focus:ring-brand-20">
+            중복확인
+          </button>
+        </div>
+        <div id="departmentCodeCheckResult" aria-live="polite"></div>
+        <p class="text-xs text-fg-subtle mt-1">영대문자/숫자/언더스코어. 첫 글자는 영대문자, 2자 이상. (예: HR_TEAM, DEV_DIV)</p>
+      </div>
+
+      <div>
+        <label for="departmentName" class="block text-sm font-medium text-fg mb-1">
+          부서 이름 <span class="text-danger-fg">*</span>
+        </label>
+        <input id="departmentName" type="text" th:field="*{departmentName}" maxlength="100" required
+               class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+      </div>
+
+      <div>
+        <label for="sortOrder" class="block text-sm font-medium text-fg mb-1">정렬 순서</label>
+        <input id="sortOrder" type="number" th:field="*{sortOrder}" min="0" step="1"
+               class="block w-32 rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+        <p class="text-xs text-fg-subtle mt-1">같은 상위 내 정렬. 작을수록 먼저 표시.</p>
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-medium text-fg mb-1">설명</label>
+        <textarea id="description" th:field="*{description}" rows="3" maxlength="500"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-fg mb-1">사용 여부</label>
+        <div class="flex gap-4 text-sm">
+          <label class="inline-flex items-center gap-1">
+            <input type="radio" th:field="*{useYn}" value="Y" class="accent-brand-50"/> 사용
+          </label>
+          <label class="inline-flex items-center gap-1">
+            <input type="radio" th:field="*{useYn}" value="N" class="accent-brand-50"/> 미사용
+          </label>
+        </div>
+        <p class="text-xs text-fg-subtle mt-1">
+          미사용 시 직원 폼 드롭다운에서 제외됩니다 (기존 배치는 유지).
+        </p>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="${mode == 'edit'}
+                   ? @{/admin/system/department/{id}(id=${form.departmentId})}
+                   : @{/admin/system/department}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          취소
+        </a>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+          저장
+        </button>
+      </div>
+    </form>
+
+  </section>
+</body>
+</html>

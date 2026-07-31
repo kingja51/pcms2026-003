@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.system.code.mapper.CodeMapper">
+
+  <sql id="cols">
+    c.code_id, c.code_group_id, c.code, c.code_name, c.code_value,
+    c.sort_order, c.use_yn, c.delete_yn,
+    c.created_by, c.created_ip, c.created_at,
+    c.updated_by, c.updated_ip, c.updated_at,
+    g.group_code AS group_code,
+    g.group_name AS group_name
+  </sql>
+
+  <sql id="filter">
+    WHERE c.delete_yn = 'N'
+      AND c.code_group_id = #{search.codeGroupId}
+    <if test="search.useYn != null and search.useYn != ''">
+      AND c.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (c.code      LIKE CONCAT('%', #{search.keyword}, '%')
+        OR c.code_name LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.system.code.dto.Code">
+    SELECT <include refid="cols"/>
+      FROM tb_code c
+      LEFT JOIN tb_code_group g ON g.code_group_id = c.code_group_id
+    <include refid="filter"/>
+    ORDER BY c.sort_order ASC, c.code ASC
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1) FROM tb_code c
+    <include refid="filter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.system.code.dto.Code">
+    SELECT <include refid="cols"/>
+      FROM tb_code c
+      LEFT JOIN tb_code_group g ON g.code_group_id = c.code_group_id
+     WHERE c.code_id   = #{codeId}
+       AND c.delete_yn = 'N'
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    SELECT COUNT(1) FROM tb_code
+     WHERE code_group_id = #{codeGroupId}
+       AND code          = #{code}
+       AND delete_yn     = 'N'
+    <if test="excludeCodeId != null and excludeCodeId != ''">
+      AND code_id &lt;&gt; #{excludeCodeId}
+    </if>
+  </select>
+
+  <select id="findOptionsByGroupCode" resultType="com.gonet.primary.system.code.dto.CodeOption">
+    SELECT c.code, c.code_name, c.code_value, c.sort_order
+      FROM tb_code c
+      JOIN tb_code_group g ON g.code_group_id = c.code_group_id
+     WHERE g.group_code = #{groupCode}
+       AND g.use_yn     = 'Y' AND g.delete_yn = 'N'
+       AND c.use_yn     = 'Y' AND c.delete_yn = 'N'
+     ORDER BY c.sort_order ASC, c.code ASC
+  </select>
+
+  <select id="findCodeNameByGroupAndCode" resultType="string">
+    SELECT c.code_name
+      FROM tb_code c
+      JOIN tb_code_group g ON g.code_group_id = c.code_group_id
+     WHERE g.group_code = #{groupCode}
+       AND c.code       = #{code}
+       AND g.delete_yn = 'N' AND c.delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.system.code.dto.Code">
+    INSERT INTO tb_code (
+      code_id, code_group_id, code, code_name, code_value,
+      sort_order, use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{codeId}, #{codeGroupId}, #{code}, #{codeName}, #{codeValue},
+      COALESCE(#{sortOrder}, 0), COALESCE(#{useYn},'Y'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.system.code.dto.Code">
+    UPDATE tb_code SET
+      <if test="codeGroupId != null and codeGroupId != ''">code_group_id=#{codeGroupId},</if>
+      <if test="code != null and code != ''">code=#{code},</if>
+      <if test="codeName != null and codeName != ''">code_name=#{codeName},</if>
+      <if test="codeValue != null and codeValue != ''">code_value=#{codeValue},</if>
+      sort_order=COALESCE(#{sortOrder}, sort_order),
+      use_yn=COALESCE(#{useYn}, use_yn),
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE code_id   = #{codeId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_code
+       SET delete_yn  = 'Y',
+           use_yn     = 'N',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE code_id   = #{codeId}
+       AND delete_yn = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_code
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+</mapper>

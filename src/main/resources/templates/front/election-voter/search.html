@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>선거인명부 본인 확인</title>
+</head>
+<body>
+<div layout:fragment="content" class="max-w-5xl mx-auto p-6 space-y-4">
+
+  <header class="space-y-1">
+    <h1 class="text-2xl font-bold text-fg-strong">선거인명부 본인 확인</h1>
+    <p class="text-sm text-fg-subtle">
+      성명 · 생년월일 · 주민번호 끝3자리 · 성별 <strong>4 항목 모두 입력</strong>해야 본인 정보가 조회됩니다.
+    </p>
+  </header>
+
+  <!-- 검색 폼 -->
+  <section class="bg-surface rounded-lg shadow-sm border border-line p-5">
+    <form th:action="@{/election-voter}" method="get">
+      <input type="hidden" name="siteCode" th:value="${siteCode}"/>
+
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-end">
+        <div class="md:col-span-3">
+          <label class="block text-xs text-fg-subtle mb-0.5">
+            성명 <span class="text-danger-fg">*</span>
+          </label>
+          <input type="text" name="voterName" th:value="${search?.voterName}"
+                 required maxlength="50"
+                 placeholder="홍길동"
+                 class="w-full rounded border border-line px-2 py-2 text-sm"/>
+        </div>
+
+        <div class="md:col-span-3">
+          <label class="block text-xs text-fg-subtle mb-0.5">
+            생년월일 <span class="text-danger-fg">*</span>
+            <span class="text-fg-disabled">(YYMMDD)</span>
+          </label>
+          <input type="text" name="birthDate" th:value="${search?.birthDate}"
+                 required pattern="\d{6}" maxlength="6" inputmode="numeric"
+                 placeholder="990101"
+                 class="w-full rounded border border-line px-2 py-2 text-sm font-mono"/>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs text-fg-subtle mb-0.5">
+            주민번호 끝3 <span class="text-danger-fg">*</span>
+          </label>
+          <input type="text" name="residentNoSuffix" th:value="${search?.residentNoSuffix}"
+                 required pattern="\d{3}" maxlength="3" inputmode="numeric"
+                 placeholder="111"
+                 class="w-full rounded border border-line px-2 py-2 text-sm font-mono"/>
+        </div>
+
+        <div class="md:col-span-2">
+          <label class="block text-xs text-fg-subtle mb-0.5">
+            성별 <span class="text-danger-fg">*</span>
+          </label>
+          <select name="gender" required
+                  class="w-full rounded border border-line px-2 py-2 text-sm">
+            <option value="">선택</option>
+            <option value="남" th:selected="${search?.gender == '남'}">남</option>
+            <option value="여" th:selected="${search?.gender == '여'}">여</option>
+            <!--
+            <option value="M"  th:selected="${search?.gender == 'M'}">M</option>
+            <option value="F"  th:selected="${search?.gender == 'F'}">F</option>
+            -->
+          </select>
+        </div>
+
+        <div class="md:col-span-2 flex items-center gap-1">
+          <button type="submit"
+                  class="inline-flex items-center justify-center flex-1 px-3 py-2 rounded bg-gray-70 text-fg-on text-sm hover:bg-gray-80 whitespace-nowrap">
+            🔍 확인
+          </button>
+          <a th:href="@{/election-voter(siteCode=${siteCode})}"
+             class="inline-flex items-center justify-center px-3 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle whitespace-nowrap">
+            초기화
+          </a>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- 검색 전 안내 -->
+  <section th:unless="${hasAllKeys}"
+           class="bg-warning-surface rounded-lg border border-warning-border p-6 text-center">
+    <p class="text-sm text-warning-fg">
+      🔐 개인정보 보호를 위해 <strong>4 항목 모두 정확히 일치</strong>해야 결과가 표시됩니다.
+    </p>
+  </section>
+
+  <!-- 결과 요약 바 -->
+  <div th:if="${hasAllKeys and page != null and !page.content.isEmpty()}"
+       class="flex items-center justify-between px-1">
+    <p class="text-sm text-fg font-medium"
+       th:text="|총 ${#numbers.formatInteger(page.totalElements, 0, 'COMMA')} 건 · ${page.page} / ${page.totalPages} 페이지|">
+      총 134 건 · 1 / 7 페이지
+    </p>
+    <p class="text-xs text-fg-disabled">본인 확인 결과는 화면에서만 노출되며 별도 저장되지 않습니다.</p>
+  </div>
+
+  <!-- 결과 목록 -->
+  <section th:if="${hasAllKeys}"
+           class="bg-surface rounded-lg shadow-sm border border-line overflow-x-auto">
+
+    <div th:if="${page == null or page.content.isEmpty()}"
+         class="py-10 text-center text-fg-subtle text-sm">
+      입력하신 정보와 일치하는 선거인 정보가 없습니다.<br/>
+      <span class="text-xs text-fg-disabled">성명 / 생년월일 / 주민번호 끝3자리 / 성별 4 항목을 다시 확인해 주세요.</span>
+    </div>
+
+    <table th:if="${page != null and !page.content.isEmpty()}" class="min-w-full text-sm">
+      <thead class="bg-surface-subtle text-left text-xs uppercase text-fg-subtle">
+        <tr>
+          <th class="px-3 py-2.5">생년월일</th>
+          <th class="px-3 py-2.5">주민번호<br/>끝3자리</th>
+          <th class="px-3 py-2.5">선거인명</th>
+          <th class="px-3 py-2.5 text-center">성별</th>
+          <th class="px-3 py-2.5">투표지구</th>
+          <th class="px-3 py-2.5">투표장소</th>
+          <th class="px-3 py-2.5">법정동명</th>
+          <th class="px-3 py-2.5">등재번호</th>
+          <th class="px-3 py-2.5">투표장소주소</th>
+          <th class="px-3 py-2.5 text-center">상세</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-line">
+        <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle">
+          <td class="px-3 py-2 text-sm text-fg-strong font-mono" th:text="${row.birthDate}">990101</td>
+          <td class="px-3 py-2 text-sm text-fg-strong font-mono" th:text="${row.residentNoSuffix}">111</td>
+          <td class="px-3 py-2 text-sm font-semibold text-fg-strong" th:text="${row.voterName}">홍길동</td>
+          <td class="px-3 py-2 text-sm text-center">
+            <span th:if="${row.gender == 'M' or row.gender == '남'}"
+                  class="inline-flex px-2 py-0.5 rounded bg-info-surface text-info-fg">남</span>
+            <span th:if="${row.gender == 'F' or row.gender == '여'}"
+                  class="inline-flex px-2 py-0.5 rounded bg-point-5 text-point-70">여</span>
+          </td>
+          <td class="px-3 py-2 text-sm text-fg" th:text="${row.votingDistrict}">제1투표구</td>
+          <td class="px-3 py-2 text-sm text-fg" th:text="${row.pollingPlace}">투표장소</td>
+          <td class="px-3 py-2 text-sm text-fg" th:text="${row.legalDongName} ?: '-'">법정동</td>
+          <td class="px-3 py-2 text-sm text-fg font-mono" th:text="${row.registerNo} ?: '-'">등재번호</td>
+          <td class="px-3 py-2 text-sm text-fg" th:text="${row.pollingLocation} ?: '-'">투표장소주소</td>
+          <td class="px-3 py-2 text-center">
+            <a th:href="@{/election-voter/{id}(id=${row.voterId},
+                         voterName=${search.voterName},
+                         birthDate=${search.birthDate},
+                         residentNoSuffix=${search.residentNoSuffix},
+                         gender=${search.gender},
+                         siteCode=${siteCode},
+                         page=${page.page},
+                         pageSize=${page.pageSize})}"
+               class="inline-flex items-center px-2.5 py-1 rounded border border-line bg-surface text-xs text-fg hover:bg-surface-subtle whitespace-nowrap">
+              상세 →
+            </a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- 페이지 네비게이션 -->
+  <!-- 최대 10 페이지 윈도우. 1/end 점프 + 이전/다음 버튼. -->
+  <nav th:if="${hasAllKeys and page != null and page.totalPages > 1}" aria-label="페이지"
+       th:with="
+          windowSize=10,
+          curr=${page.page},
+          last=${page.totalPages},
+          startCalc=${curr - (windowSize / 2)},
+          startCand=${startCalc lt 1 ? 1 : startCalc},
+          endCand=${startCand + windowSize - 1},
+          endPage=${endCand gt last ? last : endCand},
+          startPage=${endPage - windowSize + 1 lt 1 ? 1 : endPage - windowSize + 1}">
+    <ul class="flex items-center justify-center gap-1 text-sm">
+      <li th:if="${curr > 1}">
+        <a th:href="@{/election-voter(page=1, pageSize=${page.pageSize},
+                      siteCode=${siteCode},
+                      voterName=${search.voterName}, birthDate=${search.birthDate},
+                      residentNoSuffix=${search.residentNoSuffix}, gender=${search.gender})}"
+           class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">«</a>
+      </li>
+      <li th:if="${curr > 1}">
+        <a th:href="@{/election-voter(page=${curr - 1}, pageSize=${page.pageSize},
+                      siteCode=${siteCode},
+                      voterName=${search.voterName}, birthDate=${search.birthDate},
+                      residentNoSuffix=${search.residentNoSuffix}, gender=${search.gender})}"
+           class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">‹</a>
+      </li>
+      <li th:each="p : ${#numbers.sequence(startPage, endPage)}">
+        <a th:href="@{/election-voter(page=${p}, pageSize=${page.pageSize},
+                      siteCode=${siteCode},
+                      voterName=${search.voterName}, birthDate=${search.birthDate},
+                      residentNoSuffix=${search.residentNoSuffix}, gender=${search.gender})}"
+           th:text="${p}"
+           th:class="${p == curr}
+                     ? 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded bg-gray-90 text-fg-on'
+                     : 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+      </li>
+      <li th:if="${curr < last}">
+        <a th:href="@{/election-voter(page=${curr + 1}, pageSize=${page.pageSize},
+                      siteCode=${siteCode},
+                      voterName=${search.voterName}, birthDate=${search.birthDate},
+                      residentNoSuffix=${search.residentNoSuffix}, gender=${search.gender})}"
+           class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">›</a>
+      </li>
+      <li th:if="${curr < last}">
+        <a th:href="@{/election-voter(page=${last}, pageSize=${page.pageSize},
+                      siteCode=${siteCode},
+                      voterName=${search.voterName}, birthDate=${search.birthDate},
+                      residentNoSuffix=${search.residentNoSuffix}, gender=${search.gender})}"
+           class="inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">»</a>
+      </li>
+    </ul>
+  </nav>
+
+</div>
+</body>
+</html>

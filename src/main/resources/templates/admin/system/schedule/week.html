@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>주간 일정</title>
+  <link rel="stylesheet" th:href="@{/css/calendar.css}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/schedule}" class="hover:underline">일정</a> <span class="mx-1">/</span>
+      <span>주간 일정</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-4">
+      <h1 class="text-heading-lg font-bold text-fg-strong">주간 일정</h1>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/schedule/calendar(scheduleMasterId=${scheduleMasterId})}"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm hover:bg-surface-subtle">📅 월간 보기</a>
+        <a th:href="@{/admin/system/schedule(scheduleMasterId=${scheduleMasterId})}"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm hover:bg-surface-subtle">목록 보기</a>
+        <a th:href="@{/admin/system/schedule/new(scheduleMasterId=${scheduleMasterId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">+ 새 일정</a>
+      </div>
+    </div>
+
+    <form th:action="@{/admin/system/schedule/week}" method="get"
+          class="bg-surface border border-line rounded-large p-4 mb-4 flex items-end gap-3 flex-wrap">
+      <div>
+        <label class="block text-xs font-medium text-fg-subtle mb-1">일정 마스터</label>
+        <select name="scheduleMasterId" class="block w-64 rounded border border-line px-3 py-2 text-sm">
+          <option value="">전체</option>
+          <option th:each="m : ${masters}" th:value="${m.scheduleMasterId}"
+                  th:text="${m.siteCode} + ' · ' + ${m.masterTitle}"
+                  th:selected="${scheduleMasterId == m.scheduleMasterId}">master</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-fg-subtle mb-1">기준 날짜</label>
+        <input name="date" type="date" th:value="${cw.weekStart}"
+               class="block rounded border border-line px-3 py-2 text-sm font-mono"/>
+      </div>
+      <button type="submit" class="px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium">조회</button>
+    </form>
+
+    <div class="pcms-cal">
+      <header class="pcms-cal__head">
+        <h2 class="pcms-cal__title">
+          <span th:text="${cw.weekStart}">2026-04-26</span>
+          <span class="text-fg-disabled mx-2">~</span>
+          <span th:text="${cw.weekEnd}">2026-05-02</span>
+        </h2>
+        <nav class="pcms-cal__nav" aria-label="주 이동">
+          <a th:href="@{/admin/system/schedule/week(date=${cw.prev}, scheduleMasterId=${scheduleMasterId})}">← 이전 주</a>
+          <a th:href="@{/admin/system/schedule/week(scheduleMasterId=${scheduleMasterId})}">이번 주</a>
+          <a th:href="@{/admin/system/schedule/week(date=${cw.next}, scheduleMasterId=${scheduleMasterId})}">다음 주 →</a>
+        </nav>
+      </header>
+
+      <div class="pcms-week__grid">
+        <div th:each="d : ${cw.days}"
+             th:with="hs=${holidaysByDate.get(d.key)},
+                      scs=${schedulesByDate.get(d.key)},
+                      isToday=${d.today}"
+             th:class="${'pcms-week_' + '_col' + (isToday ? ' pcms-week_' + '_col--today' : '')}">
+          <div th:with="dowMod=${hs != null and !hs.empty ? 'sun' : (d.sunday ? 'sun' : (d.saturday ? 'sat' : ''))}"
+               th:class="${'pcms-week_' + '_col-head' + (dowMod.empty ? '' : ' pcms-week_' + '_col-head--' + dowMod)}">
+            <span th:text="${#strings.arraySplit('일,월,화,수,목,금,토', ',')[d.dow.value % 7]}">월</span>
+            <span class="pcms-week__date" th:text="${d.monthValue + '/' + d.dayOfMonth}">4/26</span>
+          </div>
+          <div class="pcms-week__body">
+            <th:block th:if="${hs != null}">
+              <span th:each="h : ${hs}"
+                    class="pcms-week__entry pcms-week__entry--holiday"
+                    th:text="${h.holidayName}"
+                    th:title="${h.holidayName}">공휴일</span>
+            </th:block>
+            <th:block th:if="${scs != null}">
+              <a th:each="sc : ${scs}"
+                 th:href="@{/admin/system/schedule/{id}(id=${sc.scheduleId})}"
+                 class="pcms-week__entry"
+                 th:attr="style=${sc.colorCode != null ? ('background:' + sc.colorCode + '20;border-left-color:' + sc.colorCode + ';color:' + sc.colorCode) : ''},
+                          title=${sc.scheduleTitle}">
+                <span class="pcms-week__entry-time"
+                      th:if="${sc.allDayYn != 'Y'}"
+                      th:text="${#temporals.format(sc.startAt, 'HH:mm')} + '–' + ${#temporals.format(sc.endAt, 'HH:mm')}">09:00–10:00</span>
+                <span class="pcms-week__entry-time" th:if="${sc.allDayYn == 'Y'}">종일</span>
+                <span class="pcms-week__entry-title" th:text="${sc.scheduleTitle}">일정</span>
+              </a>
+            </th:block>
+            <div th:if="${(hs == null or hs.empty) and (scs == null or scs.empty)}"
+                 class="pcms-week__empty">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </section>
+</body>
+</html>

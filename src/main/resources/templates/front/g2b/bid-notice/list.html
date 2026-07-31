@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>입찰공고</title></head>
+<body>
+<section layout:fragment="content">
+
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold text-fg-strong mb-1">입찰공고</h1>
+    <p class="text-sm text-fg-subtle">조달청 나라장터에 공개된 입찰공고 정보입니다.</p>
+  </header>
+
+  <form method="get" th:action="@{|/g2b/bid-notice/${siteCode}|}"
+        class="bg-surface border border-line rounded p-3 mb-4 grid grid-cols-1 md:grid-cols-6 gap-2 text-sm">
+    <select name="bsnsDiv" class="border rounded px-2 py-1">
+      <option value="">업종 (전체)</option>
+      <option value="T" th:selected="${search.bsnsDiv == 'T'}">물품</option>
+      <option value="S" th:selected="${search.bsnsDiv == 'S'}">용역</option>
+      <option value="C" th:selected="${search.bsnsDiv == 'C'}">공사</option>
+    </select>
+    <input type="date" name="fromDate" th:value="${search.fromDate}" class="border rounded px-2 py-1"/>
+    <input type="date" name="toDate"   th:value="${search.toDate}"   class="border rounded px-2 py-1"/>
+    <label class="inline-flex items-center gap-1 px-2 py-1">
+      <input type="checkbox" name="openOnly" value="true" th:checked="${search.openOnly}"/>
+      <span class="text-xs">진행중만</span>
+    </label>
+    <input type="text" name="keyword" th:value="${search.keyword}"
+           placeholder="공고명/기관/번호" class="border rounded px-2 py-1"/>
+    <button class="bg-gray-90 text-fg-on rounded px-3 py-1 font-semibold">검색</button>
+  </form>
+
+  <div class="text-xs text-fg-subtle mb-2">총 <strong th:text="${page.totalElements}">0</strong>건</div>
+
+  <div class="overflow-x-auto bg-surface rounded border border-line">
+    <table class="min-w-full text-sm">
+      <thead class="bg-surface-subtle">
+        <tr class="text-left text-fg-subtle">
+          <th class="px-3 py-2">업종</th>
+          <th class="px-3 py-2">공고번호</th>
+          <th class="px-3 py-2">공고명</th>
+          <th class="px-3 py-2">공고일시</th>
+          <th class="px-3 py-2">개찰일시</th>
+          <th class="px-3 py-2 text-right">추정가격</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="r : ${page.content}" class="border-t border-line hover:bg-surface-subtle">
+          <td class="px-3 py-2" th:text="${@bsns.label(r.bsnsDiv)}"></td>
+          <td class="px-3 py-2 text-xs" th:text="${r.bidNtceNo + '-' + r.bidNtceOrd}"></td>
+          <td class="px-3 py-2">
+            <a th:href="@{|/g2b/bid-notice/${siteCode}/${r.id}|}"
+               class="text-secondary-70 hover:underline" th:text="${r.bidNtceNm}"></a>
+          </td>
+          <td class="px-3 py-2 text-xs text-fg-subtle"
+              th:text="${r.bidNtceDt != null ? #temporals.format(r.bidNtceDt, 'yyyy-MM-dd HH:mm') : ''}"></td>
+          <td class="px-3 py-2 text-xs text-fg-subtle"
+              th:text="${r.opengDt != null ? #temporals.format(r.opengDt, 'yyyy-MM-dd HH:mm') : ''}"></td>
+          <td class="px-3 py-2 text-right" th:text="${r.presmptPrce != null ? #numbers.formatInteger(r.presmptPrce, 0, 'COMMA') : '-'}"></td>
+        </tr>
+        <tr th:if="${page.content.isEmpty()}">
+          <td colspan="7" class="px-3 py-12 text-center text-fg-disabled">데이터가 없습니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 페이지 네비 — front/board/NOTICE/list.html 패턴 정합 -->
+  <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-8">
+    <ul class="flex items-center justify-center gap-1 text-sm">
+      <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+        <a th:href="@{|/g2b/bid-notice/${siteCode}|(page=${p}, pageSize=${page.pageSize},
+                     bsnsDiv=${search?.bsnsDiv},
+                     fromDate=${search?.fromDate}, toDate=${search?.toDate},
+                     openOnly=${search?.openOnly}, keyword=${search?.keyword})}"
+           th:text="${p}"
+           th:class="${p == page.page}
+                     ? 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded bg-gray-90 text-fg-on'
+                     : 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+      </li>
+    </ul>
+  </nav>
+</section>
+</body>
+</html>

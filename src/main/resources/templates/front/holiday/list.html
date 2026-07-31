@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>공휴일</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="program-page-wide">
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <h1 class="text-heading-md font-bold text-fg-strong">공휴일</h1>
+        <a th:href="@{/holiday/calendar}"
+           class="krds-btn krds-btn-sm krds-btn-tertiary">📅 캘린더 보기</a>
+      </div>
+
+      <form th:action="@{/holiday}" method="get" class="mb-4 flex items-end gap-2">
+        <div th:with="currentYear=${T(java.time.Year).now().value}">
+          <label for="holidayYear" class="block text-label-xs font-medium text-fg-subtle mb-1">연도</label>
+          <select id="holidayYear" name="year" class="krds-input w-[140px]">
+            <option value="">전체</option>
+            <option th:each="y : ${#numbers.sequence(currentYear, 2020)}"
+                    th:value="${y}"
+                    th:text="${y}"
+                    th:selected="${search?.year != null and search.year == y}">2026</option>
+          </select>
+        </div>
+        <button type="submit" class="krds-btn krds-btn-primary">조회</button>
+      </form>
+
+      <ul class="bg-surface border border-line rounded-large divide-y divide-divider">
+        <li th:each="row : ${page.content}" class="p-4 flex items-center gap-4">
+          <span class="text-body-sm text-fg min-w-[110px]"
+                th:text="${row.holidayDate}">2026-01-01</span>
+          <span class="flex-1">
+            <a th:href="@{/holiday/{id}(id=${row.holidayId})}"
+               class="text-fg-strong hover:text-primary-60 font-medium" th:text="${row.holidayName}">제목</a>
+          </span>
+          <span class="krds-badge bg-surface-subtle text-fg-subtle"
+                th:text="${row.holidayType}">PUBLIC</span>
+        </li>
+        <li th:if="${#lists.isEmpty(page.content)}" class="p-6 text-center text-body-sm text-fg-subtle">
+          선택한 연도에 등록된 공휴일이 없습니다.
+        </li>
+      </ul>
+
+      <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+        <ul class="flex items-center justify-center gap-1 text-body-sm">
+          <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+            <a th:href="@{/holiday(page=${p}, pageSize=${page.pageSize}, year=${search.year}, keyword=${search.keyword})}"
+               th:text="${p}"
+               th:class="${p == page.page} ? 'inline-flex items-center justify-center size-10 rounded-medium bg-primary-50 text-white' : 'inline-flex items-center justify-center size-10 rounded-medium border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+
+  </section>
+</body>
+</html>

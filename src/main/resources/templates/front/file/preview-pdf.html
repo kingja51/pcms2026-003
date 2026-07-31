@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{front/layouts/VIEWER/viewer}"
+      lang="ko">
+<head>
+  <title th:text="|미리보기 · ${originalName}|">미리보기</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <header class="mb-2 flex items-center justify-between gap-3 flex-wrap">
+      <h1 class="min-w-0 flex-1 text-base font-semibold text-slate-900 truncate"
+          th:text="${originalName}" th:title="${originalName}">파일명.pdf</h1>
+      <a th:href="@{${downloadUrl}}"
+         class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+        ⬇ 원본 다운로드
+      </a>
+    </header>
+
+    <!-- 브라우저 네이티브 PDF 뷰어 — Chrome/Firefox/Edge/Safari 모두 지원.
+         iframe 사용 — CSP 의 object-src 'none' 정책상 <object>/<embed> 는 차단됨.
+         sandbox 속성 제거 — Chrome 의 내장 PDF 뷰어 플러그인이 sandbox 격리된 iframe 안
+         에서는 정상 렌더링 못하는 케이스 회피. same-origin 응답이라 추가 격리 불필요. -->
+    <iframe th:src="@{${inlineUrl}}" title="PDF 뷰어"
+            class="w-full bg-white border border-slate-200 rounded-lg shadow-sm"
+            style="height: calc(100vh - 80px); min-height: 480px;"></iframe>
+
+  </section>
+</body>
+</html>

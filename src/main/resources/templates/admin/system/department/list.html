@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>부서</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">부서</h1>
+        <p class="text-sm text-fg-subtle mt-1">총
+          <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/department/new}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60 transition-colors">
+          + 새 부서
+        </a>
+        <details class="relative">
+          <summary class="list-none inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle cursor-pointer">
+            엑셀 다운로드
+          </summary>
+          <div class="absolute right-0 mt-1 p-4 w-80 bg-surface border border-line rounded-large shadow-lg z-10">
+            <form th:action="@{/admin/system/department/excel}" method="post" class="space-y-2">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <input type="hidden" name="keyword"             th:value="${search?.keyword}"/>
+              <input type="hidden" name="useYn"               th:value="${search?.useYn}"/>
+              <input type="hidden" name="parentDepartmentId"  th:value="${search?.parentDepartmentId}"/>
+              <label for="dept-dl-reason" class="block text-xs font-medium text-fg">
+                다운로드 사유 <span class="text-danger-fg">*</span> (10자 이상)
+              </label>
+              <textarea id="dept-dl-reason" name="downloadReason" required
+                        minlength="10" maxlength="500" rows="3"
+                        placeholder="예: 조직 개편 보고용"
+                        class="block w-full rounded border border-line px-2 py-1.5 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"></textarea>
+              <button type="submit"
+                      class="w-full inline-flex items-center justify-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+                다운로드
+              </button>
+              <p class="text-[11px] text-fg-subtle">사유가 <code>log_audit</code> 에 기록됩니다.</p>
+            </form>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <!-- 검색 카드 -->
+    <form th:action="@{/admin/system/department}" method="get" role="search" aria-label="부서 검색"
+          class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end">
+        <div>
+          <label for="keyword" class="block text-xs font-medium text-fg-subtle mb-1">검색어</label>
+          <input id="keyword" name="keyword" type="text"
+                 th:value="${search?.keyword}" maxlength="100"
+                 placeholder="코드 / 이름 / 설명"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+        </div>
+        <div>
+          <label for="parentDepartmentId" class="block text-xs font-medium text-fg-subtle mb-1">상위 부서</label>
+          <select id="parentDepartmentId" name="parentDepartmentId"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+            <option value=""     th:selected="${search?.parentDepartmentId == null or search?.parentDepartmentId == ''}">전체</option>
+            <option value="ROOT" th:selected="${search?.parentDepartmentId == 'ROOT'}">루트 부서만</option>
+            <option th:each="p : ${parentOptions}"
+                    th:value="${p.departmentId}"
+                    th:text="|[${p.departmentCode}] ${p.departmentName}|"
+                    th:selected="${p.departmentId == search?.parentDepartmentId}"></option>
+          </select>
+        </div>
+        <div>
+          <label for="useYn" class="block text-xs font-medium text-fg-subtle mb-1">사용 여부</label>
+          <select id="useYn" name="useYn"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+            <option value=""  th:selected="${search?.useYn == null or search?.useYn == ''}">전체</option>
+            <option value="Y" th:selected="${search?.useYn == 'Y'}">사용중</option>
+            <option value="N" th:selected="${search?.useYn == 'N'}">미사용</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="submit"
+                  class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">
+            검색
+          </button>
+          <a th:href="@{/admin/system/department}"
+             class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+            초기화
+          </a>
+        </div>
+      </div>
+    </form>
+
+    <!-- 테이블 카드 -->
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <caption class="sr-only">부서 목록</caption>
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+            <th scope="col" class="px-4 py-3">코드</th>
+            <th scope="col" class="px-4 py-3">이름</th>
+            <th scope="col" class="px-4 py-3">깊이</th>
+            <th scope="col" class="px-4 py-3">정렬</th>
+            <th scope="col" class="px-4 py-3">상위 부서ID</th>
+            <th scope="col" class="px-4 py-3">사용</th>
+            <th scope="col" class="px-4 py-3">등록일시</th>
+            <th scope="col" class="px-4 py-3 text-right">작업</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle"
+              th:with="dep=${row.depth ?: 1},
+                       indentPx=${(dep - 1) * 16}">
+            <td class="px-4 py-2.5 font-mono text-xs">
+              <a th:href="@{/admin/system/department/{id}(id=${row.departmentId})}"
+                 class="text-brand-60 hover:underline font-medium"
+                 th:text="${row.departmentCode}">HQ</a>
+            </td>
+            <td class="px-4 py-2.5 text-fg-strong"
+                th:style="|padding-left: ${indentPx}px|"
+                th:text="${row.departmentName}">부서명</td>
+            <td class="px-4 py-2.5 text-fg" th:text="${row.depth}">1</td>
+            <td class="px-4 py-2.5 text-fg" th:text="${row.sortOrder}">0</td>
+            <td class="px-4 py-2.5 text-fg-subtle font-mono text-[11px]"
+                th:text="${row.parentDepartmentId} ?: '(루트)'">-</td>
+            <td class="px-4 py-2.5">
+              <span th:if="${row.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용</span>
+              <span th:unless="${row.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">미사용</span>
+            </td>
+            <td class="px-4 py-2.5 text-fg-subtle font-mono text-xs" th:text="${@fmt.dt(row.createdAt)}">-</td>
+            <td class="px-4 py-2.5 whitespace-nowrap text-right">
+              <a th:href="@{/admin/system/department/{id}/edit(id=${row.departmentId})}"
+                 class="inline-flex items-center px-2.5 py-1 rounded border border-line bg-surface text-xs text-fg hover:bg-surface-subtle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+<span class="sr-only">수정</span>
+              </a>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(page.content)}">
+            <td colspan="8" class="px-4 py-10 text-center text-fg-subtle">등록된 부서가 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/admin/system/department(page=${p}, pageSize=${page.pageSize},
+                                                  keyword=${search.keyword}, useYn=${search.useYn},
+                                                  parentDepartmentId=${search.parentDepartmentId})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                       : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

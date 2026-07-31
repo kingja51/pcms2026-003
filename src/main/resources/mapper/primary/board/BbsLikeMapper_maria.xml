@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_bbs_like — 게시판 좋아요 (article + comment 통합).
+  UNIQUE (target_type, target_id, user_id) 로 1인 1회 보장.
+  AuditInterceptor 가 INSERT/UPDATE 시 6감사컬럼 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.board.like.mapper.BbsLikeMapper">
+
+  <sql id="columns">
+    like_id, target_type, target_id, user_id, user_type, source_url, delete_yn,
+    created_by, created_ip, created_at,
+    updated_by, updated_ip, updated_at
+  </sql>
+
+  <select id="findActive" resultType="com.gonet.primary.board.like.dto.BbsLike">
+    SELECT <include refid="columns"/>
+      FROM tb_bbs_like
+     WHERE target_type = #{targetType}
+       AND target_id   = #{targetId}
+       AND user_id     = #{userId}
+       AND delete_yn   = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="findInactive" resultType="com.gonet.primary.board.like.dto.BbsLike">
+    SELECT <include refid="columns"/>
+      FROM tb_bbs_like
+     WHERE target_type = #{targetType}
+       AND target_id   = #{targetId}
+       AND user_id     = #{userId}
+       AND delete_yn   = 'Y'
+     LIMIT 1
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.board.like.dto.BbsLike">
+    INSERT INTO tb_bbs_like (
+      like_id, target_type, target_id, user_id, user_type, source_url, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{likeId}, #{targetType}, #{targetId}, #{userId}, #{userType}, #{sourceUrl}, 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="markInactive">
+    UPDATE tb_bbs_like
+       SET delete_yn  = 'Y',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE like_id = #{likeId}
+  </update>
+
+  <update id="markActive">
+    UPDATE tb_bbs_like
+       SET delete_yn  = 'N',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE like_id = #{likeId}
+  </update>
+
+  <select id="countActive" resultType="long">
+    SELECT COUNT(1)
+      FROM tb_bbs_like
+     WHERE target_type = #{targetType}
+       AND target_id   = #{targetId}
+       AND delete_yn   = 'N'
+  </select>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_bbs_like
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_bbs_like
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_bbs_like
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

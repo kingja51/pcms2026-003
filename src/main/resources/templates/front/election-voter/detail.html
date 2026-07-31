@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>선거인명부 상세</title>
+</head>
+<body>
+<div layout:fragment="content" class="max-w-3xl mx-auto p-6 space-y-4">
+
+  <header class="space-y-1">
+    <h1 class="text-2xl font-bold text-fg-strong">선거인명부 상세</h1>
+    <p class="text-sm text-fg-subtle">본인 확인이 완료된 선거인 정보입니다.</p>
+  </header>
+
+  <!-- 오류 메시지 -->
+  <div th:if="${error}"
+       class="bg-danger-surface border border-danger-border rounded-lg px-4 py-3 text-sm text-danger-fg"
+       th:text="${error}">오류 메시지</div>
+
+  <!-- 본인 확인 정보 (PII) -->
+  <section class="bg-warning-surface rounded-lg border border-warning-border p-5 space-y-3">
+    <h2 class="text-sm font-semibold text-warning-fg uppercase tracking-wide">본인 확인 정보</h2>
+    <dl class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+
+      <div>
+        <dt class="text-xs text-warning-fg mb-0.5">선거인ID</dt>
+        <dd class="font-semibold text-fg-strong" th:text="${voter.voterId}">선거인ID</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-warning-fg mb-0.5">&nbsp;</dt>
+        <dd class="font-semibold text-fg-strong">&nbsp;</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-warning-fg mb-0.5">성명</dt>
+        <dd class="font-semibold text-fg-strong" th:text="${voter.voterName}">홍길동</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-warning-fg mb-0.5">성별</dt>
+        <dd>
+          <span th:if="${voter.gender == 'M' or voter.gender == '남'}"
+                class="inline-flex px-2 py-0.5 rounded bg-info-surface text-info-fg text-sm font-medium">남</span>
+          <span th:if="${voter.gender == 'F' or voter.gender == '여'}"
+                class="inline-flex px-2 py-0.5 rounded bg-point-5 text-point-70 text-sm font-medium">여</span>
+        </dd>
+      </div>
+      <div>
+        <dt class="text-xs text-warning-fg mb-0.5">생년월일</dt>
+        <dd class="font-mono text-fg-strong" th:text="${voter.birthDate}">990101</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-warning-fg mb-0.5">주민번호 끝3자리</dt>
+        <dd class="font-mono text-fg-strong" th:text="${voter.residentNoSuffix}">111</dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- 투표 정보 -->
+  <section class="bg-surface rounded-lg shadow-sm border border-line p-5 space-y-3">
+    <h2 class="text-sm font-semibold text-fg uppercase tracking-wide">투표 정보</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+      <div>
+        <dt class="text-xs text-fg-subtle mb-0.5">투표지구</dt>
+        <dd class="text-fg-strong" th:text="${voter.votingDistrict} ?: '-'">제1투표구</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-fg-subtle mb-0.5">투표장소</dt>
+        <dd class="text-fg-strong" th:text="${voter.pollingPlace} ?: '-'">투표장소명</dd>
+      </div>
+      <div class="md:col-span-2">
+        <dt class="text-xs text-fg-subtle mb-0.5">투표장소 주소</dt>
+        <dd class="text-fg-strong" th:text="${voter.pollingLocation} ?: '-'">서울특별시 OO구 OO로 1</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-fg-subtle mb-0.5">법정동명</dt>
+        <dd class="text-fg-strong" th:text="${voter.legalDongName} ?: '-'">OO동</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-fg-subtle mb-0.5">법정동코드</dt>
+        <dd class="font-mono text-fg-strong" th:text="${voter.legalDongCode} ?: '-'">1234567890</dd>
+      </div>
+      <div>
+        <dt class="text-xs text-fg-subtle mb-0.5">등재번호</dt>
+        <dd class="font-mono text-fg-strong" th:text="${voter.registerNo} ?: '-'">000001</dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- 안내 -->
+  <p class="text-xs text-fg-disabled text-right">
+    🔒 본인 확인 결과는 화면에서만 노출되며 별도 저장되지 않습니다.
+  </p>
+
+  <!-- 뒤로 가기 -->
+  <div class="flex justify-start pt-1">
+    <a th:href="@{/election-voter(voterName=${search.voterName},
+                   birthDate=${search.birthDate},
+                   residentNoSuffix=${search.residentNoSuffix},
+                   gender=${search.gender},
+                   siteCode=${siteCode},
+                   page=${param.page},
+                   pageSize=${param.pageSize})}"
+       class="inline-flex items-center gap-1.5 px-4 py-2 rounded border border-line bg-surface text-sm text-fg hover:bg-surface-subtle">
+      ← 목록으로
+    </a>
+  </div>
+
+</div>
+</body>
+</html>

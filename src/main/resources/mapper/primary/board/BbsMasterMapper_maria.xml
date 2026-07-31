@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_bbs_master CRUD Mapper.
+  감사컬럼은 AuditInterceptor 가 자동 주입 (#{createdBy}, #{updatedBy} 등).
+-->
+<mapper namespace="com.gonet.primary.board.master.mapper.BbsMasterMapper">
+
+  <sql id="masterColumns">
+    m.bbs_master_id, m.site_id, m.menu_id, m.bbs_code, m.bbs_name, m.bbs_type,
+    m.comment_yn, m.file_yn, m.file_count_max, m.file_size_max,
+    m.anonymous_yn, m.notice_top_yn, m.html_yn, m.captcha_yn,
+    m.read_auth, m.write_auth, m.download_auth, m.use_yn, m.description, m.grouped_board_ids, m.delete_yn,
+    m.created_by, m.created_ip, m.created_at,
+    m.updated_by, m.updated_ip, m.updated_at,
+
+    (SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+
+    s.site_code AS site_code,
+    s.site_name AS site_name,
+
+    (SELECT COUNT(1) FROM tb_bbs_article a
+       WHERE a.bbs_master_id = m.bbs_master_id
+         AND a.delete_yn     = 'N') AS article_count
+  </sql>
+
+  <sql id="listFilter">
+    WHERE m.delete_yn = 'N'
+    <if test="search.siteId != null and search.siteId != ''">
+      AND m.site_id = #{search.siteId}
+    </if>
+    <if test="search.bbsType != null and search.bbsType != '' and search.bbsType != 'ALL'">
+      AND m.bbs_type = #{search.bbsType}
+    </if>
+    <if test="search.useYn != null and search.useYn != '' and search.useYn != 'ALL'">
+      AND m.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (m.bbs_name LIKE CONCAT('%', #{search.keyword}, '%')
+        OR m.bbs_code LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.board.master.dto.BbsMaster">
+    SELECT <include refid="masterColumns"/>
+      FROM tb_bbs_master m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+    <include refid="listFilter"/>
+    ORDER BY m.updated_at DESC, m.bbs_name ASC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_bbs_master m
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.board.master.dto.BbsMaster">
+    SELECT <include refid="masterColumns"/>
+      FROM tb_bbs_master m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+     WHERE m.bbs_master_id = #{bbsMasterId}
+       AND m.delete_yn     = 'N'
+  </select>
+
+  <select id="findBySiteCodeAndBbsCode" resultType="com.gonet.primary.board.master.dto.BbsMaster">
+    SELECT <include refid="masterColumns"/>
+      FROM tb_bbs_master m
+      JOIN tb_site s ON s.site_id = m.site_id
+     WHERE s.site_code = #{siteCode}
+       AND m.bbs_code  = #{bbsCode}
+       AND m.delete_yn = 'N'
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    <![CDATA[
+    SELECT COUNT(1)
+      FROM tb_bbs_master
+     WHERE site_id   = #{siteId}
+       AND bbs_code  = #{bbsCode}
+       AND delete_yn = 'N'
+    ]]>
+    <if test="excludeId != null and excludeId != ''">
+      AND bbs_master_id &lt;&gt; #{excludeId}
+    </if>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.board.master.dto.BbsMaster">
+    INSERT INTO tb_bbs_master (
+      bbs_master_id, site_id, menu_id, bbs_code, bbs_name, bbs_type,
+      comment_yn, file_yn, file_count_max, file_size_max,
+      anonymous_yn, notice_top_yn, html_yn, captcha_yn,
+      read_auth, write_auth, download_auth, use_yn, description, grouped_board_ids, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{bbsMasterId}, #{siteId}, #{menuId}, #{bbsCode}, #{bbsName}, #{bbsType},
+      #{commentYn}, #{fileYn}, #{fileCountMax}, #{fileSizeMax},
+      #{anonymousYn}, #{noticeTopYn}, #{htmlYn}, #{captchaYn},
+      #{readAuth}, #{writeAuth}, #{downloadAuth}, #{useYn}, #{description}, #{groupedBoardIds}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.board.master.dto.BbsMaster">
+    UPDATE tb_bbs_master SET
+      <if test="menuId != null and menuId != ''">menu_id=#{menuId},</if>
+      <if test="bbsName != null and bbsName != ''">bbs_name=#{bbsName},</if>
+      <if test="bbsType != null and bbsType != ''">bbs_type=#{bbsType},</if>
+      <if test="commentYn != null and commentYn != ''">comment_yn=#{commentYn},</if>
+      <if test="fileYn != null and fileYn != ''">file_yn=#{fileYn},</if>
+      <if test="fileCountMax != null">file_count_max=#{fileCountMax},</if>
+      <if test="fileSizeMax != null">file_size_max=#{fileSizeMax},</if>
+      <if test="anonymousYn != null and anonymousYn != ''">anonymous_yn=#{anonymousYn},</if>
+      <if test="noticeTopYn != null and noticeTopYn != ''">notice_top_yn=#{noticeTopYn},</if>
+      <if test="htmlYn != null and htmlYn != ''">html_yn=#{htmlYn},</if>
+      <if test="captchaYn != null and captchaYn != ''">captcha_yn=#{captchaYn},</if>
+      <if test="readAuth != null and readAuth != ''">read_auth=#{readAuth},</if>
+      <if test="writeAuth != null and writeAuth != ''">write_auth=#{writeAuth},</if>
+      <if test="downloadAuth != null and downloadAuth != ''">download_auth=#{downloadAuth},</if>
+      <if test="useYn != null and useYn != ''">use_yn=#{useYn},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      <if test="groupedBoardIds != null and groupedBoardIds != ''">grouped_board_ids=#{groupedBoardIds},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE bbs_master_id  = #{bbsMasterId}
+       AND delete_yn      = 'N'
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_bbs_master
+       SET use_yn         = #{useYn},
+           updated_at     = NOW()
+     WHERE bbs_master_id  = #{bbsMasterId}
+       AND delete_yn      = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_bbs_master
+       SET delete_yn      = 'Y',
+           use_yn         = 'N',
+           updated_at     = NOW()
+     WHERE bbs_master_id  = #{bbsMasterId}
+       AND delete_yn      = 'N'
+  </update>
+
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_bbs_master
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_bbs_master
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_bbs_master
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

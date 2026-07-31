@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${editMode} ? (${master.masterName} + ' 수정') : (${master.masterName} + ' 접수')">민원 접수</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div>
+      <nav aria-label="상위 경로" class="text-body-sm text-fg-subtle mb-2">
+        <a th:href="@{/complaint/{mc}(mc=${master.masterCode})}" class="hover:underline" th:text="${master.masterName}">민원</a>
+        <span class="mx-1" aria-hidden="true">/</span>
+        <span th:if="${editMode}" aria-current="page" th:text="${article.complaintNo}">수정</span>
+        <span th:unless="${editMode}" aria-current="page">민원 접수</span>
+      </nav>
+
+      <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+          th:text="${editMode} ? '민원 수정' : '민원 접수'">민원 접수</h1>
+
+      <!-- 인라인 alert 스크립트 대체: flash-alert.js 가 data-flash-alert 를 읽어 1회 표시 -->
+      <div th:if="${error}" role="alert" class="krds-alert krds-alert-danger mb-4"
+           th:attr="data-flash-alert=${error}">
+        <span class="shrink-0 font-bold text-danger-icon" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+
+      <!-- 주의사항 안내문 -->
+      <div th:if="${master.noticeHtml != null and !#strings.isEmpty(master.noticeHtml)}"
+           class="mb-6 rounded-medium border border-warning-border bg-warning-surface p-4 text-body-sm prose prose-sm max-w-none"
+           th:utext="${master.noticeHtml}"></div>
+
+      <form id="complaintWriteForm"
+            th:action="${editMode} ? @{/complaint/{mc}/{no}/edit(mc=${master.masterCode},no=${article.complaintNo})} : @{/complaint/{mc}/write(mc=${master.masterCode})}" method="post"
+            class="bg-surface border border-line rounded-large p-6 space-y-4">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="complaintMasterId" th:value="${master.complaintMasterId}"/>
+        <input type="hidden" name="articleId" th:value="${articleId}"/>
+        <th:block th:if="${master?.captchaYn == 'Y'}"
+                  th:replace="~{fragments/captcha-v3 :: widget(action='complaint_write', formId='complaintWriteForm')}"/>
+
+        <!-- 카테고리 -->
+        <div th:if="${not #lists.isEmpty(categories)}">
+          <label for="categoryId" class="block text-label-sm font-medium text-fg mb-1">카테고리</label>
+          <select id="categoryId" name="categoryId"
+                  class="krds-input md:w-60">
+            <option value="">선택 안 함</option>
+            <option th:each="cat : ${categories}" th:value="${cat.categoryId}"
+                    th:text="${cat.categoryName}"
+                    th:selected="${form?.categoryId == cat.categoryId}">-</option>
+          </select>
+        </div>
+
+        <!-- 작성자 이름 -->
+        <div>
+          <label for="writerName" class="block text-label-sm font-medium text-fg mb-1">이름 <span class="text-danger-50">*</span></label>
+          <input id="writerName" type="text" name="writerName" required maxlength="100"
+                 th:value="${form?.writerName}"
+                 class="krds-input md:w-60"/>
+        </div>
+
+        <!-- 연락처 (선택) -->
+        <div>
+          <label for="writerContact" class="block text-label-sm font-medium text-fg mb-1">연락처</label>
+          <input id="writerContact" type="text" name="writerContact" maxlength="200"
+                 th:value="${form?.writerContact}"
+                 placeholder="전화번호 또는 이메일 (선택)"
+                 class="krds-input md:w-80"/>
+        </div>
+
+        <!-- 제목 -->
+        <div>
+          <label for="title" class="block text-label-sm font-medium text-fg mb-1">제목 <span class="text-danger-50">*</span></label>
+          <input id="title" type="text" name="title" required maxlength="300"
+                 th:value="${form?.title}"
+                 class="krds-input"/>
+        </div>
+
+        <!-- 내용 -->
+        <div>
+          <label for="content" class="block text-label-sm font-medium text-fg mb-1">내용 <span class="text-danger-50">*</span></label>
+          <textarea id="content" name="content" required rows="10" maxlength="10000"
+                    class="krds-input resize-y"
+                    th:text="${form?.content}"></textarea>
+        </div>
+
+        <!-- 첨부파일 -->
+        <div th:if="${master.fileYn == 'Y'}">
+          <label class="block text-label-sm font-medium text-fg mb-1">첨부파일</label>
+          <div th:replace="~{fragments/file-picker :: picker(
+            inputName='attachmentsJson',
+            category='ANY',
+            entityType='COMPLAINT',
+            entityId=${articleId},
+            siteId=${master.siteId},
+            multiple=true,
+            maxFiles=${master.fileCountMax ?: 5},
+            readOnly=false,
+            existingFiles=${existingFiles},
+            fileGroupId=${article?.fileGroupId})}"></div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <a th:href="${editMode} ? @{/complaint/{mc}/{no}(mc=${master.masterCode},no=${article.complaintNo})} : @{/complaint/{mc}(mc=${master.masterCode})}"
+             class="krds-btn krds-btn-tertiary">취소</a>
+          <button type="submit" class="krds-btn krds-btn-primary"
+                  th:text="${editMode} ? '수정 완료' : '민원 접수'">민원 접수</button>
+        </div>
+      </form>
+
+    </div>
+
+  </section>
+  <th:block layout:fragment="scripts">
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+    <script th:src="@{/js/flash-alert.js}" th:attr="nonce=${cspNonce}" defer></script>
+  </th:block>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--
+  계약정보공개 공용 Thymeleaf fragment.
+  - won/num : 문자열 금액(외부 V_TCM 뷰가 숫자 문자열로 내려줌)을 천단위 콤마 표기.
+  - pager   : 4 분류 목록 공용 페이지 네비 — ContractSearch 의 모든 필터를 쿼리스트링으로 보존.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<body>
+
+<!-- 금액 + ' 원' -->
+<th:block th:fragment="won(amt)"
+          th:text="${(amt == null or #strings.isEmpty(amt))
+                     ? '0 원'
+                     : #numbers.formatInteger(new java.math.BigDecimal(amt), 1, 'COMMA') + ' 원'}">0 원</th:block>
+
+<!-- 금액 (단위 없음) -->
+<th:block th:fragment="num(amt)"
+          th:text="${(amt == null or #strings.isEmpty(amt))
+                     ? '0'
+                     : #numbers.formatInteger(new java.math.BigDecimal(amt), 1, 'COMMA')}">0</th:block>
+
+<!--
+  목록 페이지 네비 — 구 eGov 화면과 동일하게 페이지 번호를 10개씩 블록으로 끊고
+  처음/이전/다음/끝 으로 블록 이동. baseUrl 예: |/contract/${siteCode}/status|
+  blockSize  = 한 블록에 노출할 페이지 번호 수(10)
+  startPage  = 현재 페이지가 속한 블록의 시작 번호
+  endPage    = 블록의 끝 번호 (전체 페이지 수로 상한)
+-->
+<nav th:fragment="pager(baseUrl, page, search)" aria-label="페이지"
+     th:if="${page.totalPages > 1}" class="mt-8"
+     th:with="blockSize=10,
+              startPage=${((page.page - 1) / blockSize) * blockSize + 1},
+              endPage=${(startPage + blockSize - 1) > page.totalPages ? page.totalPages : (startPage + blockSize - 1)}">
+  <ul class="flex items-center justify-center gap-1 text-sm">
+    <!-- 처음 -->
+    <li th:if="${startPage > 1}">
+      <a th:href="@{__${baseUrl}__(page=1, pageSize=${page.pageSize},
+                   ctrtKindCd=${search?.ctrtKindCd},
+                   ctrtGovNm=${search?.ctrtGovNm}, ctrtNm=${search?.ctrtNm}, custNm=${search?.custNm},
+                   ctrtStartYmd=${search?.ctrtStartYmd}, ctrtEndYmd=${search?.ctrtEndYmd},
+                   lowSubCtrtFldNm=${search?.lowSubCtrtFldNm})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">처음</a>
+    </li>
+    <!-- 이전 블록 -->
+    <li th:if="${startPage > 1}">
+      <a th:href="@{__${baseUrl}__(page=${startPage - 1}, pageSize=${page.pageSize},
+                   ctrtKindCd=${search?.ctrtKindCd},
+                   ctrtGovNm=${search?.ctrtGovNm}, ctrtNm=${search?.ctrtNm}, custNm=${search?.custNm},
+                   ctrtStartYmd=${search?.ctrtStartYmd}, ctrtEndYmd=${search?.ctrtEndYmd},
+                   lowSubCtrtFldNm=${search?.lowSubCtrtFldNm})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">이전</a>
+    </li>
+    <!-- 페이지 번호 윈도우 -->
+    <li th:each="p : ${#numbers.sequence(startPage, endPage)}">
+      <a th:href="@{__${baseUrl}__(page=${p}, pageSize=${page.pageSize},
+                   ctrtKindCd=${search?.ctrtKindCd},
+                   ctrtGovNm=${search?.ctrtGovNm}, ctrtNm=${search?.ctrtNm}, custNm=${search?.custNm},
+                   ctrtStartYmd=${search?.ctrtStartYmd}, ctrtEndYmd=${search?.ctrtEndYmd},
+                   lowSubCtrtFldNm=${search?.lowSubCtrtFldNm})}"
+         th:text="${p}"
+         th:class="${p == page.page}
+                   ? 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded bg-gray-90 text-fg-on'
+                   : 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+    </li>
+    <!-- 다음 블록 -->
+    <li th:if="${endPage &lt; page.totalPages}">
+      <a th:href="@{__${baseUrl}__(page=${endPage + 1}, pageSize=${page.pageSize},
+                   ctrtKindCd=${search?.ctrtKindCd},
+                   ctrtGovNm=${search?.ctrtGovNm}, ctrtNm=${search?.ctrtNm}, custNm=${search?.custNm},
+                   ctrtStartYmd=${search?.ctrtStartYmd}, ctrtEndYmd=${search?.ctrtEndYmd},
+                   lowSubCtrtFldNm=${search?.lowSubCtrtFldNm})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">다음</a>
+    </li>
+    <!-- 끝 -->
+    <li th:if="${endPage &lt; page.totalPages}">
+      <a th:href="@{__${baseUrl}__(page=${page.totalPages}, pageSize=${page.pageSize},
+                   ctrtKindCd=${search?.ctrtKindCd},
+                   ctrtGovNm=${search?.ctrtGovNm}, ctrtNm=${search?.ctrtNm}, custNm=${search?.custNm},
+                   ctrtStartYmd=${search?.ctrtStartYmd}, ctrtEndYmd=${search?.ctrtEndYmd},
+                   lowSubCtrtFldNm=${search?.lowSubCtrtFldNm})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">끝</a>
+    </li>
+  </ul>
+</nav>
+
+</body>
+</html>

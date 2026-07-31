@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>알림 채널 설정</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/notification}" class="hover:underline">알림 관리</a>
+    <span class="mx-1">/</span>
+    <span>채널 설정</span>
+  </nav>
+
+  <div class="mb-6">
+    <h1 class="text-heading-lg font-bold text-fg-strong">알림 채널 설정</h1>
+    <p class="text-sm text-fg-subtle mt-1">
+      대상 사용자:
+      <strong class="font-mono text-fg" th:text="${targetUserId}">uuid</strong>
+    </p>
+  </div>
+
+  <div th:if="${message}" class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+  <div th:if="${error}"   class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"            th:text="${error}"></div>
+
+  <div class="bg-surface border border-line rounded-large">
+
+    <!-- 헤더 -->
+    <div class="bg-surface-subtle px-4 py-3 border-b border-line">
+      <p class="text-xs text-fg-subtle">
+        타입별 설정이 없으면 <strong>ALL</strong> 기본값이 적용됩니다.
+        설정값을 변경하면 즉시 반영됩니다.
+      </p>
+    </div>
+
+    <!-- ALL (기본값) 행 -->
+    <form th:action="@{/admin/notification/pref/{uid}(uid=${targetUserId})}"
+          method="post" class="border-b border-divider">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" name="notificationType" value="ALL"/>
+      <div class="px-4 py-3 flex items-center gap-6">
+        <span class="w-40 text-sm font-semibold text-fg-strong">전체 기본값 (ALL)</span>
+        <label class="inline-flex items-center gap-1.5 text-sm text-fg">
+          <input type="checkbox" name="channelInappYn" value="Y"
+                 th:checked="${#lists.isEmpty(prefs) or prefs.?[notificationType == 'ALL'].isEmpty() or prefs.?[notificationType == 'ALL'][0].inappEnabled}"
+                 class="rounded border-line"/>
+          인앱
+        </label>
+        <label class="inline-flex items-center gap-1.5 text-sm text-fg">
+          <input type="checkbox" name="channelEmailYn" value="Y"
+                 th:checked="${#lists.isEmpty(prefs) or prefs.?[notificationType == 'ALL'].isEmpty() or prefs.?[notificationType == 'ALL'][0].emailEnabled}"
+                 class="rounded border-line"/>
+          이메일
+        </label>
+        <button type="submit"
+                class="ml-auto px-3 py-1 rounded bg-gray-90 text-fg-on text-xs font-medium hover:bg-gray-70">저장</button>
+      </div>
+    </form>
+
+    <!-- 타입별 행 -->
+    <th:block th:each="type : ${types}">
+      <form th:action="@{/admin/notification/pref/{uid}(uid=${targetUserId})}"
+            method="post" class="border-b border-divider last:border-0">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <input type="hidden" name="notificationType" th:value="${type.name()}"/>
+        <div class="px-4 py-3 flex items-center gap-6">
+          <span class="w-40 text-sm text-fg" th:text="${type.label()}">타입</span>
+
+          <!-- 현재 설정 조회 — 타입별 row 없으면 ALL 기반 defaults 사용 -->
+          <th:block th:with="row=${prefs.?[notificationType == type.name()].isEmpty() ? null : prefs.?[notificationType == type.name()][0]}">
+            <label class="inline-flex items-center gap-1.5 text-sm text-fg">
+              <input type="checkbox" name="channelInappYn" value="Y"
+                     th:checked="${row == null or row.inappEnabled}"
+                     class="rounded border-line"/>
+              인앱
+            </label>
+            <label class="inline-flex items-center gap-1.5 text-sm text-fg">
+              <input type="checkbox" name="channelEmailYn" value="Y"
+                     th:checked="${row == null or row.emailEnabled}"
+                     class="rounded border-line"/>
+              이메일
+            </label>
+          </th:block>
+
+          <button type="submit"
+                  class="ml-auto px-3 py-1 rounded border border-line bg-surface text-fg text-xs hover:bg-surface-subtle">저장</button>
+        </div>
+      </form>
+    </th:block>
+
+  </div>
+
+  <div class="mt-4 flex gap-3">
+    <a th:href="@{/admin/notification}" class="text-sm text-fg-subtle hover:underline">← 알림 목록</a>
+  </div>
+
+</section>
+</body>
+</html>

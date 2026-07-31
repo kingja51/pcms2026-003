@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.banner.mapper.BannerMapper">
+
+  <sql id="bannerColumns">
+    b.banner_id, b.site_id, b.banner_title, b.banner_location,
+    b.file_group_id, b.alt_text, b.link_url, b.link_target,
+    b.show_from, b.show_to, b.sort_order,
+    b.use_yn, b.delete_yn,
+    b.created_by, b.created_ip, b.created_at,
+    b.updated_by, b.updated_ip, b.updated_at,
+    s.site_code AS site_code,
+    s.site_name AS site_name
+  </sql>
+
+  <sql id="listFilter">
+    WHERE b.delete_yn = 'N'
+    <if test="search.siteId != null and search.siteId != ''">
+      AND b.site_id = #{search.siteId}
+    </if>
+    <if test="search.bannerLocation != null and search.bannerLocation != '' and search.bannerLocation != 'ALL'">
+      AND b.banner_location = #{search.bannerLocation}
+    </if>
+    <if test="search.useYn != null and search.useYn != '' and search.useYn != 'ALL'">
+      AND b.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND b.banner_title LIKE CONCAT('%', #{search.keyword}, '%')
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.banner.dto.Banner">
+    SELECT <include refid="bannerColumns"/>
+      FROM tb_banner b
+      LEFT JOIN tb_site s ON s.site_id = b.site_id
+    <include refid="listFilter"/>
+    ORDER BY b.banner_location ASC, b.sort_order ASC, b.updated_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_banner b
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.banner.dto.Banner">
+    SELECT <include refid="bannerColumns"/>
+      FROM tb_banner b
+      LEFT JOIN tb_site s ON s.site_id = b.site_id
+     WHERE b.banner_id = #{bannerId}
+       AND b.delete_yn = 'N'
+  </select>
+
+  <select id="findActiveBySiteId" resultType="com.gonet.primary.banner.dto.Banner">
+    <![CDATA[
+    SELECT
+    ]]>
+    <include refid="bannerColumns"/>
+    <![CDATA[
+    , (SELECT f.file_id
+         FROM tb_file f
+        WHERE f.file_group_id = b.file_group_id
+          AND f.delete_yn = 'N'
+          AND f.is_image_yn = 'Y'
+          AND f.virus_scan_status IN ('CLEAN', 'PENDING')
+        ORDER BY f.sort_order ASC, f.created_at ASC
+        LIMIT 1) AS image_file_id
+      FROM tb_banner b
+      LEFT JOIN tb_site s ON s.site_id = b.site_id
+     WHERE b.delete_yn  = 'N'
+       AND b.use_yn     = 'Y'
+       AND b.site_id    = #{siteId}
+       AND b.show_from <= #{now}
+       AND b.show_to   >= #{now}
+     ORDER BY b.banner_location ASC, b.sort_order ASC, b.created_at DESC
+    ]]>
+  </select>
+
+  <select id="maxSortOrderBySiteAndLocation" resultType="java.lang.Integer">
+    SELECT MAX(sort_order)
+      FROM tb_banner
+     WHERE site_id         = #{siteId}
+       AND banner_location = #{bannerLocation}
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.banner.dto.Banner">
+    INSERT INTO tb_banner (
+      banner_id, site_id, banner_title, banner_location,
+      file_group_id, alt_text, link_url, link_target,
+      show_from, show_to, sort_order,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{bannerId}, #{siteId}, #{bannerTitle}, #{bannerLocation},
+      #{fileGroupId}, #{altText}, #{linkUrl}, #{linkTarget},
+      #{showFrom}, #{showTo}, #{sortOrder},
+      #{useYn}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.banner.dto.Banner">
+    UPDATE tb_banner SET
+      <if test="bannerTitle != null and bannerTitle != ''">banner_title=#{bannerTitle},</if>
+      <if test="bannerLocation != null and bannerLocation != ''">banner_location=#{bannerLocation},</if>
+      <if test="fileGroupId != null and fileGroupId != ''">file_group_id=#{fileGroupId},</if>
+      <if test="altText != null and altText != ''">alt_text=#{altText},</if>
+      <if test="linkUrl != null and linkUrl != ''">link_url=#{linkUrl},</if>
+      <if test="linkTarget != null and linkTarget != ''">link_target=#{linkTarget},</if>
+      <if test="showFrom != null">show_from=#{showFrom},</if>
+      <if test="showTo != null">show_to=#{showTo},</if>
+      <if test="sortOrder != null">sort_order=#{sortOrder},</if>
+      <if test="useYn != null and useYn != ''">use_yn=#{useYn},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE banner_id       = #{bannerId}
+       AND delete_yn       = 'N'
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_banner
+       SET use_yn     = #{useYn},
+           updated_at = NOW()
+     WHERE banner_id  = #{bannerId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_banner
+       SET delete_yn  = 'Y',
+           use_yn     = 'N',
+           updated_at = NOW()
+     WHERE banner_id  = #{bannerId}
+       AND delete_yn  = 'N'
+  </update>
+
+    <!-- Soft-delete retention — RetentionScheduler 가 cutoff 를 계산해 전달 (bucket 별 30/90/180일) -->
+    <delete id="purgeSoftDeletedOlderThan">
+        DELETE FROM tb_banner
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </delete>
+
+    <select id="countSoftDeletedOlderThan" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_banner
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </select>
+
+</mapper>

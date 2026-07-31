@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!--
+  파일 뷰어 전용 미니멀 레이아웃 (front/layouts/VIEWER/viewer)
+    · 용도: /file/preview/{fileId} 팝업 창 — 사이트 헤더·푸터·내비 없음
+    · 화면 폭 100% 활용 (program-page-* 와 별개), 외곽 padding 최소
+    · CSP nonce + Tailwind CDN 만 포함 — 사이트별 레이아웃 CSS 비로딩
+    · 사용 예: <html layout:decorate="~{front/layouts/VIEWER/viewer}">
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      lang="ko"
+      class="h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="_csrf"        th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+  <title layout:title-pattern="$CONTENT_TITLE">미리보기</title>
+
+  <!-- Tailwind 유틸리티 (CSP strict-dynamic + nonce 로 허용) -->
+  <link th:href="@{/css/output.css}" rel="stylesheet" />
+
+  <!-- 페이지별 추가 head 요소 — 자식 템플릿이 <head> 안 콘텐츠 추가 시 사용 -->
+  <th:block layout:fragment="head"/>
+</head>
+<body class="min-h-full bg-slate-50 text-slate-800 antialiased">
+
+<main id="main" class="px-4 py-3">
+  <section layout:fragment="content"></section>
+</main>
+
+</body>
+</html>

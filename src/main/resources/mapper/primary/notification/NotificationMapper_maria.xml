@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_notification CRUD Mapper.
+  감사컬럼은 AuditInterceptor 가 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.notification.mapper.NotificationMapper">
+
+  <sql id="notiColumns">
+    n.notification_id, n.recipient_user_id, n.notification_type,
+    n.title, n.body, n.link_url,
+    n.related_entity, n.related_id,
+    n.read_yn, n.read_at, n.delete_yn,
+    n.created_by, n.created_ip, n.created_at,
+    n.updated_by, n.updated_ip, n.updated_at,
+    u.login_id AS recipient_login_id
+  </sql>
+
+  <sql id="notiFrom">
+      FROM tb_notification n
+      LEFT JOIN v_user_login u ON u.user_id = n.recipient_user_id
+  </sql>
+
+  <sql id="listFilter">
+    WHERE n.delete_yn = 'N'
+    <if test="search.recipientUserId != null and search.recipientUserId != ''">
+      AND n.recipient_user_id = #{search.recipientUserId}
+    </if>
+    <if test="search.notificationType != null and search.notificationType != '' and search.notificationType != 'ALL'">
+      AND n.notification_type = #{search.notificationType}
+    </if>
+    <if test="search.readYn != null and search.readYn != '' and search.readYn != 'ALL'">
+      AND n.read_yn = #{search.readYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND n.title LIKE CONCAT('%', #{search.keyword}, '%')
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.notification.dto.Notification">
+    SELECT <include refid="notiColumns"/>
+    <include refid="notiFrom"/>
+    <include refid="listFilter"/>
+    ORDER BY n.created_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_notification n
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.notification.dto.Notification">
+    SELECT <include refid="notiColumns"/>
+    <include refid="notiFrom"/>
+     WHERE n.notification_id = #{notificationId}
+       AND n.delete_yn       = 'N'
+  </select>
+
+  <select id="countUnreadByRecipient" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_notification
+     WHERE recipient_user_id = #{recipientUserId}
+       AND read_yn           = 'N'
+       AND delete_yn         = 'N'
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.notification.dto.Notification">
+    INSERT INTO tb_notification (
+      notification_id, recipient_user_id, notification_type,
+      title, body, link_url,
+      related_entity, related_id,
+      read_yn, read_at, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{notificationId}, #{recipientUserId}, #{notificationType},
+      #{title}, #{body}, #{linkUrl},
+      #{relatedEntity}, #{relatedId},
+      'N', NULL, 'N',
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="markRead">
+    UPDATE tb_notification
+       SET read_yn    = 'Y',
+           read_at    = NOW(),
+           updated_at = NOW()
+     WHERE notification_id   = #{notificationId}
+       AND recipient_user_id = #{recipientUserId}
+       AND read_yn           = 'N'
+       AND delete_yn         = 'N'
+  </update>
+
+  <update id="markAllReadByRecipient">
+    UPDATE tb_notification
+       SET read_yn    = 'Y',
+           read_at    = NOW(),
+           updated_at = NOW()
+     WHERE recipient_user_id = #{recipientUserId}
+       AND read_yn           = 'N'
+       AND delete_yn         = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_notification
+       SET delete_yn  = 'Y',
+           updated_at = NOW()
+     WHERE notification_id   = #{notificationId}
+       AND recipient_user_id = #{recipientUserId}
+       AND delete_yn         = 'N'
+  </update>
+
+  <update id="adminSoftDelete">
+    UPDATE tb_notification
+       SET delete_yn  = 'Y',
+           updated_at = NOW()
+     WHERE notification_id = #{notificationId}
+       AND delete_yn       = 'N'
+  </update>
+
+  <!--
+    Retention §1: read=Y 이고 read_at < cutoff (기본 90일) 인 알림 일괄 soft delete.
+    아직 미확인 알림(read=N) 은 보존 — 사용자가 못 봤을 수 있어 retention 적용 안 함.
+  -->
+  <update id="softDeleteOldRead">
+    UPDATE tb_notification
+       SET delete_yn  = 'Y',
+           updated_at = NOW()
+     WHERE read_yn    = 'Y'
+       AND delete_yn  = 'N'
+       AND read_at IS NOT NULL
+       AND read_at &lt; #{cutoff}
+  </update>
+
+  <!--
+    Retention §2: delete_yn='Y' (이미 soft 삭제된) + updated_at < cutoff (기본 1년) 인
+    알림 물리 DELETE. soft delete 후 1년이 지나면 감사 가치도 낮으므로 정리.
+  -->
+  <delete id="purgeOldDeleted">
+    DELETE FROM tb_notification
+     WHERE delete_yn  = 'Y'
+       AND updated_at &lt; #{cutoff}
+  </delete>
+
+  <!-- Preview — softDeleteOldRead 가 영향받을 행 수. -->
+  <select id="countOldRead" resultType="long">
+    SELECT COUNT(1)
+      FROM tb_notification
+     WHERE read_yn    = 'Y'
+       AND delete_yn  = 'N'
+       AND read_at IS NOT NULL
+       AND read_at &lt; #{cutoff}
+  </select>
+
+  <!-- Preview — purgeOldDeleted 가 영향받을 행 수. -->
+  <select id="countOldDeleted" resultType="long">
+    SELECT COUNT(1)
+      FROM tb_notification
+     WHERE delete_yn  = 'Y'
+       AND updated_at &lt; #{cutoff}
+  </select>
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_notification
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_notification
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

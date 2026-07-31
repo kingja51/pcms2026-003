@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- ME 학과소개 — 콘텐츠 페이지(정적 템플릿). 메뉴 CONTENT /me/about. IBM Carbon. -->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/IBM/ibm'}__}"
+      lang="ko">
+<head>
+  <title>학과소개</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div class="lg:col-span-7">
+        <p class="cds-tag mb-4">About</p>
+        <h1 class="cds-heading-01">학과소개</h1>
+        <p class="cds-body-01 cds-text-secondary mt-4">
+          미래 기계공학을 선도하는 학과입니다. 열·유체·고체역학, 설계·생산, 로봇·제어, 에너지·재료 등
+          기계공학 전 분야에서 세계적 수준의 교육과 연구를 수행합니다.
+          <strong class="cds-body-02">Future Engineering, Global Innovation.</strong>
+        </p>
+      </div>
+      <div class="lg:col-span-5 grid grid-cols-2 gap-0.5">
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02">14+</p>
+          <p class="cds-caption">전임 교원</p>
+        </div>
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02">10</p>
+          <p class="cds-caption">연구실</p>
+        </div>
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02 cds-text-accent">4</p>
+          <p class="cds-caption">핵심 연구분야</p>
+        </div>
+        <div class="cds-tile cds-layer-01">
+          <p class="cds-display-02 cds-mono">ME</p>
+          <p class="cds-caption">Mechanical Eng.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cds-band cds-band--layer">
+    <div class="cds-band__inner">
+      <h2 class="cds-heading-03 mb-4">교육 목표</h2>
+      <ul class="cds-body-01 cds-text-secondary space-y-2 cds-measure">
+        <li>· 창의적 문제해결 능력을 갖춘 기계공학 전문 인재 양성</li>
+        <li>· 이론과 실무를 겸비한 융합형 엔지니어 교육</li>
+        <li>· 산학협력과 글로벌 연구를 통한 기술 혁신 선도</li>
+        <li>· 지속가능한 미래 기술(에너지·로봇·스마트 제조) 연구</li>
+      </ul>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

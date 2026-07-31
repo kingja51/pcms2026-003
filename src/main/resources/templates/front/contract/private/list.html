@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>수의계약현황</title></head>
+<body>
+<section layout:fragment="content">
+
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold text-fg-strong mb-1">수의계약현황</h1>
+    <p class="text-sm text-fg-subtle">수의계약으로 체결된 계약 내역입니다.</p>
+  </header>
+
+  <form method="get" th:action="@{|/contract/${siteCode}/private|}"
+        class="bg-surface border border-line rounded p-3 mb-4 grid grid-cols-1 md:grid-cols-6 gap-2 text-sm">
+    <input type="hidden" name="ctrtKindCd" th:value="${search.ctrtKindCd}"/>
+    <input type="date" name="ctrtStartYmd" th:value="${search.ctrtStartYmd}" class="border rounded px-2 py-1" title="계약기간 시작"/>
+    <input type="date" name="ctrtEndYmd"   th:value="${search.ctrtEndYmd}"   class="border rounded px-2 py-1" title="계약기간 종료"/>
+    <input type="text" name="ctrtGovNm" th:value="${search.ctrtGovNm}" placeholder="관서명" class="border rounded px-2 py-1"/>
+    <input type="text" name="ctrtNm"    th:value="${search.ctrtNm}"    placeholder="계약명" class="border rounded px-2 py-1"/>
+    <input type="text" name="custNm"    th:value="${search.custNm}"    placeholder="계약대상자" class="border rounded px-2 py-1"/>
+    <button class="bg-gray-90 text-fg-on rounded px-3 py-1 font-semibold">검색</button>
+  </form>
+
+  <div class="text-xs text-fg-subtle mb-2">총 <strong th:text="${page.totalElements}">0</strong>건</div>
+
+  <div class="overflow-x-auto bg-surface rounded border border-line">
+    <table class="min-w-full text-sm">
+      <thead class="bg-surface-subtle">
+        <tr class="text-left text-fg-subtle">
+          <th class="px-3 py-2">번호</th>
+          <th class="px-3 py-2">구분</th>
+          <th class="px-3 py-2">관서명</th>
+          <th class="px-3 py-2">계약명</th>
+          <th class="px-3 py-2 text-right">계약금액</th>
+          <th class="px-3 py-2">계약일</th>
+          <th class="px-3 py-2">계약상대자</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="r, stat : ${page.content}" class="border-t border-line hover:bg-surface-subtle">
+          <td class="px-3 py-2 text-fg-subtle"
+              th:text="${page.totalElements - (page.page - 1) * page.pageSize - stat.count + 1}"></td>
+          <td class="px-3 py-2" th:text="${r.ctrtKind}"></td>
+          <td class="px-3 py-2" th:text="${r.ctrtGovNm}"></td>
+          <td class="px-3 py-2">
+            <a th:href="@{|/contract/${siteCode}/private/${r.ctrtAcctBookMngNo}|}"
+               class="text-secondary-70 hover:underline font-medium" th:text="${r.ctrtNm}"></a>
+          </td>
+          <td class="px-3 py-2 text-right"
+              th:insert="~{front/contract/fragments :: num(${r.ctrtAmt})}">0</td>
+          <td class="px-3 py-2 text-xs text-fg-subtle" th:text="${r.ctrtYmd}"></td>
+          <td class="px-3 py-2" th:text="${r.custNm}"></td>
+        </tr>
+        <tr th:if="${page.content.isEmpty()}">
+          <td colspan="7" class="px-3 py-12 text-center text-fg-disabled">데이터가 없습니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <nav th:replace="~{front/contract/fragments :: pager(|/contract/${siteCode}/private|, ${page}, ${search})}"></nav>
+</section>
+</body>
+</html>

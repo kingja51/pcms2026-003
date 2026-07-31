@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<!-- IBM 데모 — 사이트맵. renderSitemap 이 menuTree(List<MenuTreeNode>)·totalCount 주입. -->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/IBM/ibm'}__}"
+      lang="ko">
+<head>
+  <title>Sitemap</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner">
+      <p class="cds-tag mb-4">Sitemap</p>
+      <h1 class="cds-heading-01">사이트맵</h1>
+      <p class="cds-caption mt-2">총 <span th:text="${totalCount} ?: 0">0</span>개 메뉴</p>
+    </div>
+  </div>
+
+  <div class="cds-band cds-band--layer">
+    <div class="cds-band__inner">
+      <div th:if="${menuTree != null and !#lists.isEmpty(menuTree)}"
+           class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0.5">
+        <div th:each="root : ${menuTree}" class="cds-tile bg-white">
+          <h2 class="cds-heading-04 mb-3">
+            <a th:if="${!#strings.isEmpty(root.linkUrl)}" th:href="@{${root.linkUrl}}"
+               class="cds-link" th:text="${root.menuName}">1차 메뉴</a>
+            <span th:unless="${!#strings.isEmpty(root.linkUrl)}" th:text="${root.menuName}">1차 메뉴</span>
+          </h2>
+          <ul class="space-y-2" th:if="${!#lists.isEmpty(root.children)}">
+            <li th:each="c : ${root.children}">
+              <a th:if="${!#strings.isEmpty(c.linkUrl)}" th:href="@{${c.linkUrl}}"
+                 class="cds-link cds-body-short" th:text="${c.menuName}">2차 메뉴</a>
+              <span th:unless="${!#strings.isEmpty(c.linkUrl)}"
+                    class="cds-body-short cds-text-secondary" th:text="${c.menuName}">2차 메뉴</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div th:unless="${menuTree != null and !#lists.isEmpty(menuTree)}"
+           class="cds-tile bg-white cds-text-secondary cds-body-short">
+        등록된 메뉴가 없습니다. (tb_menu 를 시드하면 자동 노출)
+      </div>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

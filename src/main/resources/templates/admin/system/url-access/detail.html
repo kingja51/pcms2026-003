@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>URL 규칙 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/url-access}" class="hover:underline">URL 접근 규칙</a>
+      <span class="mx-1">/</span>
+      <span>상세</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong font-mono">
+          <span th:text="${rule.httpMethod}">ALL</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${rule.urlPattern}">/admin/**</span>
+        </h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                th:classappend="${rule.accessType == 'PERMIT_ALL' ? 'bg-success-surface text-success-fg' :
+                                  rule.accessType == 'DENY'        ? 'bg-danger-surface text-danger-fg' :
+                                  rule.accessType == 'ROLE'        ? 'bg-secondary-5 text-secondary-70' :
+                                                                     'bg-surface-subtler text-fg'}"
+                th:text="${rule.accessType}">PERMIT_ALL</span>
+          <span class="ml-2">우선순위 <strong class="font-mono" th:text="${rule.priority}">100</strong></span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{|/admin/system/url-access/${rule.roleUrlAccessId}/edit|}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">수정</a>
+        <form th:if="${rule.useYn == 'Y'}" method="post"
+              th:action="@{|/admin/system/url-access/${rule.roleUrlAccessId}/use|}"
+              class="inline">
+          <input type="hidden" name="active" value="false"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-warning-border bg-warning-surface text-warning-fg text-sm hover:bg-warning-10">사용중지</button>
+        </form>
+        <form th:if="${rule.useYn == 'N'}" method="post"
+              th:action="@{|/admin/system/url-access/${rule.roleUrlAccessId}/use|}"
+              class="inline">
+          <input type="hidden" name="active" value="true"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-success-border bg-success-surface text-success-fg text-sm hover:bg-success-10">재개</button>
+        </form>
+        <form method="post" th:action="@{|/admin/system/url-access/${rule.roleUrlAccessId}|}"
+              class="inline" data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+          <input type="hidden" name="_method" value="delete"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-danger-surface text-danger-fg text-sm hover:bg-danger-10">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:if="${message}"
+         class="mb-4 rounded bg-success-surface border border-success-border px-3 py-2 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}"
+         class="mb-4 rounded bg-danger-surface border border-danger-border px-3 py-2 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      <!-- 매칭 조건 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-sm font-semibold text-fg mb-3">매칭 조건</h2>
+        <dl class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">PK</dt>
+          <dd class="font-mono break-all" th:text="${rule.roleUrlAccessId}">-</dd>
+
+          <dt class="text-fg-subtle">우선순위</dt>
+          <dd class="font-mono font-semibold" th:text="${rule.priority}">100</dd>
+
+          <dt class="text-fg-subtle">HTTP 메서드</dt>
+          <dd class="font-mono" th:text="${rule.httpMethod}">ALL</dd>
+
+          <dt class="text-fg-subtle">URL 패턴</dt>
+          <dd class="font-mono break-all" th:text="${rule.urlPattern}">/admin/**</dd>
+
+          <dt class="text-fg-subtle">사이트</dt>
+          <dd class="font-mono">
+            <span th:if="${rule.siteId}" th:text="|${rule.siteCode} (${rule.siteName})|">site</span>
+            <span th:unless="${rule.siteId}" class="text-fg-disabled">— 전역 —</span>
+          </dd>
+        </dl>
+      </div>
+
+      <!-- 접근 유형 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-sm font-semibold text-fg mb-3">접근 유형</h2>
+        <dl class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">access_type</dt>
+          <dd>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                  th:classappend="${rule.accessType == 'PERMIT_ALL' ? 'bg-success-surface text-success-fg' :
+                                    rule.accessType == 'DENY'        ? 'bg-danger-surface text-danger-fg' :
+                                    rule.accessType == 'ROLE'        ? 'bg-secondary-5 text-secondary-70' :
+                                                                       'bg-surface-subtler text-fg'}"
+                  th:text="${rule.accessType}">PERMIT_ALL</span>
+          </dd>
+
+          <dt class="text-fg-subtle">required_roles</dt>
+          <dd class="font-mono break-all text-fg"
+              th:text="${rule.requiredRoles} ?: '—'">-</dd>
+
+          <dt class="text-fg-subtle">required_auths</dt>
+          <dd class="font-mono break-all text-fg"
+              th:text="${rule.requiredAuths} ?: '—'">-</dd>
+
+          <dt class="text-fg-subtle">allowed_user_types</dt>
+          <dd class="font-mono text-fg"
+              th:text="${rule.allowedUserTypes} ?: '—'">-</dd>
+
+          <dt class="text-fg-subtle">allowed_ips</dt>
+          <dd class="font-mono break-all text-fg"
+              th:text="${rule.allowedIps} ?: '—'">-</dd>
+
+          <dt class="text-fg-subtle">CSRF 체크</dt>
+          <dd class="font-mono" th:text="${rule.requireCsrfYn}">Y</dd>
+
+          <dt class="text-fg-subtle">2FA 요구</dt>
+          <dd class="font-mono" th:text="${rule.require2faYn}">N</dd>
+
+          <dt class="text-fg-subtle">사용 여부</dt>
+          <dd>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                  th:classappend="${rule.useYn == 'Y' ? 'bg-success-surface text-success-fg' : 'bg-surface-subtler text-fg-subtle'}"
+                  th:text="${rule.useYn == 'Y'} ? '사용' : '중지'">사용</span>
+          </dd>
+        </dl>
+      </div>
+
+      <!-- 설명 / 메모 -->
+      <div class="bg-surface border border-line rounded-large p-5 lg:col-span-2">
+        <h2 class="text-sm font-semibold text-fg mb-3">설명 / 메모</h2>
+        <dl class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">description</dt>
+          <dd class="break-all" th:text="${rule.description} ?: '—'">-</dd>
+
+          <dt class="text-fg-subtle align-top">remarks</dt>
+          <dd class="break-all whitespace-pre-wrap" th:text="${rule.remarks} ?: '—'">-</dd>
+        </dl>
+      </div>
+
+      <!-- 감사 -->
+      <div class="bg-surface border border-line rounded-large p-5 lg:col-span-2">
+        <h2 class="text-sm font-semibold text-fg mb-3">감사 정보</h2>
+        <dl class="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">created</dt>
+          <dd class="font-mono">
+            <span th:text="${rule.createdBy} ?: '—'">-</span>
+            <span class="text-fg-disabled mx-1">·</span>
+            <span th:text="${rule.createdIp} ?: '—'">-</span>
+            <span class="text-fg-disabled mx-1">·</span>
+            <span th:text="${@fmt.dt(rule.createdAt)}">-</span>
+          </dd>
+
+          <dt class="text-fg-subtle">updated</dt>
+          <dd class="font-mono">
+            <span th:text="${rule.updatedBy} ?: '—'">-</span>
+            <span class="text-fg-disabled mx-1">·</span>
+            <span th:text="${rule.updatedIp} ?: '—'">-</span>
+            <span class="text-fg-disabled mx-1">·</span>
+            <span th:text="${@fmt.dt(rule.updatedAt)}">-</span>
+          </dd>
+        </dl>
+      </div>
+    </div>
+
+  </section>
+</body>
+</html>

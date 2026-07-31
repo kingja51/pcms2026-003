@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|관리자 상세 - ${admin.loginId}|">관리자 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/admin}" class="hover:underline">관리자</a>
+      <span class="mx-1">/</span>
+      <span class="font-mono" th:text="${admin.loginId}">loginId</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong"
+            th:text="${@mask.name(admin.adminName)}">이름(마스킹)</h1>
+        <p class="text-xs text-fg-subtle font-mono mt-1" th:text="${admin.adminId}">uuid</p>
+      </div>
+      <nav aria-label="관리자 작업" class="flex items-center gap-2">
+        <a th:href="@{/admin/system/admin/{id}/allow-ip(id=${admin.adminId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-secondary-30 bg-secondary-5 text-secondary-70 text-sm font-medium hover:bg-secondary-10">
+          허용 IP 관리
+        </a>
+        <a th:href="@{/admin/system/admin/{id}/edit(id=${admin.adminId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+          수정
+        </a>
+        <form th:action="@{/admin/system/admin/{id}(id=${admin.adminId})}"
+              method="post"
+              data-confirm="이 관리자를 탈퇴 처리하시겠습니까? (감사 행 3년 보관)"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="_method" value="delete"/>
+          <input type="hidden" name="reason" value="FORCE"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm font-medium hover:bg-danger-surface">
+            탈퇴처리
+          </button>
+        </form>
+        <button type="button"
+                data-history-back
+                th:attr="data-history-back-fallback=@{/admin/system/admin}"
+                class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          뒤로가기
+        </button>
+        <a th:href="@{/admin/system/admin}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          목록
+        </a>
+      </nav>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <!-- 기본 정보 -->
+      <section aria-labelledby="info-heading"
+               class="bg-surface border border-line rounded-large p-6 md:col-span-2">
+        <h2 id="info-heading"
+            class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">기본 정보</h2>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <div>
+            <dt class="text-fg-subtle">로그인 ID</dt>
+            <dd class="font-mono text-fg-strong" th:text="${admin.loginId}">loginId</dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">관리자 그룹</dt>
+            <dd class="text-fg-strong" th:text="${admin.adminGroupName} ?: '-'">-</dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">이름 (마스킹)</dt>
+            <dd class="text-fg-strong" th:text="${@mask.name(admin.adminName)}">***</dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">이메일 (마스킹)</dt>
+            <dd class="font-mono text-fg" th:text="${@mask.email(admin.email)}">***</dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">전화번호 (마스킹)</dt>
+            <dd class="font-mono text-fg" th:text="${@mask.phone(admin.phone)}">-</dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">부서</dt>
+            <dd class="text-fg" th:text="${admin.departmentName} ?: '-'">-</dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">상태</dt>
+            <dd>
+              <span th:with="st=${admin.status}"
+                    th:class="${st == 'ACTIVE'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg'
+                             : (${st == 'LOCKED'}   ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-surface text-warning-fg'
+                             : (${st == 'INACTIVE'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle'
+                             : 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-danger-surface text-danger-fg'))"
+                    th:text="${@code.label('ADMIN_STATUS', st)}">활성</span>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">2FA</dt>
+            <dd>
+              <span th:if="${admin.twoFactorEnabledYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-5 text-secondary-70">활성</span>
+              <span th:unless="${admin.twoFactorEnabledYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">비활성</span>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">최종 로그인</dt>
+            <dd class="font-mono text-xs text-fg">
+              <span th:text="${@fmt.dt(admin.lastLoginAt)}">-</span>
+              <span class="text-fg-disabled" th:if="${admin.lastLoginIp}"
+                    th:text="|(${@mask.ip(admin.lastLoginIp)})|"></span>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">비밀번호 변경 / 만료</dt>
+            <dd class="font-mono text-xs text-fg">
+              <span th:text="${@fmt.dt(admin.passwordChangedAt)}">-</span>
+              <span class="text-fg-disabled mx-1">/</span>
+              <span th:text="${@fmt.dt(admin.passwordExpireAt)}">-</span>
+            </dd>
+          </div>
+          <div class="sm:col-span-2">
+            <dt class="text-fg-subtle">IP 화이트리스트</dt>
+            <dd class="font-mono text-xs text-fg whitespace-pre-wrap"
+                th:text="${admin.ipWhitelist} ?: '(그룹 정책 상속)'">-</dd>
+          </div>
+          <div class="sm:col-span-2">
+            <dt class="text-fg-subtle mb-1">비고</dt>
+            <dd class="text-fg whitespace-pre-wrap" th:text="${admin.remarks} ?: '-'">-</dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">등록자 / 일시</dt>
+            <dd class="text-fg">
+              <span class="font-mono" th:text="${admin.createdBy}">SYSTEM</span>
+              <span class="text-fg-disabled mx-1">/</span>
+              <span class="font-mono text-xs" th:text="${@fmt.dt(admin.createdAt)}">-</span>
+            </dd>
+          </div>
+          <div>
+            <dt class="text-fg-subtle">수정자 / 일시</dt>
+            <dd class="text-fg">
+              <span class="font-mono" th:text="${admin.updatedBy} ?: '-'">-</span>
+              <span class="text-fg-disabled mx-1">/</span>
+              <span class="font-mono text-xs" th:text="${@fmt.dt(admin.updatedAt)}">-</span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- 역할 정보 -->
+      <section aria-labelledby="role-heading"
+               class="bg-surface border border-line rounded-large p-6">
+        <h2 id="role-heading"
+            class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">직계 역할</h2>
+        <div th:if="${#lists.isEmpty(directRoleIds)}" class="text-sm text-fg-subtle">
+          직접 부여된 역할이 없습니다.
+        </div>
+        <ul th:unless="${#lists.isEmpty(directRoleIds)}" class="space-y-1 text-sm">
+          <li th:each="r : ${roles}" th:if="${#lists.contains(directRoleIds, r.roleId)}"
+              class="flex items-baseline gap-2">
+            <code class="text-xs text-fg-subtle font-mono" th:text="${r.roleCode}">ROLE</code>
+            <span class="text-fg-strong" th:text="${r.roleName}">이름</span>
+          </li>
+        </ul>
+        <p class="text-xs text-fg-disabled mt-4">
+          계층 확장된 전체 role_ids CSV 는 로그인 시 <code>v_user_login</code> 에서 확인.
+        </p>
+      </section>
+
+      <!-- 잠금 상태 / 해제 -->
+      <section aria-labelledby="lock-heading"
+               class="bg-surface border border-line rounded-large p-6">
+        <h2 id="lock-heading"
+            class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">계정 잠금</h2>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-3">
+          <dt class="text-fg-subtle">로그인 실패</dt>
+          <dd class="text-fg-strong" th:text="${admin.loginFailCount} ?: 0">0</dd>
+          <dt class="text-fg-subtle">잠금 해제 시각</dt>
+          <dd class="font-mono text-xs text-fg"
+              th:text="${@fmt.dt(admin.lockedUntil)}">-</dd>
+        </dl>
+        <div th:with="locked=${admin.lockedUntil != null and admin.lockedUntil.isAfter(T(java.time.LocalDateTime).now())}">
+          <p th:if="${locked}"
+             class="mb-3 rounded border border-warning-border bg-warning-surface px-3 py-2 text-xs text-warning-fg">
+            현재 잠금 상태 — 사용자가 5회 로그인 실패로 자동 잠겼습니다.
+            잠금 해제 시각까지 대기하거나 아래 버튼으로 즉시 해제할 수 있습니다.
+          </p>
+          <form th:action="@{/admin/system/admin/{id}/unlock(id=${admin.adminId})}"
+                method="post"
+                data-confirm="계정 잠금을 해제합니다. 진행하시겠습니까?"
+                class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit"
+                    th:disabled="${!locked and admin.loginFailCount == null || admin.loginFailCount == 0}"
+                    class="inline-flex items-center px-3 py-1.5 rounded border border-warning-border bg-surface text-warning-fg text-sm font-medium hover:bg-warning-surface disabled:opacity-50 disabled:cursor-not-allowed">
+              잠금 해제 (실패 카운트 0 초기화)
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- 비밀번호 재설정 -->
+      <section aria-labelledby="pwd-heading"
+               class="bg-surface border border-line rounded-large p-6">
+        <h2 id="pwd-heading"
+            class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">비밀번호 재설정</h2>
+        <form th:action="@{/admin/system/admin/{id}/reset-password(id=${admin.adminId})}"
+              method="post" class="space-y-3">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <label for="newPassword" class="block text-sm font-medium text-fg">새 비밀번호</label>
+          <input id="newPassword" type="password" name="newPassword"
+                 minlength="10" maxlength="100" required autocomplete="new-password"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+          <p class="text-xs text-fg-subtle">10자 이상. 저장 시 이력(tb_admin_password_history) 에 적재.</p>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">
+            재설정
+          </button>
+        </form>
+      </section>
+
+    </div>
+  </section>
+</body>
+</html>

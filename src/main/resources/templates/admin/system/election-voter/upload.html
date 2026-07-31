@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>선거인명부 파일 업로드</title>
+</head>
+<body>
+<div layout:fragment="content" class="p-6 space-y-4">
+
+  <!-- 헤더 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <div class="text-xs text-fg-disabled mb-1">
+        <a th:href="@{/admin/system/election-voter}" class="hover:text-fg-subtle">선거인명부</a>
+        <span class="mx-1">›</span>
+        <span>파일 업로드</span>
+      </div>
+      <h1 class="text-xl font-bold text-fg-strong">선거인명부 일괄 등록</h1>
+      <p class="text-sm text-fg-subtle mt-1">
+        CSV / DAT 파일 업로드 — MyBatis BATCH 1000건 chunk commit. 10만 건 ≈ 5~15초
+      </p>
+    </div>
+    <a th:href="@{/admin/system/election-voter}"
+       class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+      ← 목록으로
+    </a>
+  </div>
+
+  <div th:if="${message}" class="rounded bg-success-surface text-success-fg px-3 py-2 text-sm border border-success-border"
+       th:text="${message}">완료</div>
+  <div th:if="${error}" class="rounded bg-danger-surface text-danger-fg px-3 py-2 text-sm border border-danger-border"
+       th:text="${error}">오류</div>
+
+  <!-- 업로드 폼 -->
+  <section class="bg-surface rounded-large shadow-sm border border-line p-5">
+    <h2 class="text-base font-semibold text-fg-strong mb-3">파일 업로드</h2>
+    <form th:action="@{/admin/system/election-voter/upload}" method="post"
+          enctype="multipart/form-data" class="space-y-3">
+      <div>
+        <label class="block text-xs text-fg-subtle mb-0.5">
+          파일 선택 <span class="text-danger-fg">*</span>
+          <span class="text-fg-disabled ml-1">(.csv 또는 .dat)</span>
+        </label>
+        <input type="file" name="file" accept=".csv,.dat" required
+               class="block w-full text-sm text-fg file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-gray-70 file:text-fg-on file:text-sm hover:file:bg-gray-80"/>
+      </div>
+      <button type="submit"
+              class="inline-flex items-center px-4 py-2 rounded bg-success-50 text-fg-on text-sm hover:bg-success-60">
+        📤 업로드 시작
+      </button>
+      <p class="text-xs text-fg-disabled">
+        DB 현재 행 수: <span class="font-mono font-semibold"
+                          th:text="${#numbers.formatInteger(totalAll ?: 0, 0, 'COMMA')}">0</span>건
+      </p>
+    </form>
+  </section>
+
+  <!-- 결과 -->
+  <section th:if="${result}"
+           class="bg-surface rounded-large shadow-sm border border-line p-5">
+    <h2 class="text-base font-semibold text-fg-strong mb-3">처리 결과</h2>
+    <dl class="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+      <div class="rounded border border-line p-3">
+        <div class="text-xs text-fg-subtle">파일명</div>
+        <div class="text-sm text-fg-strong font-mono break-all" th:text="${result.fileName}">file.csv</div>
+      </div>
+      <div class="rounded border border-line p-3">
+        <div class="text-xs text-fg-subtle">파일 크기</div>
+        <div class="text-sm text-fg-strong"
+             th:text="|${#numbers.formatInteger(result.fileSizeBytes, 0, 'COMMA')} byte|">0 byte</div>
+      </div>
+      <div class="rounded border border-line p-3">
+        <div class="text-xs text-fg-subtle">총 처리</div>
+        <div class="text-lg font-semibold text-fg-strong"
+             th:text="${#numbers.formatInteger(result.totalRows, 0, 'COMMA')}">0</div>
+      </div>
+      <div class="rounded border border-success-border bg-success-surface p-3">
+        <div class="text-xs text-success-fg">성공</div>
+        <div class="text-lg font-semibold text-success-fg"
+             th:text="${#numbers.formatInteger(result.successRows, 0, 'COMMA')}">0</div>
+      </div>
+      <div th:class="${result.failRows > 0} ? 'rounded border border-danger-border bg-danger-surface p-3' : 'rounded border border-line p-3'">
+        <div th:class="${result.failRows > 0} ? 'text-xs text-danger-fg' : 'text-xs text-fg-subtle'">실패</div>
+        <div th:class="${result.failRows > 0} ? 'text-lg font-semibold text-danger-fg' : 'text-lg font-semibold text-fg-strong'"
+             th:text="${#numbers.formatInteger(result.failRows, 0, 'COMMA')}">0</div>
+      </div>
+    </dl>
+    <div class="mt-3 text-xs text-fg-subtle">
+      처리 시간: <span class="font-mono font-semibold"
+                  th:text="|${#numbers.formatInteger(result.elapsedMs, 0, 'COMMA')} ms|">0 ms</span>
+    </div>
+
+    <!-- 실패 샘플 -->
+    <div th:if="${result.failureSamples != null and !result.failureSamples.isEmpty()}"
+         class="mt-4">
+      <h3 class="text-sm font-semibold text-danger-fg mb-2">
+        실패 샘플 (앞 <span th:text="${result.failureSamples.size()}">0</span>건)
+      </h3>
+      <div class="bg-danger-surface border border-danger-border rounded p-3 font-mono text-xs text-danger-fg max-h-64 overflow-y-auto">
+        <div th:each="line : ${result.failureSamples}" th:text="${line}">L3: 사유</div>
+      </div>
+      <p class="text-xs text-fg-disabled mt-1">※ 전체 실패 내역은 서버 로그 (===VOTER_IMPORT_ROW_FAIL) 확인</p>
+    </div>
+  </section>
+
+  <!-- 헤더 형태 — 4가지 중 1개만 허용 (강조) -->
+  <section class="bg-warning-surface rounded-large border-2 border-warning-30 p-5">
+    <h2 class="text-base font-bold text-warning-fg mb-3 flex items-center gap-2">
+      ⚠️ 1행 헤더는 <span class="px-2 py-0.5 rounded bg-warning-10 text-warning-fg">아래 4가지 중 1가지</span> 형태로만 입력
+    </h2>
+    <p class="text-xs text-warning-fg mb-3">
+      컬럼 순서는 <strong>아래 9개 그대로 고정</strong>입니다. 순서가 다르면 적재 실패합니다.
+    </p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <!-- CSV 영문 -->
+      <div class="bg-surface rounded border border-warning-border p-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-bold text-success-fg">① CSV (,) · 영문</span>
+          <span class="text-[10px] text-fg-disabled font-mono">.csv</span>
+        </div>
+        <div class="font-mono text-[11px] text-fg-strong break-all leading-relaxed">
+          birth_date,resident_no_suffix,voter_name,gender,voting_district,polling_place,legal_dong_name,register_no,polling_location
+        </div>
+      </div>
+
+      <!-- CSV 한글 -->
+      <div class="bg-surface rounded border border-warning-border p-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-bold text-success-fg">② CSV (,) · 한글</span>
+          <span class="text-[10px] text-fg-disabled font-mono">.csv</span>
+        </div>
+        <div class="font-mono text-[11px] text-fg-strong break-all leading-relaxed">
+          선거인생년월일,주민등록번호끝3자리,선거인명,선거인성별,투표지구,투표장소,법정동명,등재번호,투표장소주소
+        </div>
+      </div>
+
+      <!-- DAT 영문 -->
+      <div class="bg-surface rounded border border-warning-border p-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-bold text-info-fg">③ DAT (|) · 영문</span>
+          <span class="text-[10px] text-fg-disabled font-mono">.dat</span>
+        </div>
+        <div class="font-mono text-[11px] text-fg-strong break-all leading-relaxed">
+          birth_date|resident_no_suffix|voter_name|gender|voting_district|polling_place|legal_dong_name|register_no|polling_location
+        </div>
+      </div>
+
+      <!-- DAT 한글 -->
+      <div class="bg-surface rounded border border-warning-border p-3">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-xs font-bold text-info-fg">④ DAT (|) · 한글</span>
+          <span class="text-[10px] text-fg-disabled font-mono">.dat</span>
+        </div>
+        <div class="font-mono text-[11px] text-fg-strong break-all leading-relaxed">
+          선거인생년월일|주민등록번호끝3자리|선거인명|선거인성별|투표지구|투표장소|법정동명|등재번호|투표장소주소
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 컬럼별 상세 + 검증 규칙 -->
+  <section class="bg-surface-subtle rounded-large border border-line p-5">
+    <h2 class="text-sm font-semibold text-fg mb-3">📋 컬럼 상세</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-xs">
+        <thead class="bg-surface-subtler text-left text-fg-subtle">
+          <tr>
+            <th class="px-2 py-1.5">#</th>
+            <th class="px-2 py-1.5">영문 컬럼명</th>
+            <th class="px-2 py-1.5">한글 컬럼명</th>
+            <th class="px-2 py-1.5 text-center">필수</th>
+            <th class="px-2 py-1.5">설명/검증</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line">
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">1</td>
+            <td class="px-2 py-1.5 font-mono">birth_date</td>
+            <td class="px-2 py-1.5">선거인생년월일</td>
+            <td class="px-2 py-1.5 text-center"><span class="text-danger-fg font-bold">●</span></td>
+            <td class="px-2 py-1.5 text-fg-subtle">YYMMDD(6) 또는 YYYYMMDD(8) 숫자. YYYY-MM-DD / YYYY.MM.DD 도 허용 (자동 정규화)</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">2</td>
+            <td class="px-2 py-1.5 font-mono">resident_no_suffix</td>
+            <td class="px-2 py-1.5">주민등록번호끝3자리</td>
+            <td class="px-2 py-1.5 text-center"><span class="text-danger-fg font-bold">●</span></td>
+            <td class="px-2 py-1.5 text-fg-subtle">숫자 3자리</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">3</td>
+            <td class="px-2 py-1.5 font-mono">voter_name</td>
+            <td class="px-2 py-1.5">선거인명</td>
+            <td class="px-2 py-1.5 text-center"><span class="text-danger-fg font-bold">●</span></td>
+            <td class="px-2 py-1.5 text-fg-subtle">성명 평문 (저장 시 AES-256-GCM 암호화)</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">4</td>
+            <td class="px-2 py-1.5 font-mono">gender</td>
+            <td class="px-2 py-1.5">선거인성별</td>
+            <td class="px-2 py-1.5 text-center"><span class="text-danger-fg font-bold">●</span></td>
+            <td class="px-2 py-1.5 text-fg-subtle">M / F · 남 / 여 · MALE / FEMALE · 남자 / 여자 모두 허용</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">5</td>
+            <td class="px-2 py-1.5 font-mono">voting_district</td>
+            <td class="px-2 py-1.5">투표지구</td>
+            <td class="px-2 py-1.5 text-center"><span class="text-danger-fg font-bold">●</span></td>
+            <td class="px-2 py-1.5 text-fg-subtle">예: 제1투표구</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">6</td>
+            <td class="px-2 py-1.5 font-mono">polling_place</td>
+            <td class="px-2 py-1.5">투표장소</td>
+            <td class="px-2 py-1.5 text-center"><span class="text-danger-fg font-bold">●</span></td>
+            <td class="px-2 py-1.5 text-fg-subtle">예: 종로구민회관</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">7</td>
+            <td class="px-2 py-1.5 font-mono">legal_dong_name</td>
+            <td class="px-2 py-1.5">법정동명</td>
+            <td class="px-2 py-1.5 text-center text-gray-30">○</td>
+            <td class="px-2 py-1.5 text-fg-subtle">선택</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">8</td>
+            <td class="px-2 py-1.5 font-mono">register_no</td>
+            <td class="px-2 py-1.5">등재번호</td>
+            <td class="px-2 py-1.5 text-center text-gray-30">○</td>
+            <td class="px-2 py-1.5 text-fg-subtle">선거관리위원회 명부 등재번호 (선택)</td>
+          </tr>
+          <tr>
+            <td class="px-2 py-1.5 text-fg-disabled">9</td>
+            <td class="px-2 py-1.5 font-mono">polling_location</td>
+            <td class="px-2 py-1.5">투표장소주소</td>
+            <td class="px-2 py-1.5 text-center text-gray-30">○</td>
+            <td class="px-2 py-1.5 text-fg-subtle">예: 종로구민회관 2층 (선택)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2 class="text-sm font-semibold text-fg mt-5 mb-2">⚙️ 처리 규칙</h2>
+    <ul class="text-xs text-fg-subtle space-y-1 list-disc list-inside">
+      <li>인코딩: <strong>UTF-8</strong> (BOM 허용) 또는 <strong>CP949(MS949) / EUC-KR</strong> — 첫 줄 sniffing 으로 자동 감지</li>
+      <li>구분자는 <strong>확장자로 자동 결정</strong>: <code>.csv</code> → 쉼표(,) / <code>.dat</code> → 파이프(|)</li>
+      <li>MyBatis BATCH 1000건 단위 chunk commit — 10만 건 ≈ 5~15초</li>
+      <li>1행 실패는 다른 행 처리를 막지 않음 (부분 적재). 실패 사유는 화면 + 서버 로그에 기록</li>
+      <li>모든 PII (성명/생년월일/주민번호 끝3자리)는 <strong>AES-256-GCM 암호화 저장</strong> + 검색용 HMAC-SHA256 hash 동시 생성</li>
+    </ul>
+
+    <h2 class="text-sm font-semibold text-fg mt-5 mb-2">📝 데이터 행 예시</h2>
+    <div class="bg-surface border border-line rounded p-2 font-mono text-xs text-fg overflow-x-auto space-y-2">
+      <div>
+        <div class="text-[10px] text-fg-disabled mb-0.5">CSV ① 영문 헤더 + 1행</div>
+        <div>birth_date,resident_no_suffix,voter_name,gender,voting_district,polling_place,legal_dong_name,register_no,polling_location</div>
+        <div>19800101,123,홍길동,M,제1투표구,종로구민회관,종로1가,A-001,종로구민회관 2층</div>
+      </div>
+      <div>
+        <div class="text-[10px] text-fg-disabled mb-0.5">DAT ④ 한글 헤더 + 1행</div>
+        <div>선거인생년월일|주민등록번호끝3자리|선거인명|선거인성별|투표지구|투표장소|법정동명|등재번호|투표장소주소</div>
+        <div>19800101|123|홍길동|남|제1투표구|종로구민회관|종로1가|A-001|종로구민회관 2층</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

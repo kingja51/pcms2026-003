@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>라이프사이클 모니터링</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <span>라이프사이클</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">라이프사이클 모니터링</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          기준 시각 <span th:text="${#temporals.format(now, 'yyyy-MM-dd HH:mm:ss')}">2026-05-10 12:00:00</span>
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================
+         소프트 삭제 retention (매일 04:30) — bucket 별 cutoff
+         ============================================================ -->
+    <section class="mb-10">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-lg font-semibold text-fg-strong">
+            소프트 삭제 retention
+            <span class="text-xs text-fg-subtle ml-2">매일 04:30 · cron <code>SoftDeleteRetentionScheduler</code></span>
+          </h2>
+          <p class="text-sm text-fg-subtle mt-1">
+            <code>delete_yn='Y'</code> 행을 bucket 보존 기간(DAYS_1 / DAYS_30 / DAYS_90 / DAYS_180) 후 hard delete.
+            만료 후보 합계 <strong class="text-fg-strong" th:text="${retentionTotal}">0</strong> 건.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <span th:if="${retentionEnabled}" class="px-2 py-1 rounded bg-success-surface text-success-fg border border-success-border">enabled</span>
+          <span th:unless="${retentionEnabled}" class="px-2 py-1 rounded bg-surface-subtler text-fg-subtle border border-line">disabled</span>
+          <span th:if="${retentionDryRun}" class="px-2 py-1 rounded bg-warning-surface text-warning-fg border border-warning-border">dry-run</span>
+          <span th:unless="${retentionDryRun}" class="px-2 py-1 rounded bg-danger-surface text-danger-fg border border-danger-border">실 삭제</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto border border-line rounded bg-surface">
+        <table class="w-full text-sm">
+          <thead class="bg-surface-subtle text-fg-subtle text-xs uppercase">
+            <tr>
+              <th class="text-left px-3 py-2">테이블</th>
+              <th class="text-left px-3 py-2">bucket</th>
+              <th class="text-left px-3 py-2">cutoff</th>
+              <th class="text-right px-3 py-2">만료 후보</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="r : ${retentionRows}" class="border-t border-divider">
+              <td class="px-3 py-2 font-mono text-fg-strong" th:text="${r.tableName}">tb_xxx</td>
+              <td class="px-3 py-2 text-fg" th:text="${r.bucket}">DAYS_30</td>
+              <td class="px-3 py-2 text-fg-subtle"
+                  th:text="${#temporals.format(r.cutoff, 'yyyy-MM-dd HH:mm')}">2026-04-10 12:00</td>
+              <td class="px-3 py-2 text-right font-mono"
+                  th:classappend="${r.candidates &gt; 0} ? 'text-warning-fg font-semibold' : 'text-fg-disabled'"
+                  th:text="${r.candidates &lt; 0} ? 'ERROR' : ${r.candidates}">0</td>
+            </tr>
+            <tr th:if="${retentionRows == null or retentionRows.empty}">
+              <td colspan="4" class="px-3 py-6 text-center text-fg-subtle">
+                등록된 RetentionTarget 빈이 없습니다.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         탈퇴 만료 영구 삭제 (매일 04:45) — retention_expire_at 기준
+         ============================================================ -->
+    <section class="mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="text-lg font-semibold text-fg-strong">
+            탈퇴 만료 영구 삭제
+            <span class="text-xs text-fg-subtle ml-2">매일 04:45 · cron <code>WithdrawPurgeScheduler</code></span>
+          </h2>
+          <p class="text-sm text-fg-subtle mt-1">
+            <code>tb_*_withdraw.retention_expire_at &lt;= now</code> 인 행 hard delete (PII 영구 제거).
+            만료 후보 합계 <strong class="text-fg-strong" th:text="${withdrawTotal}">0</strong> 건.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 text-xs">
+          <span th:if="${withdrawEnabled}" class="px-2 py-1 rounded bg-success-surface text-success-fg border border-success-border">enabled</span>
+          <span th:unless="${withdrawEnabled}" class="px-2 py-1 rounded bg-surface-subtler text-fg-subtle border border-line">disabled</span>
+          <span th:if="${withdrawDryRun}" class="px-2 py-1 rounded bg-warning-surface text-warning-fg border border-warning-border">dry-run</span>
+          <span th:unless="${withdrawDryRun}" class="px-2 py-1 rounded bg-danger-surface text-danger-fg border border-danger-border">실 삭제</span>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto border border-line rounded bg-surface">
+        <table class="w-full text-sm">
+          <thead class="bg-surface-subtle text-fg-subtle text-xs uppercase">
+            <tr>
+              <th class="text-left px-3 py-2">테이블</th>
+              <th class="text-left px-3 py-2">기준</th>
+              <th class="text-left px-3 py-2">cutoff</th>
+              <th class="text-right px-3 py-2">만료 후보</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="r : ${withdrawRows}" class="border-t border-divider">
+              <td class="px-3 py-2 font-mono text-fg-strong" th:text="${r.tableName}">tb_*_withdraw</td>
+              <td class="px-3 py-2 text-fg" th:text="${r.bucket}">expire_at_based</td>
+              <td class="px-3 py-2 text-fg-subtle"
+                  th:text="${#temporals.format(r.cutoff, 'yyyy-MM-dd HH:mm')}">2026-05-10 12:00</td>
+              <td class="px-3 py-2 text-right font-mono"
+                  th:classappend="${r.candidates &gt; 0} ? 'text-warning-fg font-semibold' : 'text-fg-disabled'"
+                  th:text="${r.candidates &lt; 0} ? 'ERROR' : ${r.candidates}">0</td>
+            </tr>
+            <tr th:if="${withdrawRows == null or withdrawRows.empty}">
+              <td colspan="4" class="px-3 py-6 text-center text-fg-subtle">
+                등록된 WithdrawPurgeTarget 빈이 없습니다.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="text-xs text-fg-subtle mt-3 leading-relaxed">
+        ▸ 회원 — 휴면 1년 → 탈퇴(<code>DORMANT_EXPIRED</code>) → 1년 후 영구 삭제 (PIPA §29 정합)<br>
+        ▸ 관리자/직원 — GoPCMS 운영 컨텍스트에서 1년 권고 (실제 퇴사·노동법 보존 의무는 MIS 가 담당)<br>
+        ▸ 도메인별 / 사이트별 차별 정책은 <code>retention_expire_at</code> 부여만 조정하면 그대로 적용
+      </p>
+    </section>
+
+    <section class="p-4 border border-line rounded bg-surface-subtle">
+      <h3 class="text-sm font-semibold text-fg-strong mb-2">설정 변경</h3>
+      <p class="text-xs text-fg-subtle leading-relaxed">
+        <code>application.yml</code> 의 <code>gopcms.retention.*</code> 와 <code>gopcms.lifecycle.withdraw-purge.*</code> 에서
+        <code>enabled / cron / dry-run / buckets</code> 조정 후 재배포. dry-run=true 상태에서 본 화면의 만료 후보 카운트가
+        예상치와 일치하는지 1~2주 검증 후 false 전환 권고.
+      </p>
+    </section>
+
+  </section>
+</body>
+</html>

@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<!--
+  ★ 사이트 홈 샘플(서식) — templates/samples/home.html
+  · SiteTemplateScaffolder 가 새 사이트 폴더({html-root}/{siteCode}/)로 복사하는 원본.
+    복사 후 각 학과가 자기 내용으로 수정한다(아래 데이터는 전부 DB 주입이라 수정 없이도
+    학과별로 다르게 렌더됨).
+  · 데이터 주입(DefaultUsrController, 하드코딩 없음):
+      bannersByLocation  — tb_banner location 맵(캐러셀 = MAIN_CAROUSEL, 관리자 배너에서 등록)
+      articlesByBbs      — 게시판별 최근 글 10건(Map<bbsCode, List>), siteBoards = 게시판 목록
+      upcomingSchedules  — 진행 중+향후 90일 일정 10건, scheduleMasters = 일정 마스터
+      siteContext        — 사이트/메뉴(GNB·푸터는 레이아웃이 menuTree 로 렌더)
+  · KRDS 시맨틱 토큰만(raw hex 금지). 캐러셀 배너 0건이면 정적 히어로 폴백.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>Home</title>
+  <link rel="stylesheet" th:href="@{/css/banner-carousel.css}"/>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <!-- ══ 히어로 — MAIN_CAROUSEL 배너 캐러셀(관리자 배너 등록 시), 없으면 정적 히어로 ══ -->
+  <th:block th:with="heroBanners=${bannersByLocation != null ? bannersByLocation.get('MAIN_CAROUSEL') : null}">
+    <th:block th:if="${heroBanners != null and !heroBanners.isEmpty()}"
+              th:replace="~{fragments/banner-carousel :: carousel('MAIN_CAROUSEL', ${bannersByLocation})}"/>
+    <div th:if="${heroBanners == null or heroBanners.isEmpty()}" class="bg-surface border-b border-line">
+      <div class="max-w-content mx-auto px-4 py-16">
+        <p class="text-label-md text-fg-subtle mb-3">Konyang University</p>
+        <h1 class="text-display-md font-bold text-fg-strong"
+            th:text="${siteContext?.site?.siteName} ?: ${siteCode}">학과명</h1>
+        <p class="text-body-lg text-fg-subtle mt-4 max-w-2xl"
+           th:text="${siteContext?.site?.description} ?: '학과 홈페이지입니다.'">학과 소개 문구</p>
+        <div class="mt-8 flex flex-wrap gap-2">
+          <a th:href="@{/prg/faculty/{sc}(sc=${siteCode})}" class="krds-btn krds-btn-primary">교수진 보기</a>
+          <a th:href="@{/{sc}/about(sc=${siteCode})}" class="krds-btn krds-btn-tertiary">학과소개</a>
+        </div>
+      </div>
+    </div>
+  </th:block>
+
+  <!-- ══ 바로가기 타일 — KY 학과형 표준 메뉴셋 ══ -->
+  <div class="max-w-content mx-auto px-4 py-12">
+    <h2 class="text-heading-lg font-bold text-fg-strong mb-6">바로가기</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <a th:href="@{/prg/faculty/{sc}(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">교수진</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Faculty — 전임 교원 소개</p>
+      </a>
+      <a th:href="@{/bbs/{sc}/curriculum(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">교육과정</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Curriculum — 교육과정 안내</p>
+      </a>
+      <a th:href="@{/bbs/{sc}/admission(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">입학안내</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Admission — 입학 안내</p>
+      </a>
+      <a th:href="@{/bbs/{sc}/job(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">진로·취업</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Career — 진로 및 취업 정보</p>
+      </a>
+    </div>
+  </div>
+
+  <!-- ══ 게시판 최근 글 — 공지사항·학과소식 2열(각 최대 10건, articlesByBbs 주입).
+       다른 게시판을 노출하려면 code 만 바꾸면 됨(articlesByBbs['gallery'] 등) ══ -->
+  <div class="bg-surface-subtle border-t border-line">
+    <div class="max-w-content mx-auto px-4 py-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div th:replace="~{:: boardList('notice', '공지사항')}"></div>
+      <div th:replace="~{:: boardList('news', '학과소식')}"></div>
+    </div>
+  </div>
+
+  <!-- ══ 학사일정 — 진행 중 + 다가오는 일정 10건(upcomingSchedules 주입) ══ -->
+  <div class="max-w-content mx-auto px-4 py-12">
+    <div class="flex items-baseline justify-between mb-4">
+      <h2 class="text-heading-lg font-bold text-fg-strong">학사일정</h2>
+      <a th:if="${scheduleMasters != null and !#lists.isEmpty(scheduleMasters)}"
+         th:href="@{/schedule/{mid}/calendar(mid=${scheduleMasters[0].scheduleMasterId})}"
+         class="text-body-sm text-primary-60 hover:underline">전체 일정 →</a>
+    </div>
+    <ul th:if="${upcomingSchedules != null and !#lists.isEmpty(upcomingSchedules)}"
+        class="bg-surface border border-line rounded-large divide-y divide-line">
+      <li th:each="s : ${upcomingSchedules}" class="flex items-baseline gap-4 px-5 py-2.5">
+        <span class="text-body-sm font-bold text-primary-60 shrink-0 w-24"
+              th:text="${#temporals.format(s.startAt, 'MM.dd')} + (${s.endAt != null and !#temporals.format(s.startAt,'MMdd').equals(#temporals.format(s.endAt,'MMdd'))} ? ' ~ ' + ${#temporals.format(s.endAt, 'MM.dd')} : '')">03.02</span>
+        <span class="text-body-md text-fg truncate" th:text="${s.scheduleTitle}">일정</span>
+        <span th:if="${s.location}" class="text-body-xs text-fg-subtle shrink-0 ml-auto" th:text="${s.location}">장소</span>
+      </li>
+    </ul>
+    <div th:unless="${upcomingSchedules != null and !#lists.isEmpty(upcomingSchedules)}"
+         class="bg-surface border border-line rounded-large px-5 py-8 text-body-sm text-fg-subtle text-center">
+      등록된 일정이 없습니다.
+    </div>
+  </div>
+
+</section>
+
+<!-- 게시판 최근 글 컬럼(로컬 fragment) — content 밖이라 레이아웃 출력에 직접 포함되지 않음.
+     code: bbs_code, title: 표시명. 다른 게시판 노출 시 호출부 code/title 만 교체. -->
+<div th:fragment="boardList(code, title)"
+     th:with="articles=${articlesByBbs != null ? articlesByBbs.get(code) : null}">
+  <div class="flex items-baseline justify-between mb-4">
+    <h2 class="text-heading-lg font-bold text-fg-strong" th:text="${title}">공지사항</h2>
+    <a th:href="@{/bbs/{sc}/{code}(sc=${siteCode}, code=${code})}"
+       class="text-body-sm text-primary-60 hover:underline">전체 보기 →</a>
+  </div>
+  <ul th:if="${articles != null and !#lists.isEmpty(articles)}"
+      class="bg-surface border border-line rounded-large divide-y divide-line">
+    <li th:each="a : ${articles}">
+      <a th:href="@{/bbs/{sc}/{code}/{id}(sc=${siteCode}, code=${code}, id=${a.articleId})}"
+         class="flex items-baseline justify-between gap-4 px-5 py-2.5 hover:bg-surface-subtle">
+        <span class="text-body-md text-fg truncate" th:text="${a.title}">제목</span>
+        <span class="text-body-xs text-fg-subtle shrink-0" th:text="${@fmt.d(a.createdAt)}">2026-07-07</span>
+      </a>
+    </li>
+  </ul>
+  <div th:unless="${articles != null and !#lists.isEmpty(articles)}"
+       class="bg-surface border border-line rounded-large px-5 py-8 text-body-sm text-fg-subtle text-center">
+    등록된 글이 없습니다.
+  </div>
+</div>
+
+<th:block layout:fragment="scripts">
+  <script th:src="@{/js/carousel.js}" th:attr="nonce=${cspNonce}" defer></script>
+</th:block>
+</body>
+</html>

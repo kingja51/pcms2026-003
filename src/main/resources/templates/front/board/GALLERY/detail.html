@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${article.title} + ' — ' + ${master.bbsName}">카드뉴스</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* 구조적 스타일만 유지 — 색은 KRDS CSS 변수 (Design.md §2) */
+
+    /* 포토 갤러리 캐러셀 — bbs-gallery-carousel.js 가 참조하는 훅 클래스 */
+    .gd-carousel {
+      position: relative;
+      margin: 24px 0;
+      border-radius: var(--radius-xlarge);
+      overflow: hidden;
+      background: var(--color-gray-95);
+      box-shadow: var(--shadow-e3);
+    }
+    .gd-carousel__viewport {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+    }
+    .gd-carousel__track {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      transition: transform .45s cubic-bezier(.22, .61, .36, 1);
+      will-change: transform;
+    }
+    .gd-slide {
+      flex: 0 0 100%;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--color-gray-95);
+      cursor: zoom-in;
+      border: 0;
+      padding: 0;
+    }
+    .gd-slide img {
+      width: 100%; height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+    .gd-slide__caption {
+      position: absolute; left: 0; right: 0; bottom: 0;
+      padding: 12px 16px;
+      color: var(--c-fg-on);
+      font-size: var(--text-body-xs);
+      background: linear-gradient(to top, color-mix(in srgb, var(--color-gray-100) 85%, transparent) 0%, transparent 100%);
+      pointer-events: none;
+      text-align: left;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .gd-slide__num {
+      position: absolute; top: 8px; left: 8px;
+      padding: 2px 10px;
+      border-radius: var(--radius-small);
+      background: color-mix(in srgb, var(--color-gray-95) 72%, transparent);
+      color: var(--c-fg-on);
+      font-size: 12px;
+      font-weight: 700;
+      backdrop-filter: blur(4px);
+      font-variant-numeric: tabular-nums;
+    }
+    .gd-carousel__nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 40px; height: 40px;
+      border-radius: var(--radius-medium);
+      background: color-mix(in srgb, var(--c-surface) 85%, transparent);
+      border: 0;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 700; color: var(--c-fg-strong);
+      box-shadow: var(--shadow-e2);
+      transition: background .15s, transform .15s;
+      z-index: 2;
+    }
+    .gd-carousel__nav:hover { background: var(--c-surface); transform: translateY(-50%) scale(1.05); }
+    .gd-carousel__nav:disabled { opacity: .35; cursor: not-allowed; }
+    .gd-carousel__nav--prev { left: 12px; }
+    .gd-carousel__nav--next { right: 12px; }
+    .gd-carousel__dots {
+      position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 4px;
+      z-index: 2;
+    }
+    .gd-carousel__dot {
+      width: 8px; height: 8px;
+      border-radius: var(--radius-max); /* 점 — 원형 허용 */
+      background: color-mix(in srgb, var(--c-fg-on) 45%, transparent);
+      border: 0;
+      cursor: pointer;
+      padding: 0;
+      transition: background .15s, width .2s;
+    }
+    .gd-carousel__dot.is-active {
+      background: var(--c-fg-on);
+      width: 22px;
+    }
+    .gd-carousel__thumbs {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: var(--c-surface-subtle);
+      overflow-x: auto;
+      scrollbar-width: thin;
+    }
+    .gd-carousel__thumb {
+      flex: 0 0 auto;
+      width: 80px; height: 60px;
+      border-radius: var(--radius-medium);
+      overflow: hidden;
+      border: 2px solid transparent;
+      background: var(--c-surface-subtler);
+      padding: 0;
+      cursor: pointer;
+      transition: border-color .15s, transform .15s;
+    }
+    .gd-carousel__thumb img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .gd-carousel__thumb.is-active { border-color: var(--brand-50); }
+    .gd-carousel__thumb:hover { transform: translateY(-1px); }
+
+    /* 라이트박스 — bbs-gallery-carousel.js 가 참조하는 훅 클래스 */
+    .gd-lightbox {
+      position: fixed; inset: 0;
+      background: var(--c-dim);
+      display: none;
+      align-items: center; justify-content: center;
+      z-index: 1000;
+    }
+    .gd-lightbox.is-open { display: flex; }
+    .gd-lightbox__img {
+      max-width: 92vw;
+      max-height: 86vh;
+      object-fit: contain;
+      border-radius: var(--radius-medium);
+      box-shadow: var(--shadow-e4);
+    }
+    .gd-lightbox__close,
+    .gd-lightbox__nav {
+      position: absolute;
+      background: color-mix(in srgb, var(--c-fg-on) 12%, transparent);
+      color: var(--c-fg-on);
+      border: 0;
+      cursor: pointer;
+      transition: background .15s;
+    }
+    .gd-lightbox__close:hover,
+    .gd-lightbox__nav:hover { background: color-mix(in srgb, var(--c-fg-on) 22%, transparent); }
+    .gd-lightbox__close {
+      top: 16px; right: 16px;
+      width: 40px; height: 40px;
+      border-radius: var(--radius-medium);
+      font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .gd-lightbox__nav {
+      top: 50%; transform: translateY(-50%);
+      width: 48px; height: 60px;
+      border-radius: var(--radius-medium);
+      font-size: 24px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .gd-lightbox__nav--prev { left: 20px; }
+    .gd-lightbox__nav--next { right: 20px; }
+    .gd-lightbox__counter {
+      position: absolute;
+      bottom: 20px; left: 50%; transform: translateX(-50%);
+      color: color-mix(in srgb, var(--c-fg-on) 85%, transparent);
+      font-size: var(--text-body-xs);
+      font-variant-numeric: tabular-nums;
+      background: color-mix(in srgb, var(--color-gray-95) 60%, transparent);
+      padding: 4px 12px;
+      border-radius: var(--radius-small);
+    }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content" 
+           th:with="canManage=${master.bbsMasterId == article.bbsMasterId}">
+
+    <nav aria-label="상위 경로" class="text-body-sm text-fg-subtle mb-4">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}" class="hover:underline"
+         th:text="${master.bbsName}">갤러리</a>
+      <span class="mx-1">/</span>
+      <span th:text="${article.categoryName != null and !#strings.isEmpty(article.categoryName)
+                       ? article.categoryName : article.title}">제목</span>
+    </nav>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="krds-alert krds-alert-success mb-4">
+      <span class="text-success-icon font-bold shrink-0" aria-hidden="true">✓</span>
+      <p th:text="${message}"></p>
+    </div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="krds-alert krds-alert-danger mb-4">
+      <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+      <p th:text="${error}"></p>
+    </div>
+
+    <!-- 비밀글 차단 -->
+    <div th:unless="${canSeeBody}"
+         class="bg-surface-subtle border border-line rounded-large p-12 text-center mb-8">
+      <p class="text-fg-subtle text-heading-md mb-2">🔒</p>
+      <p class="text-fg-subtle">비밀글입니다. 작성자 또는 관리자만 본문을 볼 수 있습니다.</p>
+    </div>
+
+    <!-- 본문이 보일 때만 — 카드뉴스 본격 -->
+    <th:block th:if="${canSeeBody}">
+
+      <!-- ===== 슬림 헤더 (정적 큰 이미지 제거 — 캐러셀이 그 자리 차지) ===== -->
+      <header class="mb-5 pb-4 border-b border-line">
+        <div class="flex gap-1 flex-wrap mb-2">
+          <span th:if="${article.noticeYn == 'Y'}" class="krds-badge bg-danger-surface text-danger-fg">공지</span>
+          <span th:if="${article.secretYn == 'Y'}" class="krds-badge bg-surface-subtle text-fg-subtle">🔒 비밀</span>
+          <span th:if="${article.categoryName != null and !#strings.isEmpty(article.categoryName)}"
+                class="krds-badge bg-primary-5 text-primary-50" th:text="${article.categoryName}">카테고리</span>
+        </div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${article.title}">갤러리 제목</h1>
+        <div class="mt-2 text-body-sm text-fg-subtle flex items-center gap-2.5 flex-wrap">
+          <span th:text="${article.writerName}">작성자</span>
+          <span class="opacity-60">·</span>
+          <span th:text="${@fmt.dt(article.createdAt)}">-</span>
+          <span class="opacity-60">·</span>
+          <span>👁 <span th:text="${article.viewCount}">0</span></span>
+        </div>
+      </header>
+
+      <!-- ===== 포토 갤러리 (캐러셀) — hero 자리에 위치 ===== -->
+      <section th:if="${master.fileYn == 'Y' and not #lists.isEmpty(existingFiles)}">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-body-sm font-bold text-fg">포토 갤러리</h2>
+          <span class="text-body-xs text-fg-subtle">
+            총 <strong class="text-fg-strong" th:text="${#lists.size(existingFiles)}">0</strong>장
+            · 클릭하여 크게 보기
+          </span>
+        </div>
+
+        <div class="gd-carousel" id="gdCarousel"
+             role="region" aria-roledescription="carousel" aria-label="포토 갤러리">
+          <div class="gd-carousel__viewport">
+            <div class="gd-carousel__track" id="gdTrack">
+              <th:block th:each="f, st : ${existingFiles}">
+                <button type="button" class="gd-slide"
+                        th:if="${f.image}"
+                        th:data-fp-full="@{/fileDown/{fid}(fid=${f.fileId})}"
+                        th:data-fp-thumb="@{/fileDown/{fid}/thumb(fid=${f.fileId})}"
+                        th:data-fp-caption="${f.originalName}"
+                        th:data-fp-index="${st.index}"
+                        th:aria-label="${f.originalName}">
+                  <!-- 메인 슬라이드는 원본 사용 — 썸네일(400px)은 뷰포트 대비 화질 열화 -->
+                  <img th:src="@{/fileDown/{fid}(fid=${f.fileId})}"
+                       th:alt="${f.originalName}"
+                       th:attr="loading=${st.index == 0 ? 'eager' : 'lazy'}"/>
+                  <span class="gd-slide__num">
+                    <span th:text="${st.count}">1</span> /
+                    <span th:text="${#lists.size(existingFiles)}">1</span>
+                  </span>
+                  <span class="gd-slide__caption" th:text="${f.originalName}">파일명</span>
+                </button>
+              </th:block>
+            </div>
+            <button type="button" class="gd-carousel__nav gd-carousel__nav--prev"
+                    id="gdPrev" aria-label="이전 슬라이드">‹</button>
+            <button type="button" class="gd-carousel__nav gd-carousel__nav--next"
+                    id="gdNext" aria-label="다음 슬라이드">›</button>
+            <div class="gd-carousel__dots" id="gdDots" role="tablist"></div>
+          </div>
+          <div class="gd-carousel__thumbs" id="gdThumbs">
+            <th:block th:each="f, st : ${existingFiles}">
+              <button type="button" class="gd-carousel__thumb"
+                      th:if="${f.image}"
+                      th:data-fp-index="${st.index}"
+                      th:aria-label="${'슬라이드 ' + st.count + '로 이동'}">
+                <img th:src="@{/fileDown/{fid}/thumb(fid=${f.fileId})}"
+                     th:alt="${f.originalName}" loading="lazy"/>
+              </button>
+            </th:block>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== 첨부파일 다운로드 — 캐러셀 아래 1회, 공용 조각(공지 포맷 표준) ===== -->
+      <th:block th:replace="~{fragments/bbs-attachments :: box(files=${existingFiles})}"/>
+
+      <!-- ===== 좋아요 / 신고 ===== -->
+      <div class="flex items-center justify-end mb-6">
+        <th:block th:replace="~{fragments/bbs-like-report :: actions(
+            type='ARTICLE',
+            id=${article.articleId},
+            likeCount=${article.likeCount},
+            liked=${articleLikedByMe})}"/>
+      </div>
+
+      <!-- ===== 본문 ===== -->
+      <article class="text-body-md leading-relaxed text-fg whitespace-pre-wrap mb-2"><th:block
+          th:replace="~{fragments/bbs-content :: render(content=${article.content}, htmlYn=${master.htmlYn})}"></th:block></article>
+
+    </th:block>
+
+    <!-- ===== 액션 바 ===== -->
+    <!-- 이전글/다음글 -->
+    <th:block th:replace="~{fragments/bbs-prev-next :: nav(prev=${prevArticle}, next=${nextArticle})}"/>
+
+    <div class="flex items-center justify-between gap-2 pt-6 mt-8 border-t border-line">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+         class="krds-btn krds-btn-tertiary">목록</a>
+      <div class="flex items-center gap-2" th:if="${canManage and (canEdit or canDelete)}">
+        <a th:if="${canEdit}"
+           th:href="@{/bbs/{sc}/{bc}/{aid}/edit(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+           class="krds-btn krds-btn-primary">수정</a>
+        <form th:if="${canDelete}"
+              th:action="@{/bbs/{sc}/{bc}/{aid}/delete(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+              method="post"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit"
+                  class="krds-btn bg-danger-50 text-white hover:bg-danger-60">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ===== 댓글 ===== -->
+    <section th:if="${canSeeBody and master.commentYn == 'Y'}"
+             xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+             class="mt-10 pt-6 border-t border-line" id="comments">
+      <h2 class="text-heading-xs font-bold text-fg-strong mb-4">
+        댓글 <span class="text-fg-subtle" th:text="'(' + ${article.commentCount} + ')'">(0)</span>
+      </h2>
+
+      <div th:if="${commentError}" role="alert"
+           class="krds-alert krds-alert-danger mb-3">
+        <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+        <p th:text="${commentError}"></p>
+      </div>
+
+      <ul th:if="${not #lists.isEmpty(comments)}" class="space-y-3 mb-6">
+        <li th:each="cm : ${comments}"
+            th:class="${cm.parentCommentId != null}
+                      ? 'pl-8 border-l-2 border-line'
+                      : ''"
+            class="bg-surface">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="text-body-xs text-fg-subtle mb-1">
+                <strong class="text-fg" th:text="${cm.writerName}">작성자</strong>
+                <span class="mx-1">·</span>
+                <span th:text="${@fmt.dt(cm.createdAt)}">-</span>
+                <span th:if="${cm.status == 'HIDDEN'}"
+                      class="ml-1 krds-badge bg-surface-subtler text-fg-subtle">숨김</span>
+                <span th:if="${cm.status == 'REPORTED'}"
+                      class="ml-1 krds-badge bg-warning-surface text-warning-fg">신고됨</span>
+                <span th:if="${cm.secretYn == 'Y'}"
+                      class="ml-1 krds-badge bg-surface-subtle text-fg-subtle">🔒 비밀</span>
+              </div>
+              <p th:if="${cm.status == 'PUBLISHED'}"
+                 class="text-body-sm whitespace-pre-wrap"
+                 th:classappend="${cm.secretYn == 'Y' and #strings.startsWith(cm.content, '🔒')} ? ' text-fg-disabled italic' : ' text-fg'"
+                 th:text="${cm.content}">내용</p>
+              <p th:unless="${cm.status == 'PUBLISHED'}"
+                 class="text-body-sm text-fg-disabled italic">관리자에 의해 가려진 댓글입니다.</p>
+              <th:block th:replace="~{fragments/bbs-like-report :: commentActions(cm=${cm}, commentLikedIds=${commentLikedIds})}"/>
+            </div>
+            <div class="flex items-start gap-1 shrink-0"
+                 th:with="
+                   isCommentOwner=${#authentication != null
+                                     and #authentication.principal instanceof T(com.gonet.primary.system.login.dto.CustomUserDetails)
+                                     and #authentication.principal.userId != null
+                                     and (#authentication.principal.userId == cm.writerUserId
+                                       or #authentication.principal.userId == cm.createdBy)},
+                   isAdminUser=${#authentication != null
+                                  and #authentication.principal instanceof T(com.gonet.primary.system.login.dto.CustomUserDetails)
+                                  and #authentication.principal.userType == 'ADMIN'},
+                   canEditComment=${isCommentOwner},
+                   canDeleteComment=${isCommentOwner or isAdminUser}">
+              <details th:if="${cm.parentCommentId == null and #authentication.authenticated}"
+                       class="relative">
+                <summary class="list-none px-2 py-1 rounded-small text-body-xs text-fg-subtle hover:bg-surface-subtle cursor-pointer">↩ 답글</summary>
+                <form th:action="@{/bbs/{sc}/{bc}/{aid}/comments(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+                      method="post"
+                      class="absolute right-0 mt-1 p-3 w-80 bg-surface border border-line rounded-medium shadow-e3 z-10">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                  <input type="hidden" name="parentCommentId" th:value="${cm.commentId}"/>
+                  <textarea name="content" required rows="3" maxlength="4000"
+                            placeholder="답글 입력"
+                            class="krds-input text-body-sm"></textarea>
+                  <label class="mt-2 inline-flex items-center gap-1.5 text-body-xs text-fg">
+                    <input type="checkbox" name="secretYn" value="Y"
+                           class="size-4 accent-primary-50"/>
+                    🔒 비밀 답글
+                  </label>
+                  <button type="submit"
+                          class="mt-2 w-full krds-btn krds-btn-primary krds-btn-sm">답글 등록</button>
+                </form>
+              </details>
+              <details th:if="${canManage and (canEditComment or canDeleteComment)}"
+                       class="relative">
+                <summary class="list-none px-2 py-1 rounded-small text-body-xs text-fg-subtle hover:bg-surface-subtle cursor-pointer">⋯</summary>
+                <div class="absolute right-0 mt-1 p-2 w-48 bg-surface border border-line rounded-medium shadow-e3 z-10 space-y-1">
+                  <details th:if="${canEditComment}" class="block">
+                    <summary class="list-none w-full px-2 py-1 text-body-xs text-fg hover:bg-surface-subtle rounded-small cursor-pointer">수정</summary>
+                    <form th:action="@{/bbs/{sc}/{bc}/{aid}/comments/{cid}(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId}, cid=${cm.commentId})}"
+                          method="post" class="mt-2">
+                      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                      <textarea name="content" required rows="3" maxlength="4000"
+                                th:text="${cm.content}"
+                                class="krds-input text-body-xs"></textarea>
+                      <label class="mt-2 inline-flex items-center gap-1.5 text-body-xs text-fg">
+                        <input type="checkbox" name="secretYn" value="Y"
+                               th:checked="${cm.secretYn == 'Y'}"
+                               class="size-4 accent-primary-50"/>
+                        🔒 비밀 댓글
+                      </label>
+                      <button type="submit"
+                              class="mt-2 w-full krds-btn krds-btn-primary krds-btn-sm">저장</button>
+                    </form>
+                  </details>
+                  <form th:if="${canDeleteComment}"
+                        th:action="@{/bbs/{sc}/{bc}/{aid}/comments/{cid}/delete(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId}, cid=${cm.commentId})}"
+                        method="post"
+                        data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit"
+                            class="block w-full text-left px-2 py-1 text-body-xs text-danger-fg hover:bg-danger-surface rounded-small">삭제</button>
+                  </form>
+                </div>
+              </details>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <p th:if="${#lists.isEmpty(comments)}"
+         class="text-body-sm text-fg-subtle mb-4">첫 번째 댓글을 남겨보세요.</p>
+
+      <form sec:authorize="isAuthenticated()"
+            th:action="@{/bbs/{sc}/{bc}/{aid}/comments(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+            method="post" th:object="${commentForm}"
+            class="bg-surface-subtle border border-line rounded-large p-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <textarea th:field="*{content}" required rows="3" maxlength="4000"
+                  placeholder="댓글을 입력하세요"
+                  class="krds-input text-body-sm"></textarea>
+        <div class="mt-2 flex items-center justify-between gap-3">
+          <label class="inline-flex items-center gap-1.5 text-body-sm text-fg">
+            <input type="checkbox" name="secretYn" value="Y"
+                   th:checked="${commentForm.secretYn == 'Y'}"
+                   class="size-4 accent-primary-50"/>
+            🔒 비밀 댓글 (작성자 · 글 주인 · 관리자만 본문 조회)
+          </label>
+          <button type="submit" class="krds-btn krds-btn-primary krds-btn-sm">댓글 등록</button>
+        </div>
+      </form>
+      <div sec:authorize="!isAuthenticated()"
+           class="bg-surface-subtle border border-line rounded-large p-4 text-center text-body-sm text-fg-subtle">
+        <a th:href="@{/member/login}" class="krds-link">로그인</a>
+        후 댓글 작성이 가능합니다.
+      </div>
+    </section>
+
+    <!-- ===== 라이트박스 ===== -->
+    <div id="gdLightbox" class="gd-lightbox" role="dialog" aria-modal="true" aria-hidden="true">
+      <button type="button" class="gd-lightbox__close" aria-label="닫기">×</button>
+      <button type="button" class="gd-lightbox__nav gd-lightbox__nav--prev" aria-label="이전">‹</button>
+      <img class="gd-lightbox__img" src="" alt=""/>
+      <button type="button" class="gd-lightbox__nav gd-lightbox__nav--next" aria-label="다음">›</button>
+      <div class="gd-lightbox__counter"><span id="gdCounter">1 / 1</span></div>
+    </div>
+
+    <script th:src="@{/js/bbs-like-report.js}" th:attr="nonce=${cspNonce}" defer></script>
+    <script th:src="@{/js/bbs-gallery-carousel.js}" th:attr="nonce=${cspNonce}" defer></script>
+
+  </section>
+</body>
+</html>

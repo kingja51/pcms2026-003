@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>회원가입 완료</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-xl mx-auto">
+
+    <ol class="flex items-center justify-between text-xs text-slate-500 mb-8">
+      <li class="flex-1 text-center">STEP 1 · 유형 선택</li>
+      <li class="flex-1 text-center">STEP 2 · 약관 동의</li>
+      <li class="flex-1 text-center">STEP 3 · 본인인증</li>
+      <li class="flex-1 text-center">STEP 4 · 정보 입력</li>
+      <li class="flex-1 text-center text-emerald-700 font-semibold">STEP 5 · 가입 완료</li>
+    </ol>
+
+    <div class="bg-white border border-emerald-200 rounded-lg p-8 shadow-sm text-center">
+      <div class="text-6xl mb-4">🎉</div>
+      <h1 class="text-2xl font-bold text-slate-900 mb-2">
+        <span th:text="${member.memberName}">회원</span>님, 가입을 진심으로 축하합니다!
+      </h1>
+      <p class="text-sm text-slate-600 mb-6">
+        등록해 주신 이메일로 환영 메일을 보내드렸습니다.
+        이제 아래 정보로 로그인하실 수 있습니다.
+      </p>
+
+      <dl class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm text-left bg-slate-50 border border-slate-200 rounded p-4 mb-6">
+        <dt class="text-slate-500">회원 ID</dt>
+        <dd class="font-mono text-slate-900" th:text="${member.loginId}">loginId</dd>
+
+        <dt class="text-slate-500">이름</dt>
+        <dd class="text-slate-900" th:text="${member.memberName}">홍길동</dd>
+
+        <dt class="text-slate-500">이메일</dt>
+        <dd class="font-mono text-slate-700" th:text="${member.email}">user@example.com</dd>
+
+        <dt class="text-slate-500" th:if="${member.parentName}">법정대리인</dt>
+        <dd class="text-slate-700" th:if="${member.parentName}" th:text="${member.parentName}">부모</dd>
+      </dl>
+
+      <a th:href="@{/member/login}"
+         class="inline-flex items-center px-5 py-2.5 rounded bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">
+        로그인하기 &rsaquo;
+      </a>
+      <a th:href="@{/}"
+         class="inline-flex items-center px-5 py-2.5 rounded border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50 ml-2">
+        홈으로
+      </a>
+    </div>
+
+  </section>
+</body>
+</html>

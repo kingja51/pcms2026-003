@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${mode == 'edit'} ? '콘텐츠 수정' : '콘텐츠 등록'">콘텐츠</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/content}" class="hover:underline">콘텐츠</a>
+      <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit'} ? '수정' : '등록'">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'edit'} ? '콘텐츠 수정' : '콘텐츠 등록'">콘텐츠</h1>
+
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:action="${mode == 'edit'}
+                     ? @{/admin/system/content/{cid}(cid=${form.contentId})}
+                     : @{/admin/system/content}"
+          method="post" th:object="${form}"
+          class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+      <div>
+        <label for="siteId" class="block text-sm font-medium text-fg mb-1">
+          사이트 <span class="text-danger-fg">*</span>
+        </label>
+        <!-- 등록 모드: 일반 select -->
+        <select th:unless="${mode == 'edit'}"
+                id="siteId" th:field="*{siteId}" required
+                class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+          <option value="">— 선택 —</option>
+          <option th:each="s : ${sites}" th:value="${s.siteId}"
+                  th:text="${s.siteCode} + ' · ' + ${s.siteName}">site</option>
+        </select>
+        <!-- 수정 모드: 시각적 disabled select + 실제 값은 hidden input 으로 전송 (disabled 는 submit 제외됨) -->
+        <th:block th:if="${mode == 'edit'}">
+          <select id="siteId" disabled
+                  class="block w-full rounded border border-line px-3 py-2 text-sm bg-surface-subtler text-fg-subtle">
+            <option th:each="s : ${sites}" th:value="${s.siteId}"
+                    th:selected="${s.siteId == form.siteId}"
+                    th:text="${s.siteCode} + ' · ' + ${s.siteName}">site</option>
+          </select>
+          <input type="hidden" name="siteId" th:value="*{siteId}"/>
+        </th:block>
+        <p class="mt-1 text-xs text-fg-subtle">수정 시 사이트는 변경할 수 없습니다.</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="title" class="block text-sm font-medium text-fg mb-1">
+            제목 <span class="text-danger-fg">*</span>
+          </label>
+          <input id="title" type="text" th:field="*{title}" required maxlength="300"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label for="slug" class="block text-sm font-medium text-fg mb-1">slug</label>
+          <input id="slug" type="text" th:field="*{slug}" maxlength="200"
+                 placeholder="home / about / notice"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"/>
+          <p class="mt-1 text-xs text-fg-subtle">사이트별 UNIQUE. 영문/숫자/하이픈/언더스코어.</p>
+        </div>
+      </div>
+
+      <div>
+        <label for="summary" class="block text-sm font-medium text-fg mb-1">요약</label>
+        <textarea id="summary" th:field="*{summary}" rows="2" maxlength="1000"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm"></textarea>
+      </div>
+
+      <div>
+        <label for="originalContent" class="block text-sm font-medium text-fg mb-1">
+          원본 Markdown
+        </label>
+        <textarea id="originalContent" th:field="*{originalContent}" rows="10"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"
+                  placeholder="# 제목&#10;&#10;본문..."></textarea>
+        <p class="mt-1 text-xs text-fg-subtle">사람이 편집하는 원본. HTML 렌더는 후속 스프린트.</p>
+      </div>
+
+      <div>
+        <label for="body" class="block text-sm font-medium text-fg mb-1">
+          렌더 HTML (body)
+        </label>
+        <textarea id="body" th:field="*{body}" rows="14"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"></textarea>
+        <p class="mt-1 text-xs text-fg-subtle">실제 노출되는 HTML. 관리자 책임하에 입력. 미리보기는 상세 화면의 [미리보기] 버튼으로 별도 페이지에서 확인하세요.</p>
+      </div>
+
+      <fieldset class="border border-line rounded-large p-4">
+        <legend class="px-2 text-sm font-semibold text-fg">SEO</legend>
+        <div class="grid grid-cols-1 gap-4">
+          <div>
+            <label for="metaKeywords" class="block text-xs font-medium text-fg-subtle mb-1">Meta Keywords</label>
+            <input id="metaKeywords" type="text" th:field="*{metaKeywords}" maxlength="500"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+          </div>
+          <div>
+            <label for="metaDescription" class="block text-xs font-medium text-fg-subtle mb-1">Meta Description</label>
+            <textarea id="metaDescription" th:field="*{metaDescription}" rows="2" maxlength="500"
+                      class="block w-full rounded border border-line px-3 py-2 text-sm"></textarea>
+          </div>
+        </div>
+      </fieldset>
+
+      <div th:if="${mode == 'edit'}">
+        <label for="changeNote" class="block text-sm font-medium text-fg mb-1">
+          변경 노트
+        </label>
+        <input id="changeNote" type="text" th:field="*{changeNote}" maxlength="500"
+               placeholder="이번 수정의 요지 — 버전 이력에 기록됩니다."
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="${mode == 'edit'}
+                     ? @{/admin/system/content/{cid}(cid=${form.contentId})}
+                     : @{/admin/system/content}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60"
+                th:text="${mode == 'edit'} ? '저장' : '등록'">저장</button>
+      </div>
+    </form>
+
+  </section>
+</body>
+</html>

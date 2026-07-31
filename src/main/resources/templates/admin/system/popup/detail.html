@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>팝업 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/popup}" class="hover:underline">팝업</a>
+      <span class="mx-1">/</span>
+      <span th:text="${popup.popupTitle}">제목</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${popup.popupTitle}">제목</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          <span th:text="${popup.siteCode}">site</span> ·
+          <span class="font-mono text-xs" th:text="${popup.popupId}">id</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/popup}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">목록</a>
+        <a th:href="@{/admin/system/popup/{id}/edit(id=${popup.popupId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">수정</a>
+
+        <form th:action="@{/admin/system/popup/{id}/use(id=${popup.popupId})}" method="post" class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="active" th:value="${popup.useYn == 'Y' ? 'false' : 'true'}"/>
+          <button type="submit"
+                  th:class="${popup.useYn == 'Y'}
+                            ? 'inline-flex items-center px-3 py-1.5 rounded border border-warning-border bg-warning-surface text-warning-fg text-sm hover:bg-warning-10'
+                            : 'inline-flex items-center px-3 py-1.5 rounded border border-success-border bg-success-surface text-success-fg text-sm hover:bg-success-10'"
+                  th:text="${popup.useYn == 'Y' ? '사용중지' : '사용 재개'}">사용중지</button>
+        </form>
+
+        <form th:action="@{/admin/system/popup/{id}/delete(id=${popup.popupId})}" method="post" class="inline"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-danger-surface text-danger-fg text-sm hover:bg-danger-10">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 bg-surface border border-line rounded-large p-5">
+        <h2 class="text-base font-semibold text-fg-strong mb-3">기본 정보</h2>
+        <dl class="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">유형</dt>
+          <dd>
+            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg"
+                  th:text="${popup.popupType}">LAYER</span>
+          </dd>
+          <dt class="text-fg-subtle">사용</dt>
+          <dd>
+            <span th:if="${popup.useYn == 'Y'}"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용중</span>
+            <span th:unless="${popup.useYn == 'Y'}"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">중지</span>
+          </dd>
+          <dt class="text-fg-subtle">노출 기간</dt>
+          <dd class="font-mono text-xs">
+            <span th:text="${@fmt.dt(popup.showFrom)}">-</span> ~
+            <span th:text="${@fmt.dt(popup.showTo)}">-</span>
+          </dd>
+          <dt class="text-fg-subtle">노출 요일</dt>
+          <dd th:text="${popup.showDays != null ? popup.showDays : '전 요일'}">전 요일</dd>
+          <dt class="text-fg-subtle">시간대</dt>
+          <dd>
+            <span th:if="${popup.showTimeFrom != null or popup.showTimeTo != null}">
+              <span th:text="${popup.showTimeFrom != null ? popup.showTimeFrom : '-'}">-</span> ~
+              <span th:text="${popup.showTimeTo != null ? popup.showTimeTo : '-'}">-</span>
+            </span>
+            <span th:unless="${popup.showTimeFrom != null or popup.showTimeTo != null}" class="text-fg-subtle">전 시간대</span>
+          </dd>
+          <dt class="text-fg-subtle">링크 URL</dt>
+          <dd>
+            <a th:if="${popup.linkUrl}" th:href="${popup.linkUrl}" th:text="${popup.linkUrl}"
+               target="_blank" rel="noopener" class="text-brand-60 hover:underline break-all">link</a>
+            <span th:unless="${popup.linkUrl}" class="text-fg-subtle">-</span>
+          </dd>
+          <dt class="text-fg-subtle">이미지</dt>
+          <dd>
+            <a th:if="${thumbFileId}"
+               th:href="@{/fileDown/{fid}(fid=${thumbFileId})}" target="_blank" rel="noopener">
+              <img th:src="@{/fileDown/{fid}/thumb(fid=${thumbFileId})}"
+                   th:alt="${popup.popupTitle}"
+                   class="max-w-xs border border-line rounded"
+                   data-fp-thumb/>
+            </a>
+            <span th:unless="${thumbFileId}" class="text-fg-subtle">(이미지 없음)</span>
+          </dd>
+          <dt class="text-fg-subtle">파일 그룹 ID</dt>
+          <dd class="font-mono text-xs">
+            <a th:if="${popup.fileGroupId}"
+               th:href="@{/fileDown/group/{gid}(gid=${popup.fileGroupId})}"
+               class="text-brand-60 hover:underline"
+               th:text="${popup.fileGroupId}">group</a>
+            <span th:unless="${popup.fileGroupId}" class="text-fg-subtle">-</span>
+          </dd>
+          <dt class="text-fg-subtle">크기/위치</dt>
+          <dd class="text-fg">
+            <span th:text="${popup.widthPx ?: '-'} + ' × ' + ${popup.heightPx ?: '-'} + ' px'">-</span>
+            <span class="ml-3 text-fg-subtle">@</span>
+            <span th:text="'(' + ${popup.positionX ?: 0} + ', ' + ${popup.positionY ?: 0} + ')'">-</span>
+          </dd>
+          <dt class="text-fg-subtle">쿠키 일수</dt>
+          <dd th:text="${popup.cookieDays} + ' 일'">1 일</dd>
+          <dt class="text-fg-subtle">정렬 순서</dt>
+          <dd th:text="${popup.sortOrder}">0</dd>
+        </dl>
+
+        <h3 class="text-sm font-semibold text-fg-strong mt-6 mb-2">본문 (raw HTML)</h3>
+        <pre class="text-xs font-mono bg-surface-subtle border border-line rounded p-3 whitespace-pre-wrap"
+             th:text="${popup.popupContent ?: '(비어 있음)'}">(비어 있음)</pre>
+      </div>
+
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-base font-semibold text-fg-strong mb-3">감사 정보</h2>
+        <dl class="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">생성</dt>
+          <dd class="font-mono text-xs" th:text="${@fmt.dt(popup.createdAt)}">-</dd>
+          <dt class="text-fg-subtle">생성자</dt>
+          <dd class="font-mono text-xs break-all" th:text="${popup.createdBy ?: '-'}">-</dd>
+          <dt class="text-fg-subtle">수정</dt>
+          <dd class="font-mono text-xs" th:text="${@fmt.dt(popup.updatedAt)}">-</dd>
+          <dt class="text-fg-subtle">수정자</dt>
+          <dd class="font-mono text-xs break-all" th:text="${popup.updatedBy ?: '-'}">-</dd>
+        </dl>
+      </div>
+    </div>
+
+  </section>
+</body>
+</html>

@@ -151,6 +151,22 @@
   }
 
   /**
+   * 값이 바뀌면 즉시 폼 제출 — [data-action="submit-on-change"].
+   *
+   * 인라인 onchange="this.form.submit()" 대체. CSP 에 'unsafe-inline' 이 없어
+   * 인라인 핸들러는 조용히 무시된다 — 필터 select 가 먹통이 되는 무증상 결함이 된다.
+   * 통계 대시보드의 기간·사이트 선택처럼 "고르면 바로 조회" UI 에 쓴다.
+   */
+  function wireSubmitOnChange() {
+    document.addEventListener('change', function (ev) {
+      var el = ev.target.closest('[data-action="submit-on-change"]');
+      if (!el || !el.form) return;
+      if (typeof el.form.requestSubmit === 'function') el.form.requestSubmit();
+      else el.form.submit();
+    });
+  }
+
+  /**
    * 고대비(High contrast) 모드 토글 — [data-action="toggle-contrast"] 클릭 시
    * <html> 의 .hc 클래스를 켜고/끄고 localStorage('pcms-hc')에 유지한다.
    * 초기 복원은 <head> 의 nonce 인라인 부트스트랩이 FOUC 없이 처리하므로
@@ -247,6 +263,7 @@
   function init() {
     wireConfirmForms();
     wireManagerPicker();
+  wireSubmitOnChange();
     wireHistoryBack();
     wireHtmxCsrf();
     wireImgFallback();

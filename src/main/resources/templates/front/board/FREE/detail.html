@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${article.title} + ' — ' + ${master.bbsName}">게시글</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content" 
+           th:with="canManage=${master.bbsMasterId == article.bbsMasterId}">
+
+    <nav aria-label="상위 경로" class="text-body-sm text-fg-subtle mb-4">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}" class="hover:underline"
+         th:text="${master.bbsName}">게시판</a>
+      <span class="mx-1">/</span>
+      <span aria-current="page">게시글</span>
+    </nav>
+
+    <header class="border-b border-line pb-4 mb-6">
+      <h1 class="text-heading-md font-bold text-fg-strong mb-2">
+        <span th:if="${article.noticeYn == 'Y'}"
+              class="krds-badge bg-danger-surface text-danger-fg mr-2 align-middle">공지</span>
+        <span th:if="${article.secretYn == 'Y'}"
+              class="krds-badge bg-surface-subtle text-fg-subtle mr-2 align-middle">🔒 비밀</span>
+        <span th:text="${article.title}">제목</span>
+      </h1>
+      <div class="flex items-center gap-3 text-body-sm text-fg-subtle">
+        <span th:text="${article.writerName}">작성자</span>
+        <span class="text-fg-disabled" aria-hidden="true">·</span>
+        <span th:text="${@fmt.dt(article.createdAt)}">-</span>
+        <span class="text-fg-disabled" aria-hidden="true">·</span>
+        <span>조회 <strong th:text="${article.viewCount}">0</strong></span>
+      </div>
+      <div th:if="${canSeeBody}" class="mt-3 flex justify-end">
+        <th:block th:replace="~{fragments/bbs-like-report :: actions(
+            type='ARTICLE',
+            id=${article.articleId},
+            likeCount=${article.likeCount},
+            liked=${articleLikedByMe})}"/>
+      </div>
+    </header>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="krds-alert krds-alert-success mb-4">
+      <span class="text-success-icon font-bold shrink-0" aria-hidden="true">✓</span>
+      <p th:text="${message}"></p>
+    </div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="krds-alert krds-alert-danger mb-4">
+      <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+      <p th:text="${error}"></p>
+    </div>
+
+    <article th:if="${canSeeBody}"
+             class="max-w-none text-body-md text-fg whitespace-pre-wrap mb-4"><th:block
+        th:replace="~{fragments/bbs-content :: render(content=${article.content}, htmlYn=${master.htmlYn})}"></th:block></article>
+
+    <div th:unless="${canSeeBody}"
+         class="bg-surface-subtle border border-line rounded-large p-12 text-center mb-8">
+      <p class="text-fg-subtle text-heading-md mb-2" aria-hidden="true">🔒</p>
+      <p class="text-fg-subtle">비밀글입니다. 작성자 또는 관리자만 본문을 볼 수 있습니다.</p>
+    </div>
+
+    <!-- 첨부파일 다운로드 — 공용 조각(공지 포맷 표준). 구 file-picker(readOnly) 뷰 대체 -->
+    <section th:if="${canSeeBody}" class="mb-8">
+      <th:block th:replace="~{fragments/bbs-attachments :: box(files=${existingFiles})}"/>
+    </section>
+
+    <!-- 이전글/다음글 -->
+    <th:block th:replace="~{fragments/bbs-prev-next :: nav(prev=${prevArticle}, next=${nextArticle})}"/>
+
+    <div class="flex items-center justify-between gap-2 pt-4 border-t border-line">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+         class="krds-btn krds-btn-tertiary">목록</a>
+      <div class="flex items-center gap-2" th:if="${canManage and (canEdit or canDelete)}">
+        <!-- 수정: 본인만 -->
+        <a th:if="${canEdit}"
+           th:href="@{/bbs/{sc}/{bc}/{aid}/edit(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+           class="krds-btn krds-btn-primary">수정</a>
+        <!-- 삭제: 본인 또는 관리자(ADMIN) -->
+        <form th:if="${canDelete}"
+              th:action="@{/bbs/{sc}/{bc}/{aid}/delete(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+              method="post"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit"
+                  class="krds-btn bg-danger-50 text-white hover:bg-danger-60">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ====================================================================
+         댓글 섹션 — comment_yn='Y' 인 게시판이고 본문이 보일 때만 노출
+         ==================================================================== -->
+    <section th:if="${canSeeBody and master.commentYn == 'Y'}"
+             xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+             class="mt-10 pt-6 border-t border-line" id="comments">
+      <h2 class="text-heading-xs font-bold text-fg-strong mb-4">
+        댓글 <span class="text-fg-subtle" th:text="'(' + ${article.commentCount} + ')'">(0)</span>
+      </h2>
+
+      <div th:if="${commentError}" role="alert"
+           class="krds-alert krds-alert-danger mb-3">
+        <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+        <p th:text="${commentError}"></p>
+      </div>
+
+      <ul th:if="${not #lists.isEmpty(comments)}" class="space-y-3 mb-6">
+        <li th:each="cm : ${comments}"
+            th:class="${cm.parentCommentId != null}
+                      ? 'pl-8 border-l-2 border-line'
+                      : ''"
+            class="bg-surface">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="text-body-xs text-fg-subtle mb-1">
+                <strong class="text-fg" th:text="${cm.writerName}">작성자</strong>
+                <span class="mx-1" aria-hidden="true">·</span>
+                <span th:text="${@fmt.dt(cm.createdAt)}">-</span>
+                <span th:if="${cm.status == 'HIDDEN'}"
+                      class="krds-badge bg-surface-subtle text-fg-subtle ml-1">숨김</span>
+                <span th:if="${cm.status == 'REPORTED'}"
+                      class="krds-badge bg-warning-surface text-warning-fg ml-1">신고됨</span>
+                <span th:if="${cm.secretYn == 'Y'}"
+                      class="krds-badge bg-warning-surface text-warning-fg ml-1">🔒 비밀</span>
+              </div>
+              <p th:if="${cm.status == 'PUBLISHED'}"
+                 class="text-body-sm whitespace-pre-wrap"
+                 th:classappend="${cm.secretYn == 'Y' and #strings.startsWith(cm.content, '🔒')} ? ' text-fg-disabled italic' : ' text-fg'"
+                 th:text="${cm.content}">내용</p>
+              <p th:unless="${cm.status == 'PUBLISHED'}"
+                 class="text-body-sm text-fg-disabled italic">관리자에 의해 가려진 댓글입니다.</p>
+              <th:block th:replace="~{fragments/bbs-like-report :: commentActions(cm=${cm}, commentLikedIds=${commentLikedIds})}"/>
+            </div>
+            <div class="flex items-start gap-1 shrink-0"
+                 th:with="
+                   isCommentOwner=${#authentication != null
+                                     and #authentication.principal instanceof T(com.gonet.primary.system.login.dto.CustomUserDetails)
+                                     and #authentication.principal.userId != null
+                                     and (#authentication.principal.userId == cm.writerUserId
+                                       or #authentication.principal.userId == cm.createdBy)},
+                   isAdminUser=${#authentication != null
+                                  and #authentication.principal instanceof T(com.gonet.primary.system.login.dto.CustomUserDetails)
+                                  and #authentication.principal.userType == 'ADMIN'},
+                   canEditComment=${isCommentOwner},
+                   canDeleteComment=${isCommentOwner or isAdminUser}">
+              <details th:if="${cm.parentCommentId == null and #authentication.authenticated}"
+                       class="relative">
+                <summary class="list-none px-2 py-1 rounded-small text-body-xs text-fg-subtle hover:bg-surface-subtle cursor-pointer">↩ 답글</summary>
+                <form th:action="@{/bbs/{sc}/{bc}/{aid}/comments(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+                      method="post"
+                      class="absolute right-0 mt-1 p-3 w-80 bg-surface border border-line rounded-medium shadow-e3 z-10">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                  <input type="hidden" name="parentCommentId" th:value="${cm.commentId}"/>
+                  <textarea name="content" required rows="3" maxlength="4000"
+                            placeholder="답글 입력"
+                            class="krds-input text-body-sm"></textarea>
+                  <label class="mt-2 inline-flex items-center gap-1.5 text-body-xs text-fg">
+                    <input type="checkbox" name="secretYn" value="Y"
+                           class="accent-primary-50"/>
+                    🔒 비밀 답글
+                  </label>
+                  <button type="submit"
+                          class="krds-btn krds-btn-sm krds-btn-primary mt-2 w-full">답글 등록</button>
+                </form>
+              </details>
+              <!-- ⋯ 메뉴: 수정(본인만) 또는 삭제(본인+ADMIN) 권한이 하나라도 있을 때 노출 -->
+              <details th:if="${canManage and (canEditComment or canDeleteComment)}"
+                       class="relative">
+                <summary class="list-none px-2 py-1 rounded-small text-body-xs text-fg-subtle hover:bg-surface-subtle cursor-pointer">⋯</summary>
+                <div class="absolute right-0 mt-1 p-2 w-48 bg-surface border border-line rounded-medium shadow-e3 z-10 space-y-1">
+                  <!-- 수정: 본인만 -->
+                  <details th:if="${canEditComment}" class="block">
+                    <summary class="list-none w-full px-2 py-1 text-body-xs text-fg hover:bg-surface-subtle rounded-small cursor-pointer">수정</summary>
+                    <form th:action="@{/bbs/{sc}/{bc}/{aid}/comments/{cid}(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId}, cid=${cm.commentId})}"
+                          method="post" class="mt-2">
+                      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                      <textarea name="content" required rows="3" maxlength="4000"
+                                th:text="${cm.content}"
+                                class="krds-input text-body-xs"></textarea>
+                      <label class="mt-2 inline-flex items-center gap-1.5 text-body-xs text-fg">
+                        <input type="checkbox" name="secretYn" value="Y"
+                               th:checked="${cm.secretYn == 'Y'}"
+                               class="accent-primary-50"/>
+                        🔒 비밀 댓글
+                      </label>
+                      <button type="submit"
+                              class="krds-btn krds-btn-sm krds-btn-primary mt-2 w-full">저장</button>
+                    </form>
+                  </details>
+                  <!-- 삭제: 본인 또는 관리자(ADMIN) -->
+                  <form th:if="${canDeleteComment}"
+                        th:action="@{/bbs/{sc}/{bc}/{aid}/comments/{cid}/delete(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId}, cid=${cm.commentId})}"
+                        method="post"
+                        data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit"
+                            class="block w-full text-left px-2 py-1 text-body-xs text-danger-fg hover:bg-danger-surface rounded-small">삭제</button>
+                  </form>
+                </div>
+              </details>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <p th:if="${#lists.isEmpty(comments)}"
+         class="text-body-sm text-fg-subtle mb-4">첫 번째 댓글을 남겨보세요.</p>
+
+      <!-- 새 댓글 작성 폼 — 로그인 사용자만 -->
+      <form sec:authorize="isAuthenticated()"
+            th:action="@{/bbs/{sc}/{bc}/{aid}/comments(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+            method="post" th:object="${commentForm}"
+            class="bg-surface-subtle border border-line rounded-large p-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <textarea th:field="*{content}" required rows="3" maxlength="4000"
+                  placeholder="댓글을 입력하세요"
+                  class="krds-input text-body-sm"></textarea>
+        <div class="mt-2 flex items-center justify-between gap-3">
+          <label class="inline-flex items-center gap-1.5 text-body-sm text-fg">
+            <input type="checkbox" name="secretYn" value="Y"
+                   th:checked="${commentForm.secretYn == 'Y'}"
+                   class="accent-primary-50"/>
+            🔒 비밀 댓글 (작성자 · 글 주인 · 관리자만 본문 조회)
+          </label>
+          <button type="submit"
+                  class="krds-btn krds-btn-primary">댓글 등록</button>
+        </div>
+      </form>
+      <div sec:authorize="!isAuthenticated()"
+           class="bg-surface-subtle border border-line rounded-large p-4 text-center text-body-sm text-fg-subtle">
+        <a th:href="@{/member/login}" class="krds-link">로그인</a>
+        후 댓글 작성이 가능합니다.
+      </div>
+    </section>
+
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+    <script th:src="@{/js/bbs-like-report.js}" th:attr="nonce=${cspNonce}" defer></script>
+  </section>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>접수 민원 목록</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/complaint}" class="hover:underline">민원</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/complaint/{id}(id=${master.complaintMasterId})}"
+       class="hover:underline" th:text="${master.masterName}">마스터</a>
+    <span class="mx-1">/</span>
+    <span>접수 목록</span>
+  </nav>
+
+  <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+    <div>
+      <h1 class="text-heading-lg font-bold text-fg-strong">접수 민원</h1>
+      <p class="text-sm text-fg-subtle mt-1">
+        <span th:text="${master.masterName}">-</span> · 총
+        <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+      </p>
+    </div>
+  </div>
+
+  <div th:if="${message}" role="status"
+       class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+  <div th:if="${error}" role="alert"
+       class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+  <!-- 검색 필터 -->
+  <form th:action="@{/admin/system/complaint/{mid}/article(mid=${master.complaintMasterId})}" method="get"
+        class="bg-surface border border-line rounded-large p-4 mb-4">
+    <div class="grid grid-cols-1 md:grid-cols-[1fr_160px_160px_180px_auto] gap-3 items-end">
+      <div>
+        <label for="keyword" class="block text-xs font-medium text-fg-subtle mb-1">검색어</label>
+        <input id="keyword" name="keyword" type="text"
+               th:value="${search?.keyword}" maxlength="100" placeholder="접수번호·제목·작성자"
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+      </div>
+      <div>
+        <label for="categoryId" class="block text-xs font-medium text-fg-subtle mb-1">카테고리</label>
+        <select id="categoryId" name="categoryId" class="block w-full rounded border border-line px-3 py-2 text-sm">
+          <option value="">전체</option>
+          <option th:each="cat : ${categories}" th:value="${cat.categoryId}"
+                  th:text="${cat.categoryName}"
+                  th:selected="${search?.categoryId == cat.categoryId}">-</option>
+        </select>
+      </div>
+      <div>
+        <label for="status" class="block text-xs font-medium text-fg-subtle mb-1">상태</label>
+        <select id="status" name="status" class="block w-full rounded border border-line px-3 py-2 text-sm">
+          <option value="">전체</option>
+          <option th:each="s : ${statuses}" th:value="${s.name()}"
+                  th:text="${s.label()}"
+                  th:selected="${search?.status == s.name()}">-</option>
+        </select>
+      </div>
+      <div>
+        <label for="complaintNo" class="block text-xs font-medium text-fg-subtle mb-1">접수번호</label>
+        <input id="complaintNo" name="complaintNo" type="text"
+               th:value="${search?.complaintNo}" maxlength="30" placeholder="CPL-YYYYMMDD-NNNNNN"
+               class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"/>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">검색</button>
+        <a th:href="@{/admin/system/complaint/{mid}/article(mid=${master.complaintMasterId})}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm">초기화</a>
+      </div>
+    </div>
+  </form>
+
+  <!-- 목록 테이블 -->
+  <div class="bg-surface border border-line rounded-large overflow-hidden">
+    <table class="min-w-full divide-y divide-line text-sm">
+      <caption class="sr-only">접수 민원 목록</caption>
+      <thead class="bg-surface-subtle">
+        <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+          <th scope="col" class="px-4 py-3">접수번호</th>
+          <th scope="col" class="px-4 py-3">제목</th>
+          <th scope="col" class="px-4 py-3">카테고리</th>
+          <th scope="col" class="px-4 py-3">작성자</th>
+          <th scope="col" class="px-4 py-3">상태</th>
+          <th scope="col" class="px-4 py-3">답변 기한</th>
+          <th scope="col" class="px-4 py-3">접수일시</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-divider">
+        <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle">
+          <td class="px-4 py-2.5 font-mono text-xs">
+            <a th:href="@{/admin/system/complaint/{mid}/article/{aid}(mid=${master.complaintMasterId},aid=${row.articleId})}"
+               class="text-brand-60 hover:underline" th:text="${row.complaintNo}">-</a>
+          </td>
+          <td class="px-4 py-2.5 max-w-xs truncate">
+            <a th:href="@{/admin/system/complaint/{mid}/article/{aid}(mid=${master.complaintMasterId},aid=${row.articleId})}"
+               class="text-fg-strong hover:underline font-medium" th:text="${row.title}">제목</a>
+          </td>
+          <td class="px-4 py-2.5 text-fg-subtle text-xs" th:text="${row.categoryName ?: '-'}">-</td>
+          <td class="px-4 py-2.5 text-fg" th:text="${row.writerName ?: '-'}">-</td>
+          <td class="px-4 py-2.5">
+            <span th:if="${row.status != null}"
+                  th:classappend="${row.status == 'RECEIVED'} ? 'bg-info-surface text-info-fg'
+                               : (${row.status == 'IN_PROGRESS'} ? 'bg-warning-surface text-warning-fg'
+                               : (${row.status == 'ANSWERED'} ? 'bg-success-surface text-success-fg'
+                               : (${row.status == 'CLOSED'} ? 'bg-surface-subtler text-fg-subtle'
+                               : 'bg-danger-surface text-danger-fg')))"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                  th:text="${row.status}">-</span>
+          </td>
+          <td class="px-4 py-2.5 font-mono text-xs"
+              th:classappend="${row.answerDueAt != null and row.answerDueAt.isBefore(T(java.time.LocalDateTime).now()) and row.status != 'ANSWERED' and row.status != 'CLOSED'} ? 'text-danger-fg font-semibold' : 'text-fg-subtle'"
+              th:text="${row.answerDueAt != null ? @fmt.dt(row.answerDueAt) : '-'}">-</td>
+          <td class="px-4 py-2.5 text-fg-subtle font-mono text-xs" th:text="${@fmt.dt(row.createdAt)}">-</td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(page.content)}">
+          <td colspan="7" class="px-4 py-10 text-center text-fg-subtle">접수된 민원이 없습니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+    <ul class="flex items-center justify-center gap-1 text-sm">
+      <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+        <a th:href="@{/admin/system/complaint/{mid}/article(mid=${master.complaintMasterId},
+                     page=${p}, pageSize=${page.pageSize},
+                     keyword=${search.keyword}, status=${search.status},
+                     categoryId=${search.categoryId}, complaintNo=${search.complaintNo})}"
+           th:text="${p}"
+           th:class="${p == page.page}
+                     ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                     : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+      </li>
+    </ul>
+  </nav>
+
+</section>
+</body>
+</html>

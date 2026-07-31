@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!--
+  NICE CheckPlus 안심본인인증 — 성공/실패 콜백 결과 (팝업 창 전용)
+
+  · 성공: 화면 노출 없이 즉시 부모창을 nextUrl 로 이동시키고 팝업 자동 닫음
+  · 실패: 사이트 layout 없이 최소 안내 + [닫기] 버튼만 노출
+  · layout:decorate 미사용 — 팝업이라 헤더/푸터 불필요
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <title>본인인증 결과</title>
+  <link th:href="@{/css/output.css}" rel="stylesheet" />
+  <script th:nonce="${cspNonce}" th:inline="javascript">
+    /*<![CDATA[*/
+    var niceSuccess = /*[[${result.success}]]*/ false;
+    var nextUrl     = /*[[${nextUrl}]]*/ '/member/join/form';
+
+    // 성공 — 부모창에 신호를 보내고 팝업 닫음.
+    //   COOP / NICE 도메인 경유로 window.opener 가 null 이 되는 케이스 대비 3중 폴백:
+    //     (1) opener.location.href 직접 호출 (가장 빠름)
+    //     (2) localStorage storage 이벤트 (same-origin 두 창 사이 동작, opener 무관)
+    //     (3) BroadcastChannel postMessage (모던 브라우저, opener 무관)
+    //   부모창은 (2)/(3) 둘 다 listen — 어느 한 채널만 동작해도 OK.
+    if (niceSuccess) {
+      try {
+        if (window.opener && !window.opener.closed) {
+          window.opener.location.href = nextUrl;
+        }
+      } catch (e) { /* COOP/cross-origin — 폴백으로 */ }
+
+      try {
+        localStorage.setItem('NICE_AUTH_DONE',
+          JSON.stringify({ nextUrl: nextUrl, ts: Date.now() }));
+        setTimeout(function () { localStorage.removeItem('NICE_AUTH_DONE'); }, 500);
+      } catch (e) { /* private mode 등 */ }
+
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          var bc = new BroadcastChannel('nice-auth');
+          bc.postMessage({ type: 'NICE_AUTH_DONE', nextUrl: nextUrl });
+          bc.close();
+        }
+      } catch (e) { /* 미지원 */ }
+        window.close();
+    }
+
+    // 실패 — [닫기] 버튼 핸들러만 등록.
+    document.addEventListener('DOMContentLoaded', function () {
+      var btn = document.getElementById('niceCloseBtn');
+      if (btn) btn.addEventListener('click', function () { window.close(); });
+    });
+    /*]]>*/
+  </script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-slate-50 text-slate-800 antialiased">
+
+  <!-- 성공 시에는 위 스크립트가 즉시 window.close() 하므로 본문이 사용자 눈에 거의 안 띈다.
+       성공인데도 opener 가 사라진 등 폴백으로 본문이 보일 수 있어 빈 div 만 둔다. -->
+  <div th:if="${result.success}" aria-hidden="true"></div>
+
+  <!-- 실패 — 사용자에게 사유 안내 + 닫기 -->
+  <div th:if="${!result.success}"
+       class="max-w-md w-full mx-4 bg-white border border-red-200 rounded-lg shadow-sm p-6">
+    <h1 class="text-lg font-bold text-red-700 mb-2">본인인증 처리 실패</h1>
+    <p class="text-sm text-red-700 mb-4" th:text="${result.message}">처리 중 오류가 발생했습니다.</p>
+    <button type="button" id="niceCloseBtn"
+            class="w-full px-4 py-2 rounded-md bg-slate-900 text-white text-sm font-semibold">
+      닫기
+    </button>
+  </div>
+
+</body>
+</html>

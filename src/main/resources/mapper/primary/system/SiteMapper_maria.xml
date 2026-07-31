@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_site CRUD Mapper.
+  resultType 기반 — mybatis.configuration.map-underscore-to-camel-case=true.
+  감사컬럼 6종(created_by/ip/at + updated_by/ip/at) 은 AuditInterceptor 가 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.system.site.mapper.SiteMapper">
+
+  <sql id="siteColumnsFull">
+    s.site_id, s.site_code, s.site_name, s.domain, s.default_lang,
+
+	(SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+
+    s.default_template_id, s.description,
+    s.head_meta, s.copyright, s.theme,
+    s.use_yn, s.delete_yn,
+    s.created_by, s.created_ip, s.created_at,
+    s.updated_by, s.updated_ip, s.updated_at,
+    t.template_name AS default_template_name
+  </sql>
+
+  <sql id="searchFilter">
+    WHERE s.delete_yn = 'N'
+    <if test="search.useYn != null and search.useYn != ''">
+      AND s.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (s.site_code LIKE CONCAT('%', #{search.keyword}, '%')
+        OR s.site_name LIKE CONCAT('%', #{search.keyword}, '%')
+        OR s.domain    LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.system.site.dto.Site">
+    SELECT <include refid="siteColumnsFull"/>
+      FROM tb_site s
+      LEFT JOIN tb_template t ON t.template_id = s.default_template_id
+    <include refid="searchFilter"/>
+    ORDER BY s.created_at DESC, s.site_code ASC
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_site s
+    <include refid="searchFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.system.site.dto.Site">
+    SELECT <include refid="siteColumnsFull"/>
+      FROM tb_site s
+      LEFT JOIN tb_template t ON t.template_id = s.default_template_id
+     WHERE s.site_id   = #{siteId}
+       AND s.delete_yn = 'N'
+  </select>
+
+  <select id="findByCode" resultType="com.gonet.primary.system.site.dto.Site">
+    SELECT <include refid="siteColumnsFull"/>
+      FROM tb_site s
+      LEFT JOIN tb_template t ON t.template_id = s.default_template_id
+     WHERE s.site_code  = #{siteCode}
+       AND s.delete_yn  = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_site
+     WHERE site_code  = #{siteCode}
+       AND delete_yn  = 'N'
+    <if test="excludeSiteId != null and excludeSiteId != ''">
+      AND site_id &lt;&gt; #{excludeSiteId}
+    </if>
+  </select>
+
+  <select id="existsByDomain" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_site
+     WHERE domain     = #{domain}
+       AND delete_yn  = 'N'
+    <if test="excludeSiteId != null and excludeSiteId != ''">
+      AND site_id &lt;&gt; #{excludeSiteId}
+    </if>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.system.site.dto.Site">
+    INSERT INTO tb_site (
+      site_id, site_code, site_name, domain, default_lang,
+      default_template_id, description, head_meta, copyright, theme,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{siteId}, #{siteCode}, #{siteName}, #{domain}, #{defaultLang},
+      #{defaultTemplateId}, #{description}, #{headMeta}, #{copyright}, #{theme},
+      COALESCE(#{useYn},'Y'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.system.site.dto.Site">
+    UPDATE tb_site SET
+      <if test="siteCode != null and siteCode != ''">site_code=#{siteCode},</if>
+      <if test="siteName != null and siteName != ''">site_name=#{siteName},</if>
+      <if test="domain != null and domain != ''">domain=#{domain},</if>
+      <if test="defaultLang != null and defaultLang != ''">default_lang=#{defaultLang},</if>
+      <if test="defaultTemplateId != null and defaultTemplateId != ''">default_template_id=#{defaultTemplateId},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      <if test="headMeta != null and headMeta != ''">head_meta=#{headMeta},</if>
+      <if test="copyright != null and copyright != ''">copyright=#{copyright},</if>
+      theme=#{theme},   <!-- 무조건 갱신 — 빈 입력 = 테마 해제(템플릿 기본 브랜드) 지원 -->
+      use_yn=COALESCE(#{useYn}, use_yn),
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE site_id   = #{siteId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updateDefaultTemplate">
+    UPDATE tb_site
+       SET default_template_id = #{templateId},
+           updated_at          = CURRENT_TIMESTAMP
+     WHERE site_id   = #{siteId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_site
+       SET delete_yn  = 'Y',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE site_id   = #{siteId}
+       AND delete_yn = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_site
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+</mapper>

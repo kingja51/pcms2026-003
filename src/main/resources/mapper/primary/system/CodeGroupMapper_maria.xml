@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.system.code.mapper.CodeGroupMapper">
+
+  <!--
+    M-2 N+1 가드:
+    cols 에서 item_count 를 제외하고, list/단건 모두 LEFT JOIN + GROUP BY 로 1쿼리 처리.
+    cols (서브쿼리 없음) — 단건 조회는 별도 cols 만으로 충분.
+  -->
+  <sql id="cols">
+    g.code_group_id, g.group_code, g.group_name, g.description,
+    g.use_yn, g.delete_yn,
+    g.created_by, g.created_ip, g.created_at,
+    g.updated_by, g.updated_ip, g.updated_at
+  </sql>
+
+  <sql id="colsWithCount">
+    <include refid="cols"/>,
+    COUNT(c.code_id) AS item_count
+  </sql>
+
+  <sql id="filter">
+    WHERE g.delete_yn = 'N'
+    <if test="search.useYn != null and search.useYn != ''">
+      AND g.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (g.group_code LIKE CONCAT('%', #{search.keyword}, '%')
+        OR g.group_name LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <!--
+    M-2 — 서브쿼리 N+1 제거. LEFT JOIN + GROUP BY 로 1 쿼리에 item_count 동시 산출.
+    100건 list 시 기존 1+100 쿼리 → 1 쿼리.
+  -->
+  <select id="findList" resultType="com.gonet.primary.system.code.dto.CodeGroup">
+    SELECT <include refid="colsWithCount"/>
+      FROM tb_code_group g
+      LEFT JOIN tb_code c
+        ON c.code_group_id = g.code_group_id
+       AND c.delete_yn     = 'N'
+    <include refid="filter"/>
+    GROUP BY g.code_group_id, g.group_code, g.group_name, g.description,
+             g.use_yn, g.delete_yn,
+             g.created_by, g.created_ip, g.created_at,
+             g.updated_by, g.updated_ip, g.updated_at
+    ORDER BY g.group_code ASC
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1) FROM tb_code_group g
+    <include refid="filter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.system.code.dto.CodeGroup">
+    SELECT <include refid="colsWithCount"/>
+      FROM tb_code_group g
+      LEFT JOIN tb_code c
+        ON c.code_group_id = g.code_group_id
+       AND c.delete_yn     = 'N'
+     WHERE g.code_group_id = #{codeGroupId}
+       AND g.delete_yn = 'N'
+     GROUP BY g.code_group_id, g.group_code, g.group_name, g.description,
+              g.use_yn, g.delete_yn,
+              g.created_by, g.created_ip, g.created_at,
+              g.updated_by, g.updated_ip, g.updated_at
+  </select>
+
+  <select id="findByGroupCode" resultType="com.gonet.primary.system.code.dto.CodeGroup">
+    SELECT <include refid="colsWithCount"/>
+      FROM tb_code_group g
+      LEFT JOIN tb_code c
+        ON c.code_group_id = g.code_group_id
+       AND c.delete_yn     = 'N'
+     WHERE g.group_code = #{groupCode}
+       AND g.delete_yn = 'N'
+     GROUP BY g.code_group_id, g.group_code, g.group_name, g.description,
+              g.use_yn, g.delete_yn,
+              g.created_by, g.created_ip, g.created_at,
+              g.updated_by, g.updated_ip, g.updated_at
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    SELECT COUNT(1) FROM tb_code_group
+     WHERE group_code = #{groupCode}
+       AND delete_yn = 'N'
+    <if test="excludeCodeGroupId != null and excludeCodeGroupId != ''">
+      AND code_group_id &lt;&gt; #{excludeCodeGroupId}
+    </if>
+  </select>
+
+  <select id="countActiveCodes" resultType="int">
+    SELECT COUNT(1) FROM tb_code
+     WHERE code_group_id = #{codeGroupId}
+       AND delete_yn = 'N'
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.system.code.dto.CodeGroup">
+    INSERT INTO tb_code_group (
+      code_group_id, group_code, group_name, description,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{codeGroupId}, #{groupCode}, #{groupName}, #{description},
+      COALESCE(#{useYn},'Y'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.system.code.dto.CodeGroup">
+    UPDATE tb_code_group SET
+      <if test="groupCode != null and groupCode != ''">group_code=#{groupCode},</if>
+      <if test="groupName != null and groupName != ''">group_name=#{groupName},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      use_yn=COALESCE(#{useYn}, use_yn),
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE code_group_id = #{codeGroupId}
+       AND delete_yn     = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_code_group
+       SET delete_yn  = 'Y',
+           use_yn     = 'N',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE code_group_id = #{codeGroupId}
+       AND delete_yn     = 'N'
+  </update>
+
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_code_group
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+</mapper>

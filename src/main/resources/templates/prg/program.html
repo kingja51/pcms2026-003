@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<!--
+  학과 프로그램 제네릭 쉘 — /prg/{program}/{siteCode} (primary ProgramUsrController).
+  사이트 레이아웃만 렌더하고 목록은 htmx 로 secondary 조각(/prg/{program}/{siteCode}/list)을 로드.
+  모든 학과 공용 — 사이트별 복사 불필요.
+  2026-07-06 통일: 게시판/일정과 동일한 표준 프로그램 페이지 골격
+  (program-page-wide 컨테이너 + text-heading-lg 제목) — 폭·제목은 템플릿 CSS 가 결정.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${programTitle}">프로그램</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <header class="mb-6">
+    <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${programTitle}">프로그램</h1>
+  </header>
+
+  <!-- 검색폼 + 목록 + 페이징 조각 (secondary). htmx 로 로드/재로드. -->
+  <div id="prg-panel"
+       th:attr="hx-get=@{/prg/{prog}/{sc}/list(prog=${program}, sc=${siteCode})}"
+       hx-trigger="load" hx-swap="innerHTML">
+    <div class="rounded-large border border-line bg-surface p-4 text-body-sm text-fg-subtle">목록을 불러오는 중…</div>
+  </div>
+
+</section>
+</body>
+</html>

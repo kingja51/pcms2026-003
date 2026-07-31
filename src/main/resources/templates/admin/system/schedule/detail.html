@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>일정 상세</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/schedule}" class="hover:underline">일정</a> /
+      <span th:text="${schedule.scheduleTitle}">제목</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${schedule.scheduleTitle}">제목</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          <span th:text="${schedule.siteCode}">site</span> ·
+          <span class="font-mono text-xs" th:text="${schedule.scheduleId}">id</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/schedule}"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">목록</a>
+        <a th:href="@{/admin/system/schedule/{id}/edit(id=${schedule.scheduleId})}"
+           class="px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium">수정</a>
+
+        <form th:action="@{/admin/system/schedule/{id}/use(id=${schedule.scheduleId})}" method="post" class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="active" th:value="${schedule.useYn == 'Y' ? 'false' : 'true'}"/>
+          <button type="submit"
+                  th:class="${schedule.useYn == 'Y'} ? 'px-3 py-1.5 rounded border border-warning-border bg-warning-surface text-warning-fg text-sm' : 'px-3 py-1.5 rounded border border-success-border bg-success-surface text-success-fg text-sm'"
+                  th:text="${schedule.useYn == 'Y' ? '사용중지' : '사용 재개'}">사용중지</button>
+        </form>
+
+        <form th:action="@{/admin/system/schedule/{id}/delete(id=${schedule.scheduleId})}" method="post" class="inline"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit" class="px-3 py-1.5 rounded border border-danger-border bg-danger-surface text-danger-fg text-sm">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:if="${message}" class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}"   class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"            th:text="${error}"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 bg-surface border border-line rounded-large p-5">
+        <h2 class="text-base font-semibold text-fg-strong mb-3">기본 정보</h2>
+        <dl class="grid grid-cols-[120px_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">기간</dt>
+          <dd class="font-mono text-xs">
+            <span th:text="${@fmt.dt(schedule.startAt)}">-</span> ~
+            <span th:text="${@fmt.dt(schedule.endAt)}">-</span>
+            <span th:if="${schedule.allDayYn == 'Y'}" class="ml-1 inline-flex px-1.5 py-0.5 rounded text-[10px] bg-surface-subtler text-fg-subtle">종일</span>
+          </dd>
+          <dt class="text-fg-subtle">분류</dt>
+          <dd th:text="${schedule.scheduleCategory ?: '-'}">-</dd>
+          <dt class="text-fg-subtle">장소</dt>
+          <dd th:text="${schedule.location ?: '-'}">-</dd>
+          <dt class="text-fg-subtle">링크</dt>
+          <dd>
+            <a th:if="${schedule.linkUrl}" th:href="${schedule.linkUrl}" target="_blank" rel="noopener"
+               th:text="${schedule.linkUrl}" class="text-brand-60 hover:underline break-all">link</a>
+            <span th:unless="${schedule.linkUrl}" class="text-fg-subtle">-</span>
+          </dd>
+          <dt class="text-fg-subtle">색상</dt>
+          <dd>
+            <span th:if="${schedule.colorCode}" class="inline-flex items-center gap-2">
+              <span class="inline-block w-4 h-4 rounded border border-line"
+                    th:attr="style='background:' + ${schedule.colorCode}"></span>
+              <code class="font-mono text-xs" th:text="${schedule.colorCode}">#000000</code>
+            </span>
+            <span th:unless="${schedule.colorCode}" class="text-fg-subtle">-</span>
+          </dd>
+          <dt class="text-fg-subtle">사용</dt>
+          <dd>
+            <span th:if="${schedule.useYn == 'Y'}"  class="inline-flex px-2 py-0.5 rounded text-xs bg-success-surface text-success-fg">사용중</span>
+            <span th:unless="${schedule.useYn == 'Y'}" class="inline-flex px-2 py-0.5 rounded text-xs bg-surface-subtler text-fg-subtle">중지</span>
+          </dd>
+        </dl>
+
+        <h3 class="text-sm font-semibold text-fg-strong mt-6 mb-2">본문</h3>
+        <div class="prose prose-sm max-w-none border border-line rounded p-3"
+             th:if="${!#strings.isEmpty(schedule.scheduleContent)}"
+             th:utext="${schedule.scheduleContent}">본문</div>
+        <div class="border border-line rounded p-3 text-sm text-fg-subtle"
+             th:if="${#strings.isEmpty(schedule.scheduleContent)}">(비어 있음)</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-base font-semibold text-fg-strong mb-3">감사 정보</h2>
+        <dl class="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
+          <dt class="text-fg-subtle">생성</dt>     <dd class="font-mono text-xs" th:text="${@fmt.dt(schedule.createdAt)}">-</dd>
+          <dt class="text-fg-subtle">생성자</dt>   <dd class="font-mono text-xs break-all" th:text="${schedule.createdBy ?: '-'}">-</dd>
+          <dt class="text-fg-subtle">수정</dt>     <dd class="font-mono text-xs" th:text="${@fmt.dt(schedule.updatedAt)}">-</dd>
+          <dt class="text-fg-subtle">수정자</dt>   <dd class="font-mono text-xs break-all" th:text="${schedule.updatedBy ?: '-'}">-</dd>
+        </dl>
+      </div>
+    </div>
+
+  </section>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+  KY 기계공학과(ME) 홈 — IBM Carbon 템플릿 재사용.
+  layoutPath(tb_site.default_template_id → IBM tb_template.layout_path) 로 동적 decorate.
+  개별프로그램(교수진/직원/연구실)은 secondary DB, 나머지는 게시판(/bbs/me/*).
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/IBM/ibm'}__}"
+      lang="ko">
+<head>
+  <title>Home</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <!-- ══ Hero ══ -->
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      <div class="lg:col-span-8">
+        <p class="cds-tag mb-4">KY · Computer Science and Engineering</p>
+        <h1 class="cds-display-01" th:text="${siteContext?.site?.siteName} ?: '컴퓨터공학과'">컴퓨터공학과</h1>
+        <p class="cds-body-01 cds-text-secondary mt-4 cds-measure">
+          자동화된 문제 해결의 본질과 한계에 대한 근본적인 질문에 도전합니다.
+          교수진·연구실 소개와 학과 소식을 확인하세요.
+        </p>
+        <div class="mt-6 flex flex-wrap gap-1">
+          <a th:href="@{/prg/faculty/{sc}(sc=${siteCode})}" class="cds-btn cds-btn--primary">
+            교수진 보기 <span aria-hidden="true">→</span>
+          </a>
+          <a th:href="@{/prg/lab/{sc}(sc=${siteCode})}" class="cds-btn cds-btn--tertiary">연구실 소개</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 구성원/연구 바로가기 tiles ══ -->
+  <div class="cds-band cds-band--layer">
+    <div class="cds-band__inner">
+      <h2 class="cds-heading-03 mb-6">구성원 &amp; 연구</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-0.5">
+        <a th:href="@{/prg/faculty/{sc}(sc=${siteCode})}" class="cds-tile cds-tile--clickable bg-white">
+          <h3 class="cds-tile__title">교수진</h3>
+          <p class="cds-tile__body">Faculty — 전임 교원 소개</p>
+        </a>
+        <a th:href="@{/prg/lab/{sc}(sc=${siteCode})}" class="cds-tile cds-tile--clickable bg-white">
+          <h3 class="cds-tile__title">연구실</h3>
+          <p class="cds-tile__body">Research Labs — 연구 분야</p>
+        </a>
+        <a th:href="@{/prg/staff/{sc}(sc=${siteCode})}" class="cds-tile cds-tile--clickable bg-white">
+          <h3 class="cds-tile__title">직원</h3>
+          <p class="cds-tile__body">Staff — 행정 지원</p>
+        </a>
+        <a th:href="@{/bbs/{sc}/notice(sc=${siteCode})}" class="cds-tile cds-tile--clickable bg-white">
+          <h3 class="cds-tile__title">공지사항</h3>
+          <p class="cds-tile__body">Notices — 학과 공지</p>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 공지 (Controller 미주입 시 안내) ══ -->
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner">
+      <div class="flex items-baseline justify-between mb-6">
+        <h2 class="cds-heading-03">공지사항</h2>
+        <a th:if="${siteContext != null}" th:href="@{/bbs/{sc}/notice(sc=${siteCode})}"
+           class="cds-link cds-body-short">전체 보기 →</a>
+      </div>
+      <ul class="cds-layer-01" th:if="${noticeArticles != null and !#lists.isEmpty(noticeArticles)}">
+        <li th:each="a : ${noticeArticles}" class="cds-tile cds-tile--clickable">
+          <a th:href="@{/bbs/{sc}/notice/{id}(sc=${siteCode}, id=${a.articleId})}"
+             class="flex items-baseline justify-between gap-4">
+            <span class="cds-body-02" th:text="${a.title}">공지 제목</span>
+            <span class="cds-caption cds-mono" th:text="${@fmt.d(a.createdAt)}">2026-07-04</span>
+          </a>
+        </li>
+      </ul>
+      <div th:unless="${noticeArticles != null and !#lists.isEmpty(noticeArticles)}"
+           class="cds-tile cds-text-secondary cds-body-short">
+        등록된 공지가 없습니다. (게시판 <span class="cds-mono">notice</span> 에 글을 등록하면 자동 노출)
+      </div>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

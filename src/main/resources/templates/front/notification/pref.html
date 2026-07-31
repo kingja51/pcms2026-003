@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>알림 설정</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="max-w-[672px] mx-auto px-4 py-6">
+
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <div>
+          <h1 class="text-heading-md font-bold text-fg-strong">알림 설정</h1>
+          <p class="text-body-sm text-fg-subtle mt-1">
+            채널 OFF 시 해당 알림은 도착하지 않습니다. 미설정 시 기본값 (in-app/email 모두 ON).
+          </p>
+        </div>
+        <a th:href="@{/notification}"
+           class="krds-btn krds-btn-sm krds-btn-tertiary">← 인박스</a>
+      </div>
+
+      <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+        <span class="text-success-icon font-bold shrink-0" aria-hidden="true">✓</span>
+        <p th:text="${message}"></p>
+      </div>
+      <div th:if="${error}" role="alert" aria-live="polite" class="krds-alert krds-alert-danger mb-4">
+        <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+
+      <!-- ALL 기본값 + 타입별 row 통합 표시 -->
+      <div class="overflow-x-auto rounded-large border border-line bg-surface">
+        <table class="w-full border-collapse text-body-sm">
+          <thead class="bg-surface-subtle">
+            <tr>
+              <th class="text-left text-label-sm font-bold text-fg-subtle px-4 py-3 border-b border-line">알림 타입</th>
+              <th class="text-center text-label-sm font-bold text-fg-subtle px-4 py-3 border-b border-line">인박스</th>
+              <th class="text-center text-label-sm font-bold text-fg-subtle px-4 py-3 border-b border-line">이메일</th>
+              <th class="text-right text-label-sm font-bold text-fg-subtle px-4 py-3 border-b border-line">저장</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            <!-- ALL — 사용자 단위 기본값 -->
+            <tr th:with="row=${prefs?.?[notificationType == 'ALL']?.size() > 0 ? prefs.?[notificationType == 'ALL'][0] : null}"
+                class="hover:bg-surface-subtle">
+              <td class="px-4 py-3 border-b border-divider font-bold text-fg-strong">전체 기본값
+                <span class="block text-body-xs font-normal text-fg-subtle">타입별 설정이 없을 때 적용</span>
+              </td>
+              <form th:action="@{/notification/pref}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="notificationType" value="ALL"/>
+                <td class="px-4 py-3 border-b border-divider text-center">
+                  <input type="checkbox" name="channelInappYn" value="Y"
+                         class="size-5 accent-primary-50" aria-label="전체 기본값 인박스 수신"
+                         th:checked="${row == null or row.inappEnabled}"/>
+                </td>
+                <td class="px-4 py-3 border-b border-divider text-center">
+                  <input type="checkbox" name="channelEmailYn" value="Y"
+                         class="size-5 accent-primary-50" aria-label="전체 기본값 이메일 수신"
+                         th:checked="${row == null or row.emailEnabled}"/>
+                </td>
+                <td class="px-4 py-3 border-b border-divider text-right">
+                  <button type="submit" class="krds-btn krds-btn-sm krds-btn-primary">저장</button>
+                </td>
+              </form>
+            </tr>
+
+            <!-- 타입별 (NotificationType enum 순회) -->
+            <tr th:each="t : ${types}"
+                th:with="row=${prefs?.?[notificationType == t.name()]?.size() > 0 ? prefs.?[notificationType == t.name()][0] : null}"
+                class="hover:bg-surface-subtle">
+              <td class="px-4 py-3 border-b border-divider text-fg">
+                <span th:text="${t.label()}">시스템 알림</span>
+                <span class="block text-body-xs text-fg-disabled" th:text="${t.name()}">SYSTEM</span>
+              </td>
+              <form th:action="@{/notification/pref}" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="notificationType" th:value="${t.name()}"/>
+                <td class="px-4 py-3 border-b border-divider text-center">
+                  <input type="checkbox" name="channelInappYn" value="Y"
+                         class="size-5 accent-primary-50" aria-label="인박스 수신"
+                         th:checked="${row != null and row.inappEnabled}"/>
+                </td>
+                <td class="px-4 py-3 border-b border-divider text-center">
+                  <input type="checkbox" name="channelEmailYn" value="Y"
+                         class="size-5 accent-primary-50" aria-label="이메일 수신"
+                         th:checked="${row != null and row.emailEnabled}"/>
+                </td>
+                <td class="px-4 py-3 border-b border-divider text-right">
+                  <button type="submit" class="krds-btn krds-btn-sm krds-btn-tertiary">저장</button>
+                </td>
+              </form>
+            </tr>
+
+          </tbody>
+        </table>
+      </div>
+
+      <p class="mt-4 text-body-xs text-fg-subtle">
+        타입별 설정이 비어 있으면 <strong>전체 기본값</strong> 행이 적용됩니다.
+        예: "전체" inbox=ON, email=OFF 면 모든 신규 알림이 인박스에만 도착하고 메일은 발송되지 않습니다.
+      </p>
+    </div>
+
+  </section>
+</body>
+</html>

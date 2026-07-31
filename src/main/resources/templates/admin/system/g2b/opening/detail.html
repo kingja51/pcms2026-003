@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>개찰결과 상세</title></head>
+<body>
+<section layout:fragment="content">
+  <nav class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/g2b/opening}" class="hover:underline">개찰결과</a>
+    <span class="mx-1">/</span><span th:text="${row.bidNtceNo + '-' + row.bidNtceOrd}"></span>
+  </nav>
+
+  <h1 class="text-heading-lg font-bold text-fg-strong mb-1" th:text="${row.bidNtceNm}">공고명</h1>
+  <p class="text-sm text-fg-subtle mb-4">
+    <span th:text="${row.bidNtceNo + '-' + row.bidNtceOrd}"></span>
+    <span class="mx-2">·</span><span th:text="${@bsns.label(row.bsnsDiv)}"></span>
+  </p>
+
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <h2 class="text-sm font-semibold text-fg mb-2">낙찰 정보</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div><dt class="text-fg-subtle">낙찰업체명</dt><dd class="font-semibold" th:text="${row.sucsfCorpNm}"></dd></div>
+      <div><dt class="text-fg-subtle">사업자등록번호</dt><dd th:text="${row.sucsfCorpBizrno}"></dd></div>
+      <div><dt class="text-fg-subtle">대표자명</dt><dd th:text="${row.sucsfCorpCeoNm}"></dd></div>
+      <div><dt class="text-fg-subtle">낙찰방법</dt><dd th:text="${row.sucsfbidMthdNm}"></dd></div>
+      <div><dt class="text-fg-subtle">낙찰금액</dt><dd class="font-semibold" th:text="${row.sucsfbidAmt != null ? #numbers.formatInteger(row.sucsfbidAmt, 0, 'COMMA') + ' 원' : '-'}"></dd></div>
+      <div><dt class="text-fg-subtle">낙찰률</dt><dd th:text="${row.sucsfbidRate != null ? #numbers.formatDecimal(row.sucsfbidRate, 0, 4) + '%' : '-'}"></dd></div>
+      <div><dt class="text-fg-subtle">예정가격</dt><dd th:text="${row.plnprc != null ? #numbers.formatInteger(row.plnprc, 0, 'COMMA') + ' 원' : '-'}"></dd></div>
+      <div><dt class="text-fg-subtle">추정가격</dt><dd th:text="${row.presmptPrce != null ? #numbers.formatInteger(row.presmptPrce, 0, 'COMMA') + ' 원' : '-'}"></dd></div>
+      <div><dt class="text-fg-subtle">참여업체 수</dt><dd th:text="${row.prtcptCnum}"></dd></div>
+      <div><dt class="text-fg-subtle">개찰일시</dt><dd th:text="${row.opengDt != null ? #temporals.format(row.opengDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+    </dl>
+  </div>
+
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <h2 class="text-sm font-semibold text-fg mb-2">기관 정보</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div><dt class="text-fg-subtle">공고기관</dt><dd th:text="${row.ntceInsttCd + ' ' + row.ntceInsttNm}"></dd></div>
+      <div><dt class="text-fg-subtle">수요기관</dt><dd th:text="${row.dminsttCd + ' ' + row.dminsttNm}"></dd></div>
+    </dl>
+  </div>
+
+  <details class="bg-surface border border-line rounded p-4">
+    <summary class="cursor-pointer text-sm font-semibold text-fg">원본 JSON</summary>
+    <pre class="mt-2 text-xs bg-surface-subtle p-3 rounded overflow-x-auto" th:text="${row.rawJson}"></pre>
+  </details>
+
+  <div class="mt-4 text-xs text-fg-subtle">
+    수집 일시: <span th:text="${#temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></span>
+  </div>
+</section>
+</body>
+</html>

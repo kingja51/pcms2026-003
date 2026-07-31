@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title th:text="${row.ctrtNm}">계약현황 상세</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{|/contract/${siteCode}/status|}" class="hover:underline">계약현황</a>
+    <span class="mx-1">/</span>
+    <span>상세</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-fg-strong mb-1" th:text="${row.ctrtNm}">계약명</h1>
+  <p class="text-sm text-fg-subtle mb-4">
+    <span th:text="${row.ctrtGovNm}"></span>
+    <span class="mx-2">·</span>
+    <span th:text="${row.ctrtStartYmd} + ' ~ ' + ${row.ctrtEndYmd}"></span>
+  </p>
+
+  <!-- 계약 총괄 -->
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <h2 class="text-sm font-bold text-fg mb-3 pb-2 border-b border-line">계약 총괄</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div class="md:col-span-2"><dt class="text-fg-subtle">계약명</dt><dd th:text="${row.ctrtNm}"></dd></div>
+      <div><dt class="text-fg-subtle">예정가격</dt><dd th:insert="~{front/contract/fragments :: won(${row.schdAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">최초계약금액</dt><dd th:insert="~{front/contract/fragments :: won(${row.firstCtrtAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">낙찰률</dt><dd th:text="${row.ctrtRate != null ? row.ctrtRate + ' %' : '-'}"></dd></div>
+      <div><dt class="text-fg-subtle">계약금액</dt><dd th:insert="~{front/contract/fragments :: won(${row.ctrtAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">계약일자</dt><dd th:text="${row.ctrtYmd}"></dd></div>
+      <div><dt class="text-fg-subtle">계약기간</dt><dd th:text="${row.ctrtStartYmd} + ' ~ ' + ${row.ctrtEndYmd}"></dd></div>
+      <div><dt class="text-fg-subtle">계약방법</dt><dd th:text="${row.ctrtMethNm}"></dd></div>
+      <div><dt class="text-fg-subtle">준공일자</dt><dd th:text="${row.compltYmd}"></dd></div>
+      <div><dt class="text-fg-subtle">계약유형</dt><dd th:text="${row.ctrtTypeNm}"></dd></div>
+      <div><dt class="text-fg-subtle">계약상대자</dt><dd th:text="${row.custNm}"></dd></div>
+      <div><dt class="text-fg-subtle">계약사유</dt><dd th:text="${row.ctrtRsn}"></dd></div>
+      <div><dt class="text-fg-subtle">계약자 소재지</dt><dd th:text="${row.addr}"></dd></div>
+      <div class="md:col-span-2"><dt class="text-fg-subtle">설치장소</dt><dd th:text="${row.locatNm}"></dd></div>
+    </dl>
+  </div>
+
+  <!-- 대금지급 -->
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <h2 class="text-sm font-bold text-fg mb-3 pb-2 border-b border-line">대금지급</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div><dt class="text-fg-subtle">선금</dt><dd th:insert="~{front/contract/fragments :: won(${row.prePayAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">기성금</dt><dd th:insert="~{front/contract/fragments :: won(${row.giPayAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">준공금</dt><dd th:insert="~{front/contract/fragments :: won(${row.endPayAmt})}"></dd></div>
+      <div><dt class="text-fg-subtle">지급총액</dt><dd th:insert="~{front/contract/fragments :: won(${row.payTotalAmt})}"></dd></div>
+      <div class="md:col-span-2 flex items-center gap-2">
+        <dt class="text-fg-subtle">대가잔액</dt>
+        <dd th:insert="~{front/contract/fragments :: won(${row.payOriAmt})}"></dd>
+        <a th:href="@{|/contract/${siteCode}/bill/${row.ctrtAcctBookMngNo}|}" target="_blank"
+           class="ml-2 text-xs px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">대금지급 상세조회</a>
+      </div>
+    </dl>
+  </div>
+
+  <div class="mt-4">
+    <a th:href="@{|/contract/${siteCode}/status|}"
+       class="inline-flex items-center gap-1 px-4 py-2 rounded border border-line bg-surface text-fg text-sm font-semibold hover:bg-surface-subtle">← 목록</a>
+  </div>
+</section>
+</body>
+</html>

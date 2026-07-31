@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>아이디 찾기</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-md mx-auto">
+
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6 md:p-8">
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-900">아이디 찾기</h1>
+        <p class="text-sm text-slate-500 mt-1">가입 시 등록한 이메일을 입력해 주세요.</p>
+      </div>
+
+      <div th:if="${error}" role="alert" aria-live="polite"
+           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+           th:text="${error}"></div>
+
+      <div th:if="${foundLoginId}" role="status" aria-live="polite"
+           class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 space-y-1">
+        <p>회원님의 아이디는 다음과 같습니다.</p>
+        <p class="font-mono text-base font-semibold text-emerald-900"
+           th:text="${@mask.loginId(foundLoginId)}">ad***01</p>
+        <p th:if="${foundJoinedAt != null}" class="text-xs text-emerald-700">
+          가입일: <span th:text="${@fmt.d(foundJoinedAt)}">2025-01-01</span>
+        </p>
+        <p class="mt-2">
+          <a th:href="@{/member/login}" class="text-blue-600 hover:underline font-medium">로그인하기 →</a>
+        </p>
+      </div>
+
+      <form id="findIdForm" th:action="@{/member/find-id}" th:object="${form}" method="post" class="space-y-4"
+            th:unless="${foundLoginId}">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <th:block th:replace="~{fragments/site-context :: hiddenSiteCode}"/>
+        <th:block th:replace="~{fragments/captcha-v3 :: widget(action='find_id', formId='findIdForm')}"/>
+
+        <div>
+          <label for="name" class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+          <input id="name" th:field="*{name}" type="text" required autofocus maxlength="100"
+                 autocomplete="name"
+                 placeholder="가입 시 등록한 이름"
+                 class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                        focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                 th:classappend="${#fields.hasErrors('name')} ? ' border-red-500' : ''"/>
+          <p th:if="${#fields.hasErrors('name')}" class="mt-1 text-xs text-red-600"
+             th:errors="*{name}">이름 오류</p>
+        </div>
+
+        <div>
+          <label for="email" class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+          <input id="email" th:field="*{email}" type="email" required maxlength="255"
+                 autocomplete="email"
+                 placeholder="가입 시 등록한 이메일"
+                 class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                        focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"
+                 th:classappend="${#fields.hasErrors('email')} ? ' border-red-500' : ''"/>
+          <p th:if="${#fields.hasErrors('email')}" class="mt-1 text-xs text-red-600"
+             th:errors="*{email}">이메일 오류</p>
+        </div>
+
+        <button type="submit"
+                class="w-full rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white
+                       hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors">
+          아이디 찾기
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-sm text-slate-500 space-x-3">
+        <a th:href="@{/member/login}" class="text-blue-600 hover:underline">로그인</a>
+        <span class="text-slate-300">|</span>
+        <a th:href="@{/member/find-password}" class="text-blue-600 hover:underline">비밀번호 찾기</a>
+        <span class="text-slate-300">|</span>
+        <a th:href="@{/member/join}" class="text-blue-600 hover:underline">회원가입</a>
+      </p>
+    </div>
+
+  </section>
+</body>
+</html>

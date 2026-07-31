@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${master.bbsName} + ' — 게시글'">게시글 관리</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board}" class="hover:underline">게시판</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board/{id}(id=${master.bbsMasterId})}"
+         class="hover:underline" th:text="${master.bbsName}">이름</a>
+      <span class="mx-1">/</span>
+      <span>게시글</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">
+          <span th:text="${master.bbsName}">이름</span>
+          <span class="text-base font-normal text-fg-subtle">— 게시글</span>
+        </h1>
+        <p class="text-sm text-fg-subtle mt-1">총
+          <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/bbs/{sc}/{bc}(sc=${master.siteCode}, bc=${master.bbsCode})}"
+           target="_blank" rel="noopener"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">사용자 화면 ↗</a>
+        <details class="relative">
+          <summary class="list-none inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle cursor-pointer">
+            엑셀 다운로드
+          </summary>
+          <div class="absolute right-0 mt-1 p-4 w-80 bg-surface border border-line rounded-large shadow-lg z-10">
+            <form th:action="@{/admin/system/board/{id}/article/excel(id=${master.bbsMasterId})}"
+                  method="post" class="space-y-2">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <input type="hidden" name="status"  th:value="${search?.status}"/>
+              <input type="hidden" name="keyword" th:value="${search?.keyword}"/>
+              <label for="ar-dl-reason" class="block text-xs font-medium text-fg">
+                다운로드 사유 <span class="text-danger-fg">*</span> (10자 이상)
+              </label>
+              <textarea id="ar-dl-reason" name="downloadReason" required
+                        minlength="10" maxlength="500" rows="3"
+                        placeholder="예: 게시글 통계 추출"
+                        class="block w-full rounded border border-line px-2 py-1.5 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"></textarea>
+              <button type="submit"
+                      class="w-full inline-flex items-center justify-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+                다운로드
+              </button>
+              <p class="text-[11px] text-fg-subtle">사유는 감사로그(<code>log_audit</code>) 에 기록됩니다.</p>
+            </form>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:action="@{/admin/system/board/{id}/article(id=${master.bbsMasterId})}" method="get"
+          role="search" aria-label="게시글 검색"
+          class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_180px_140px_auto_auto] gap-3 items-end">
+        <div>
+          <label for="keyword" class="block text-xs font-medium text-fg-subtle mb-1">검색어</label>
+          <input id="keyword" name="keyword" type="text"
+                 th:value="${search?.keyword}" maxlength="100" placeholder="제목/작성자"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+        </div>
+        <div>
+          <label for="searchType" class="block text-xs font-medium text-fg-subtle mb-1">검색범위</label>
+          <select id="searchType" name="searchType"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value=""        th:selected="${search?.searchType == null or search?.searchType == ''}">제목+작성자</option>
+            <option value="TITLE"   th:selected="${search?.searchType == 'TITLE'}">제목</option>
+            <option value="WRITER"  th:selected="${search?.searchType == 'WRITER'}">작성자</option>
+            <option value="CONTENT" th:selected="${search?.searchType == 'CONTENT'}">본문</option>
+          </select>
+        </div>
+        <div>
+          <label for="status" class="block text-xs font-medium text-fg-subtle mb-1">상태</label>
+          <select id="status" name="status"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value=""  th:selected="${search?.status == null or search?.status == '' or search?.status == 'ALL'}">전체</option>
+            <option th:each="st : ${statuses}" th:value="${st.name()}"
+                    th:text="${st.name()}"
+                    th:selected="${search?.status == st.name()}">PUBLISHED</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="submit"
+                  class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">검색</button>
+          <a th:href="@{/admin/system/board/{id}/article(id=${master.bbsMasterId})}"
+             class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">초기화</a>
+        </div>
+      </div>
+    </form>
+
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <caption class="sr-only">게시글 목록</caption>
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+            <th scope="col" class="px-4 py-3">제목</th>
+            <th scope="col" class="px-4 py-3">작성자</th>
+            <th scope="col" class="px-4 py-3">상태</th>
+            <th scope="col" class="px-4 py-3 text-right">조회</th>
+            <th scope="col" class="px-4 py-3 text-right">댓글</th>
+            <th scope="col" class="px-4 py-3">작성일시</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-2.5">
+              <span th:if="${row.noticeYn == 'Y'}"
+                    class="inline-flex items-center px-1.5 py-0.5 mr-1 rounded text-[10px] font-bold bg-danger-surface text-danger-fg">공지</span>
+              <span th:if="${row.secretYn == 'Y'}"
+                    class="inline-flex items-center px-1.5 py-0.5 mr-1 rounded text-[10px] font-bold bg-surface-subtler text-fg">🔒</span>
+              <a th:href="@{/admin/system/board/{bid}/article/{aid}(bid=${master.bbsMasterId}, aid=${row.articleId})}"
+                 class="text-brand-60 hover:underline font-medium" th:text="${row.title}">제목</a>
+            </td>
+            <td class="px-4 py-2.5 text-fg" th:text="${row.writerName}">작성자</td>
+            <td class="px-4 py-2.5">
+              <span th:class="|inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                ${row.status == 'PUBLISHED' ? 'bg-success-surface text-success-fg' :
+                  row.status == 'HIDDEN'    ? 'bg-surface-subtler text-fg' :
+                  row.status == 'REPORTED'  ? 'bg-warning-surface text-warning-fg' :
+                                               'bg-danger-surface text-danger-fg'}|"
+                    th:text="${row.status}">PUBLISHED</span>
+            </td>
+            <td class="px-4 py-2.5 text-right font-mono" th:text="${row.viewCount}">0</td>
+            <td class="px-4 py-2.5 text-right font-mono" th:text="${row.commentCount}">0</td>
+            <td class="px-4 py-2.5 text-fg-subtle font-mono text-xs" th:text="${@fmt.dt(row.createdAt)}">-</td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(page.content)}">
+            <td colspan="6" class="px-4 py-10 text-center text-fg-subtle">등록된 게시글이 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/admin/system/board/{id}/article(id=${master.bbsMasterId},
+                       page=${p}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, searchType=${search.searchType}, status=${search.status})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                       : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

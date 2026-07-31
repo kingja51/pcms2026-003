@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>Trace 추적</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/log/access}" class="hover:underline">로그</a>
+      <span class="mx-1">/</span>
+      <span>Trace 추적</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">Trace 추적</h1>
+        <p class="mt-1 text-sm text-fg">
+          한 HTTP 요청의 trace_id 로 4개 log_* 테이블 (access · audit · error · file-download) 을
+          시간순 통합 조회합니다.
+        </p>
+      </div>
+    </div>
+
+    <!-- 검색 폼 -->
+    <form method="get" th:action="@{/admin/system/log/trace}"
+          class="bg-surface border border-line rounded-large p-3 mb-4 flex items-center gap-2 flex-wrap">
+      <label class="text-xs text-fg">trace_id</label>
+      <input type="text" name="traceId" th:value="${traceId}"
+             placeholder="예: 5fb14cc599ff3bc5a7fddf30b05ad111"
+             class="flex-1 min-w-[280px] rounded border border-line px-2 py-1 text-sm font-mono"/>
+      <button type="submit"
+              class="px-4 py-1.5 rounded bg-gray-90 text-fg-on text-sm hover:bg-gray-70">조회</button>
+    </form>
+
+    <!-- 안내문 — *.log 파일 -->
+    <div class="bg-warning-surface border border-warning-border rounded p-3 mb-4 text-xs text-warning-fg">
+      <p class="font-semibold mb-1">📁 더 자세한 추적이 필요한가요?</p>
+      <p class="mb-1">
+        본 timeline 은 4개 <code class="bg-surface px-1 rounded">log_*</code> 테이블의 구조화된 이벤트만 표시합니다.
+        DEBUG/INFO/WARN 등 모든 logger 출력은 서버의 <code class="bg-surface px-1 rounded">*.log</code> 파일에 있습니다.
+      </p>
+      <p>
+        운영에서는 운영팀에게 다음 명령으로 grep 을 요청하세요:
+        <code class="bg-surface px-1 rounded">grep '<span th:text="${traceId} ?: 'TRACE_ID'">TRACE_ID</span>' /var/log/gopcms/*.log</code>
+        — 또는 Loki/Elasticsearch 같은 로그 수집기에서 <code class="bg-surface px-1 rounded">traceId="<span th:text="${traceId} ?: 'TRACE_ID'">TRACE_ID</span>"</code> 검색.
+      </p>
+    </div>
+
+    <!-- 결과 — traceId 입력 안 함 -->
+    <div th:if="${timeline == null}"
+         class="text-center text-sm text-fg-subtle py-12">
+      위 입력란에 trace_id 를 넣어주세요. 각 로그 상세 화면의 "trace_id" 항목에서 복사할 수 있습니다.
+    </div>
+
+    <!-- 결과 — 빈 timeline -->
+    <div th:if="${timeline != null and timeline.empty}"
+         class="text-center text-sm text-fg-subtle py-12 bg-surface border border-line rounded">
+      <p class="font-mono mb-2" th:text="${timeline.traceId}">trace</p>
+      <p>일치하는 로그가 없습니다. trace_id 가 정확한지, 또는 6개월 retention 으로 삭제되었는지 확인하세요.</p>
+    </div>
+
+    <!-- 결과 — 통계 + timeline -->
+    <div th:if="${timeline != null and not timeline.empty}">
+      <!-- 카운트 카드 -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+        <div class="bg-surface border border-line rounded p-3">
+          <p class="text-xs text-fg-subtle">총 이벤트</p>
+          <p class="text-heading-lg font-bold text-fg-strong" th:text="${timeline.totalCount()}">0</p>
+        </div>
+        <div class="bg-surface border border-brand-30 rounded p-3">
+          <p class="text-xs text-brand-70">access</p>
+          <p class="text-heading-lg font-bold text-brand-70" th:text="${timeline.accessCount}">0</p>
+        </div>
+        <div class="bg-surface border border-success-border rounded p-3">
+          <p class="text-xs text-success-fg">audit</p>
+          <p class="text-heading-lg font-bold text-success-fg" th:text="${timeline.auditCount}">0</p>
+        </div>
+        <div class="bg-surface border border-danger-border rounded p-3">
+          <p class="text-xs text-danger-fg">error</p>
+          <p class="text-heading-lg font-bold text-danger-fg" th:text="${timeline.errorCount}">0</p>
+        </div>
+        <div class="bg-surface border border-point-30 rounded p-3">
+          <p class="text-xs text-point-70">file-download</p>
+          <p class="text-heading-lg font-bold text-point-70" th:text="${timeline.fileDownloadCount}">0</p>
+        </div>
+      </div>
+
+      <p class="text-xs text-fg-subtle mb-2">
+        trace_id: <code class="font-mono bg-surface-subtler px-2 py-0.5 rounded" th:text="${timeline.traceId}">-</code>
+      </p>
+
+      <!-- Timeline 표 -->
+      <div class="bg-surface border border-line rounded-large overflow-hidden">
+        <table class="w-full text-xs">
+          <thead class="bg-surface-subtle text-fg-subtle uppercase">
+            <tr>
+              <th class="px-3 py-2 text-left w-44">시각</th>
+              <th class="px-3 py-2 text-left w-28">종류</th>
+              <th class="px-3 py-2 text-left">요약</th>
+              <th class="px-3 py-2 text-right w-20">상세</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-divider">
+            <tr th:each="e : ${timeline.entries}" class="hover:bg-surface-subtle">
+              <td class="px-3 py-1.5 font-mono text-fg"
+                  th:text="${@fmt.dt(e.at)}">-</td>
+              <td class="px-3 py-1.5">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                      th:classappend="${e.source == 'access'        ? 'bg-brand-5 text-brand-70' :
+                                        e.source == 'audit'         ? 'bg-success-surface text-success-fg' :
+                                        e.source == 'error'         ? 'bg-danger-surface text-danger-fg font-bold' :
+                                        e.source == 'file-download' ? 'bg-point-5 text-point-70' :
+                                                                       'bg-surface-subtler text-fg-subtle'}"
+                      th:text="${e.source}">access</span>
+              </td>
+              <td class="px-3 py-1.5 break-all"
+                  th:classappend="${e.severity == 'ERROR' ? 'text-danger-fg font-medium' :
+                                    e.severity == 'FAIL'  ? 'text-warning-fg' : ''}"
+                  th:text="${e.summary}">summary</td>
+              <td class="px-3 py-1.5 text-right">
+                <a th:href="@{${e.detailUrl}}"
+                   class="text-brand-60 hover:underline">열기 →</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </section>
+</body>
+</html>

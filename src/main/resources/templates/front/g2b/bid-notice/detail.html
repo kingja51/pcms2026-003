@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title th:text="${row.bidNtceNm}">입찰공고 상세</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{|/g2b/bid-notice/${siteCode}|}" class="hover:underline">입찰공고</a>
+    <span class="mx-1">/</span>
+    <span th:text="${row.bidNtceNo + '-' + row.bidNtceOrd}">상세</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-fg-strong mb-1" th:text="${row.bidNtceNm}">공고명</h1>
+  <p class="text-sm text-fg-subtle mb-4">
+    <span th:text="${row.bidNtceNo + '-' + row.bidNtceOrd}"></span>
+    <span class="mx-2">·</span>
+    <span th:text="${@bsns.label(row.bsnsDiv)}"></span>
+    <span th:if="${row.reNtceYn == 'Y'}" class="ml-2 inline-block px-2 py-0.5 rounded bg-warning-10 text-warning-fg text-xs">재공고</span>
+  </p>
+
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div><dt class="text-fg-subtle">공고기관</dt><dd th:text="${row.ntceInsttNm}"></dd></div>
+      <div><dt class="text-fg-subtle">수요기관</dt><dd th:text="${row.dminsttNm}"></dd></div>
+      <div><dt class="text-fg-subtle">입찰방식</dt><dd th:text="${row.bidMethdNm}"></dd></div>
+      <div><dt class="text-fg-subtle">계약체결방법</dt><dd th:text="${row.cntrctCnclsMthdNm}"></dd></div>
+      <div><dt class="text-fg-subtle">공고일시</dt><dd th:text="${row.bidNtceDt != null ? #temporals.format(row.bidNtceDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div><dt class="text-fg-subtle">입찰개시</dt><dd th:text="${row.bidBgnDt != null ? #temporals.format(row.bidBgnDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div><dt class="text-fg-subtle">입찰마감</dt><dd th:text="${row.bidClseDt != null ? #temporals.format(row.bidClseDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div><dt class="text-fg-subtle">개찰일시</dt><dd th:text="${row.opengDt != null ? #temporals.format(row.opengDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div class="md:col-span-2"><dt class="text-fg-subtle">개찰장소</dt><dd th:text="${row.opengPlce}"></dd></div>
+      <div><dt class="text-fg-subtle">추정가격</dt><dd th:text="${row.presmptPrce != null ? #numbers.formatInteger(row.presmptPrce, 0, 'COMMA') + ' 원' : '-'}"></dd></div>
+      <div><dt class="text-fg-subtle">배정예산</dt><dd th:text="${row.asignBdgtAmt != null ? #numbers.formatInteger(row.asignBdgtAmt, 0, 'COMMA') + ' 원' : '-'}"></dd></div>
+    </dl>
+
+    <div class="mt-4 pt-4 border-t border-line flex items-center gap-2 flex-wrap">
+      <a th:href="@{|/g2b/bid-notice/${siteCode}|}"
+         class="inline-flex items-center gap-1 px-4 py-2 rounded border border-line bg-surface text-fg text-sm font-semibold hover:bg-surface-subtle">
+        ← 목록
+      </a>
+      <!-- 운영자 지정 G2B 통합검색 URL (untySrchSeCd=BK+BUK = 입찰공고).
+           기관 화이트리스트(instCd / demaInstCd) + 공고명(bidNtceNm) 을 untySrchWord 로 prefill. -->
+      <a th:href="${'https://www.g2b.go.kr/link/FIUA006_01/single/?untySrchSeCd=BK+BUK&rowCnt=&instCd=4490000%2C4490142%2C4490043%2C4490261%2C4490058%2C4490408%2C4490465%2C4490437%2C4490438%2C4490439%2C4490259%2C4490358%2C4490152%2C5650000%2C5660000%2C5650008%2C5650010%2C5650011%2C5650013%2C5650015%2C5650019%2C5650023%2C5660009%2C5660010%2C5660012%2C5660016%2C5660017%2C5660034%2C5660025%2C5660026%2C&demaInstNm=&hghrkInstCd=&prcmBsneAreaCd=%EC%A0%84%EC%B2%B4+%EC%A1%B0070001+%EC%A1%B0070002+%EC%A1%B0070003+%EC%A1%B0070004+%EC%A1%B0070005&prcmMthoSeCd=&frcpYn=N&laseYn=N&rsrvYn=N&chkInstCd=&urlSrchSeCd=instCd&demaInstCd=IN0100000034469&prcmMaagSeCd=&untySrchWord=' + #uris.escapeQueryParam(row.bidNtceNm ?: '')}"
+         target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-1 px-4 py-2 rounded bg-secondary-50 text-fg-on text-sm font-semibold hover:bg-secondary-60">
+        🔗 조달청 나라장터 상세보기 →
+      </a>
+      <span class="text-xs text-fg-subtle ml-2">
+        공고번호: <span th:text="${row.bidNtceNo + '-' + row.bidNtceOrd}" class="font-mono select-all"></span>
+      </span>
+    </div>
+  </div>
+
+  <div class="mt-4 text-xs text-fg-subtle text-right">
+    출처: 조달청 나라장터 (수집 일시 <span th:text="${#temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm')}"></span>)
+  </div>
+</section>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|부서 상세 - ${department.departmentCode}|">부서 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/department}" class="hover:underline">부서</a>
+      <span class="mx-1">/</span>
+      <span class="font-mono" th:text="${department.departmentCode}">DEPT_CODE</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${department.departmentName}">부서명</h1>
+        <p class="text-xs text-fg-subtle font-mono mt-1" th:text="${department.departmentId}">uuid</p>
+      </div>
+      <nav aria-label="부서 작업" class="flex items-center gap-2">
+        <a th:href="@{/admin/system/department/{id}/edit(id=${department.departmentId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+          수정
+        </a>
+        <form th:action="@{/admin/system/department/{id}(id=${department.departmentId})}"
+              method="post"
+              data-confirm="이 부서를 삭제하시겠습니까? (하위 부서·소속 직원이 있으면 거부됩니다)"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="_method" value="delete"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm font-medium hover:bg-danger-surface">
+            삭제
+          </button>
+        </form>
+        <button type="button"
+                data-history-back
+                th:attr="data-history-back-fallback=@{/admin/system/department}"
+                class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          뒤로가기
+        </button>
+        <a th:href="@{/admin/system/department}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          목록
+        </a>
+      </nav>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <!-- 기본 정보 -->
+    <section aria-labelledby="info-heading"
+             class="bg-surface border border-line rounded-large p-6 mb-4">
+      <h2 id="info-heading"
+          class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">기본 정보</h2>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div>
+          <dt class="text-fg-subtle">코드</dt>
+          <dd class="font-mono text-fg-strong" th:text="${department.departmentCode}">HQ</dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">이름</dt>
+          <dd class="text-fg-strong" th:text="${department.departmentName}">본사</dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">깊이 / 정렬</dt>
+          <dd class="text-fg">
+            <span th:text="${department.depth}">1</span>
+            <span class="text-fg-disabled mx-1">/</span>
+            <span th:text="${department.sortOrder}">0</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">사용 여부</dt>
+          <dd>
+            <span th:if="${department.useYn == 'Y'}"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용</span>
+            <span th:unless="${department.useYn == 'Y'}"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">미사용</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">상위 부서</dt>
+          <dd class="text-fg">
+            <a th:if="${parent}"
+               th:href="@{/admin/system/department/{id}(id=${parent.departmentId})}"
+               class="text-brand-60 hover:underline"
+               th:text="|[${parent.departmentCode}] ${parent.departmentName}|">상위</a>
+            <span th:unless="${parent}" class="text-fg-subtle">(루트 부서)</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">부서장 직원ID</dt>
+          <dd class="font-mono text-xs text-fg">
+            <a th:if="${department.managerEmployeeId}"
+               th:href="@{/admin/system/employee/{id}(id=${department.managerEmployeeId})}"
+               class="text-brand-60 hover:underline"
+               th:text="${department.managerEmployeeId}">uuid</a>
+            <span th:unless="${department.managerEmployeeId}" class="text-fg-subtle">(미지정)</span>
+          </dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-fg-subtle mb-1">설명</dt>
+          <dd class="text-fg whitespace-pre-wrap" th:text="${department.description} ?: '-'">-</dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">등록자 / 일시</dt>
+          <dd class="text-fg">
+            <span class="font-mono" th:text="${department.createdBy}">SYSTEM</span>
+            <span class="text-fg-disabled mx-1">/</span>
+            <span class="font-mono text-xs" th:text="${@fmt.dt(department.createdAt)}">-</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">수정자 / 일시</dt>
+          <dd class="text-fg">
+            <span class="font-mono" th:text="${department.updatedBy} ?: '-'">-</span>
+            <span class="text-fg-disabled mx-1">/</span>
+            <span class="font-mono text-xs" th:text="${@fmt.dt(department.updatedAt)}">-</span>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- 부서장 지정 — 직원 autocomplete -->
+    <section aria-labelledby="mgr-heading"
+             class="bg-surface border border-line rounded-large p-6">
+      <h2 id="mgr-heading"
+          class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">부서장 지정</h2>
+      <form th:action="@{/admin/system/department/{id}/manager(id=${department.departmentId})}"
+            method="post" class="space-y-3" data-manager-picker>
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+        <!-- 현재 선택 라벨 + 실제 저장값(hidden) -->
+        <div class="text-sm">
+          <span class="text-fg-subtle">현재 선택:</span>
+          <strong data-manager-picker-label class="text-fg-strong ml-1"
+                  th:text="${department.managerEmployeeId} ?: '(미지정)'">(미지정)</strong>
+        </div>
+        <input type="hidden" name="managerEmployeeId" data-manager-picker-value
+               th:value="${department.managerEmployeeId}"/>
+
+        <!-- 검색 input (htmx) -->
+        <label for="mgrPickKeyword" class="block text-sm font-medium text-fg">직원 검색</label>
+        <input id="mgrPickKeyword" type="text" name="keyword"
+               autocomplete="off"
+               placeholder="로그인ID / 사번 / 부서 / 직위 (2자 이상)"
+               hx-get="/admin/system/employee/pick"
+               hx-trigger="keyup changed delay:300ms, focus"
+               hx-target="#mgrPickList"
+               hx-swap="innerHTML"
+               class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+
+        <!-- 검색 결과 드롭다운 -->
+        <div id="mgrPickList" aria-live="polite"></div>
+
+        <div class="flex items-center gap-2 pt-2 border-t border-divider">
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">
+            저장
+          </button>
+          <button type="button" data-manager-picker-clear
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-warning-border bg-surface text-warning-fg text-sm font-medium hover:bg-warning-surface">
+            선택 해제 (해임)
+          </button>
+          <p class="text-xs text-fg-subtle">
+            검색 결과 클릭 시 현재 선택이 갱신되며, 저장을 눌러야 반영됩니다. 해임하려면 "선택 해제" 후 저장.
+          </p>
+        </div>
+      </form>
+    </section>
+
+  </section>
+</body>
+</html>

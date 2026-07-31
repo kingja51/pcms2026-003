@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>신고 모더레이션</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board}" class="hover:underline">게시판</a>
+      <span class="mx-1">/</span>
+      <span>신고 모더레이션</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">신고 모더레이션</h1>
+        <p class="text-sm text-fg-subtle mt-1">총
+          <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+          (PENDING 우선 처리)
+        </p>
+      </div>
+    </div>
+
+    <div th:if="${message}" class="mb-4 p-3 rounded bg-success-surface text-success-fg text-sm"
+         th:text="${message}"></div>
+    <div th:if="${error}"   class="mb-4 p-3 rounded bg-danger-surface text-danger-fg text-sm"
+         th:text="${error}"></div>
+
+    <!-- 필터 -->
+    <form method="get" th:action="@{/admin/system/board/report}"
+          class="bg-surface border border-line rounded-large p-4 mb-4 flex flex-wrap gap-3 items-end">
+      <div>
+        <label class="block text-xs text-fg-subtle mb-1">상태</label>
+        <select name="status" class="border border-line rounded px-2 py-1 text-sm">
+          <option value="ALL" th:selected="${search.status == 'ALL'}">전체</option>
+          <option th:each="o : ${@code.options('BBS_REPORT_STATUS')}"
+                  th:value="${o.code}"
+                  th:text="|${o.codeName} (${o.code})|"
+                  th:selected="${search.status == o.code}">대기 (PENDING)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-fg-subtle mb-1">대상</label>
+        <select name="targetType" class="border border-line rounded px-2 py-1 text-sm">
+          <option value="ALL" th:selected="${search.targetType == 'ALL'}">전체</option>
+          <option th:each="o : ${@code.options('BBS_REPORT_TARGET')}"
+                  th:value="${o.code}"
+                  th:text="|${o.codeName} (${o.code})|"
+                  th:selected="${search.targetType == o.code}">게시글 (ARTICLE)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-fg-subtle mb-1">사유</label>
+        <select name="reasonCode" class="border border-line rounded px-2 py-1 text-sm">
+          <option value="ALL" th:selected="${search.reasonCode == 'ALL'}">전체</option>
+          <option th:each="o : ${@code.options('BBS_REPORT_REASON')}"
+                  th:value="${o.code}"
+                  th:text="|${o.codeName} (${o.code})|"
+                  th:selected="${search.reasonCode == o.code}">스팸 (SPAM)</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-[200px]">
+        <label class="block text-xs text-fg-subtle mb-1">검색</label>
+        <input type="text" name="keyword" th:value="${search.keyword}"
+               placeholder="신고 사유 본문 / 신고자 loginId"
+               class="w-full border border-line rounded px-2 py-1 text-sm"/>
+      </div>
+      <div>
+        <button type="submit"
+                class="px-3 py-1.5 bg-gray-90 text-fg-on text-sm rounded hover:bg-gray-70">
+          검색
+        </button>
+      </div>
+    </form>
+
+    <!-- 목록 -->
+    <div class="bg-surface border border-line rounded-large overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead class="bg-surface-subtle text-fg-subtle">
+          <tr>
+            <th class="text-left px-3 py-2">상태</th>
+            <th class="text-left px-3 py-2">대상</th>
+            <th class="text-left px-3 py-2">사유</th>
+            <th class="text-left px-3 py-2">신고된 콘텐츠</th>
+            <th class="text-left px-3 py-2">신고자</th>
+            <th class="text-left px-3 py-2">접수일</th>
+            <th class="px-3 py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:if="${#lists.isEmpty(page.content)}">
+            <td colspan="7" class="text-center text-fg-disabled py-8">신고가 없습니다.</td>
+          </tr>
+          <tr th:each="r : ${page.content}" class="border-t border-divider hover:bg-surface-subtle">
+            <td class="px-3 py-2">
+              <span th:switch="${r.status}">
+                <span th:case="'PENDING'"  class="inline-block px-2 py-0.5 rounded bg-warning-10 text-warning-fg text-xs"
+                      th:text="${@code.label('BBS_REPORT_STATUS', r.status)}">대기</span>
+                <span th:case="'REVIEWED'" class="inline-block px-2 py-0.5 rounded bg-success-10 text-success-fg text-xs"
+                      th:text="${@code.label('BBS_REPORT_STATUS', r.status)}">완료</span>
+                <span th:case="'REJECTED'" class="inline-block px-2 py-0.5 rounded bg-surface-subtler text-fg-subtle text-xs"
+                      th:text="${@code.label('BBS_REPORT_STATUS', r.status)}">기각</span>
+                <span th:case="*"          class="inline-block px-2 py-0.5 rounded bg-surface-subtle text-fg-subtle text-xs"
+                      th:text="${@code.label('BBS_REPORT_STATUS', r.status)}">-</span>
+              </span>
+            </td>
+            <td class="px-3 py-2 text-fg"
+                th:text="${@code.label('BBS_REPORT_TARGET', r.targetType)}">게시글</td>
+            <td class="px-3 py-2 text-fg"
+                th:text="${@code.label('BBS_REPORT_REASON', r.reasonCode)}">스팸/광고</td>
+            <td class="px-3 py-2 text-fg-strong max-w-md truncate"
+                th:text="${r.targetTitle ?: '(삭제됨)'}">제목</td>
+            <td class="px-3 py-2 text-fg" th:text="${r.reporterLoginId ?: r.reporterUserId}">user</td>
+            <td class="px-3 py-2 text-fg-subtle"
+                th:text="${#temporals.format(r.createdAt, 'yyyy-MM-dd HH:mm')}">date</td>
+            <td class="px-3 py-2 whitespace-nowrap text-right">
+              <a th:href="@{/admin/system/board/report/{id}(id=${r.reportId})}"
+                 class="text-brand-60 hover:underline text-sm">검토 →</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 페이징 -->
+    <div class="mt-4 flex items-center justify-center gap-1 text-sm" th:if="${page.totalPages > 1}">
+      <a th:if="${page.hasPrevious()}"
+         th:href="@{/admin/system/board/report(page=${page.page - 1}, status=${search.status}, targetType=${search.targetType}, reasonCode=${search.reasonCode}, keyword=${search.keyword})}"
+         class="px-2 py-1 border border-line rounded">이전</a>
+      <span class="px-2 py-1" th:text="${page.page} + '/' + ${page.totalPages}">1/1</span>
+      <a th:if="${page.hasNext()}"
+         th:href="@{/admin/system/board/report(page=${page.page + 1}, status=${search.status}, targetType=${search.targetType}, reasonCode=${search.reasonCode}, keyword=${search.keyword})}"
+         class="px-2 py-1 border border-line rounded">다음</a>
+    </div>
+
+  </section>
+</body>
+</html>

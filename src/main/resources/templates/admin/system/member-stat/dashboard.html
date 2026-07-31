@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>회원 통계</title>
+  <meta http-equiv="refresh" th:attr="content=${autoRefreshSec}"/>
+  <script th:src="@{/js/vendor/chart.umd.min.js}"
+          th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a>
+      <span class="mx-1">/</span>
+      <span>회원 통계</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">회원 통계</h1>
+        <p class="mt-1 text-sm text-fg-subtle">
+          기간 <span class="font-mono" th:text="${from}">-</span> ~ <span class="font-mono" th:text="${to}">-</span>
+          · 마지막 로드 <span class="font-mono" th:text="${@fmt.dt(loadedAt)}">-</span>
+        </p>
+      </div>
+
+      <!-- 기간/사이트 필터 -->
+      <div class="flex items-end gap-2 flex-wrap">
+        <div class="inline-flex rounded border border-line overflow-hidden">
+          <a th:href="@{/admin/system/member-stat(period='day',   siteId=${siteId})}"
+             th:classappend="${period == 'day'}   ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs">일</a>
+          <a th:href="@{/admin/system/member-stat(period='week',  siteId=${siteId})}"
+             th:classappend="${period == 'week'}  ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">주</a>
+          <a th:href="@{/admin/system/member-stat(period='month', siteId=${siteId})}"
+             th:classappend="${period == 'month'} ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">월</a>
+          <a th:href="@{/admin/system/member-stat(period='year',  siteId=${siteId})}"
+             th:classappend="${period == 'year'}  ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">년</a>
+          <a th:href="@{/admin/system/member-stat(period='all',   siteId=${siteId})}"
+             th:classappend="${period == 'all'}   ? ' bg-gray-90 text-fg-on' : ' bg-surface text-fg hover:bg-surface-subtle'"
+             class="px-3 py-1.5 text-xs border-l border-line">전체</a>
+        </div>
+        <form method="get" th:action="@{/admin/system/member-stat}">
+          <input type="hidden" name="period" th:value="${period}"/>
+          <select name="siteId" data-action="submit-on-change"
+                  class="rounded border border-line px-2 py-1.5 text-xs">
+            <option value="">전체 사이트</option>
+            <option th:each="s : ${sites}"
+                    th:value="${s.siteId}"
+                    th:text="|${s.siteName} (${s.siteCode})|"
+                    th:selected="${siteId == s.siteId}">site</option>
+          </select>
+        </form>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <!--   라이프사이클 3 카드                                              -->
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+      <div class="bg-surface border border-line rounded p-4">
+        <p class="text-xs text-fg-subtle">활성 회원 (tb_member)</p>
+        <p class="mt-1 text-heading-lg font-bold text-success-fg"
+           th:text="${#numbers.formatInteger(lifecycleMap['tb_member'] ?: 0, 1, 'COMMA')}">0</p>
+        <p class="mt-1 text-xs text-fg-disabled">delete_yn='N'</p>
+      </div>
+      <div class="bg-surface border border-line rounded p-4">
+        <p class="text-xs text-fg-subtle">휴면 회원 (tb_member_dormant)</p>
+        <p class="mt-1 text-heading-lg font-bold text-warning-fg"
+           th:text="${#numbers.formatInteger(lifecycleMap['tb_member_dormant'] ?: 0, 1, 'COMMA')}">0</p>
+        <p class="mt-1 text-xs text-fg-disabled">1년 무접속 자동 전환</p>
+      </div>
+      <div class="bg-surface border border-line rounded p-4">
+        <p class="text-xs text-fg-subtle">탈퇴 회원 (tb_member_withdraw)</p>
+        <p class="mt-1 text-heading-lg font-bold text-danger-fg"
+           th:text="${#numbers.formatInteger(lifecycleMap['tb_member_withdraw'] ?: 0, 1, 'COMMA')}">0</p>
+        <p class="mt-1 text-xs text-fg-disabled">보존기간 만료 전</p>
+      </div>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <!--   ① 라이프사이클 막대 + ⑦ 일별 추이 multi-line                     -->
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">① 라이프사이클</h2>
+        <div class="h-64"><canvas id="chartLifecycle"></canvas></div>
+      </section>
+      <section class="md:col-span-2 bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">
+          ⑦ 일별 추이 <span class="text-xs text-fg-subtle font-normal">(가입 / 휴면 전환 / 탈퇴)</span>
+        </h2>
+        <div class="h-64"><canvas id="chartTrend"></canvas></div>
+      </section>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <!--   ② 연령대 / ③ 성별                                                -->
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">② 연령대별</h2>
+        <div class="h-64"><canvas id="chartAge"></canvas></div>
+        <p class="mt-2 text-xs text-fg-subtle">
+          birth_year 평문(§0.27) 기반 동적 계산. 미입력은 별도 표시.
+        </p>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">③ 성별</h2>
+        <div class="h-64"><canvas id="chartGender"></canvas></div>
+      </section>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <!--   ④ OAuth provider / ⑤ DI 인증                                     -->
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">
+          ④ 소셜 로그인 provider <span class="text-xs text-fg-subtle font-normal">(tb_member_oauth)</span>
+        </h2>
+        <div class="h-64"><canvas id="chartProvider"></canvas></div>
+        <p class="mt-2 text-xs text-fg-subtle">
+          provider 매핑 수 — 1 회원이 다중 provider 연결 시 각각 카운트.
+        </p>
+      </section>
+      <section class="bg-surface border border-line rounded-large p-4">
+        <h2 class="text-base font-bold text-fg-strong mb-3">
+          ⑤ 실명인증 (DI) 보유 비율
+        </h2>
+        <div class="h-64"><canvas id="chartDi"></canvas></div>
+        <p class="mt-2 text-xs text-fg-subtle">
+          di_hash 컬럼 비어있지 않은 활성 회원 = 본인확인 통과.
+        </p>
+      </section>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <!--   ⑥ 탈퇴 사유                                                       -->
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <section class="bg-surface border border-line rounded-large p-4 mb-6">
+      <h2 class="text-base font-bold text-fg-strong mb-3">
+        ⑥ 탈퇴 사유 분포 <span class="text-xs text-fg-subtle font-normal">(보존기간 내 누적)</span>
+      </h2>
+      <div class="h-64"><canvas id="chartWithdrawReasons"></canvas></div>
+    </section>
+
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <!--   ⑧ 사이트별 회원수 (전체 모드에서만)                                 -->
+    <!-- ───────────────────────────────────────────────────────────────── -->
+    <section class="bg-surface border border-line rounded-large p-4 mb-6"
+             th:if="${siteId == null or siteId == ''}">
+      <h2 class="text-base font-bold text-fg-strong mb-3">⑧ 사이트별 활성 회원수</h2>
+      <div class="h-96"><canvas id="chartBySite"></canvas></div>
+
+      <table class="w-full text-sm mt-4" th:if="${not #lists.isEmpty(bySite)}">
+        <thead class="bg-surface-subtle text-fg-subtle text-xs uppercase">
+          <tr>
+            <th class="px-3 py-2 text-left">사이트</th>
+            <th class="px-3 py-2 text-left">이름</th>
+            <th class="px-3 py-2 text-right">회원수</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="r : ${bySite}">
+            <td class="px-3 py-2">
+              <code class="font-mono text-xs bg-surface-subtler px-1.5 py-0.5 rounded"
+                    th:text="${r.siteCode}">site</code>
+            </td>
+            <td class="px-3 py-2 text-fg" th:text="${r.siteName}">name</td>
+            <td class="px-3 py-2 text-right font-mono font-semibold"
+                th:text="${#numbers.formatInteger(r.total, 1, 'COMMA')}">0</td>
+          </tr>
+        </tbody>
+      </table>
+      <p th:if="${#lists.isEmpty(bySite)}" class="text-sm text-fg-subtle py-8 text-center">
+        활성 회원이 없습니다.
+      </p>
+    </section>
+
+    <!-- 데이터 페이로드 -->
+    <script th:attr="nonce=${cspNonce}" th:inline="javascript">
+      /*<![CDATA[*/
+      window.MEMBER_STATS = /*[(${chartsJson})]*/ {};
+      /*]]>*/
+    </script>
+    <script th:src="@{/js/member-stat-chart.js}" th:attr="nonce=${cspNonce}"></script>
+
+  </section>
+</body>
+</html>

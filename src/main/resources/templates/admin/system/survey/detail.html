@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>설문 상세</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/survey}" class="hover:underline">설문조사</a> /
+      <span th:text="${survey.surveyTitle}">제목</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${survey.surveyTitle}">제목</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          <span th:text="${survey.siteCode}">site</span> ·
+          <span class="font-mono text-xs" th:text="${@fmt.dt(survey.startAt)}">-</span> ~
+          <span class="font-mono text-xs" th:text="${@fmt.dt(survey.endAt)}">-</span> ·
+          응답 <strong th:text="${responseCount}">0</strong>건
+        </p>
+        <p th:if="${survey.menuId}" class="text-xs text-fg-subtle mt-1">
+          메뉴 ID <span class="font-mono break-all" th:text="${survey.menuId}">-</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <a th:href="@{/admin/system/survey/{id}/edit(id=${survey.surveyId})}"
+           class="px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium">수정</a>
+        <a th:href="@{/admin/system/survey/{id}/responses(id=${survey.surveyId})}"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm">응답 목록</a>
+        <a th:href="@{/admin/system/survey/{id}/stat(id=${survey.surveyId})}"
+           class="px-3 py-1.5 rounded border border-brand-30 bg-brand-5 text-brand-70 text-sm">응답 통계</a>
+
+        <!-- 결과 내역 엑셀 다운로드 — 사유 10자 이상 필수 + 감사 로그 자동 적재 -->
+        <details class="relative">
+          <summary class="px-3 py-1.5 rounded border border-success-border bg-success-surface text-success-fg text-sm cursor-pointer select-none hover:bg-success-10">
+            ⬇ 결과 내역 엑셀
+          </summary>
+          <form th:action="@{/admin/system/survey/{id}/responses/excel(id=${survey.surveyId})}"
+                method="post"
+                class="absolute right-0 z-10 mt-2 w-80 bg-surface border border-line rounded-large shadow-lg p-3 space-y-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <p class="text-xs text-fg-subtle">
+              응답 <strong th:text="${responseCount}">0</strong>건을 .xlsx 파일로 받습니다.
+              한 응답이 한 행, 문항별 컬럼 분리. 다운로드 사유는 감사로그에 기록됩니다.
+            </p>
+            <label class="block text-xs font-medium text-fg">다운로드 사유 (10자 이상 필수)</label>
+            <textarea name="downloadReason" rows="3" required minlength="10" maxlength="500"
+                      placeholder="예: 분기 응답 분석 — 2026년 1분기 보고용"
+                      class="block w-full rounded border border-line px-2 py-1.5 text-xs"></textarea>
+            <div class="flex justify-end gap-1">
+              <button type="submit"
+                      class="px-3 py-1 rounded bg-success-50 text-fg-on text-xs font-semibold hover:bg-success-60">엑셀 다운로드</button>
+            </div>
+          </form>
+        </details>
+
+        <form th:action="@{/admin/system/survey/{id}/status(id=${survey.surveyId})}" method="post" class="inline-flex gap-1">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <select name="status" class="rounded border border-line px-2 py-1 text-sm">
+            <option value="DRAFT"     th:selected="${survey.status == 'DRAFT'}">DRAFT</option>
+            <option value="PUBLISHED" th:selected="${survey.status == 'PUBLISHED'}">PUBLISHED</option>
+            <option value="CLOSED"    th:selected="${survey.status == 'CLOSED'}">CLOSED</option>
+          </select>
+          <button type="submit" class="px-3 py-1.5 rounded border border-line bg-surface text-sm">상태 변경</button>
+        </form>
+
+        <form th:action="@{/admin/system/survey/{id}/use(id=${survey.surveyId})}" method="post" class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="active" th:value="${survey.useYn == 'Y' ? 'false' : 'true'}"/>
+          <button type="submit"
+                  th:class="${survey.useYn == 'Y'} ? 'px-3 py-1.5 rounded border border-warning-border bg-warning-surface text-warning-fg text-sm' : 'px-3 py-1.5 rounded border border-success-border bg-success-surface text-success-fg text-sm'"
+                  th:text="${survey.useYn == 'Y' ? '사용중지' : '사용 재개'}">사용중지</button>
+        </form>
+
+        <form th:action="@{/admin/system/survey/{id}/delete(id=${survey.surveyId})}" method="post" class="inline"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit" class="px-3 py-1.5 rounded border border-danger-border bg-danger-surface text-danger-fg text-sm">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:if="${message}" class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}"   class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"            th:text="${error}"></div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div class="bg-surface border border-line rounded-large p-5">
+        <div class="text-xs text-fg-subtle">상태</div>
+        <div class="mt-1">
+          <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium"
+                th:classappend="${survey.status == 'PUBLISHED'} ? 'bg-success-surface text-success-fg' :
+                                   (${survey.status == 'CLOSED'} ? 'bg-surface-subtler text-fg-subtle' : 'bg-warning-surface text-warning-fg')"
+                th:text="${survey.status}">DRAFT</span>
+        </div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-5">
+        <div class="text-xs text-fg-subtle">옵션</div>
+        <div class="mt-1 text-sm text-fg">
+          <span th:if="${survey.anonymousYn == 'Y'}" class="mr-2">🔒 익명</span>
+          <span th:unless="${survey.anonymousYn == 'Y'}" class="mr-2">실명</span>
+          <span th:if="${survey.oneResponseYn == 'Y'}">1인 1회</span>
+          <span th:unless="${survey.oneResponseYn == 'Y'}">중복 가능</span>
+        </div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-5">
+        <div class="text-xs text-fg-subtle">응답수</div>
+        <div class="mt-1 text-heading-lg font-bold text-fg-strong" th:text="${responseCount}">0</div>
+      </div>
+    </div>
+
+    <div th:if="${survey.surveyDescription}" class="mb-6 bg-surface border border-line rounded-large p-5 prose prose-sm max-w-none"
+         th:utext="${survey.surveyDescription}">설명</div>
+
+    <h2 class="text-lg font-semibold text-fg-strong mb-3">문항 + 통계</h2>
+    <div class="space-y-3">
+      <div th:each="q : ${survey.questions}"
+           th:with="s=${stats.get(q.questionId)}"
+           class="bg-surface border border-line rounded-large p-5">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg"
+                th:text="${q.questionType}">TEXT</span>
+          <span th:if="${q.requiredYn == 'Y'}" class="inline-flex px-2 py-0.5 rounded text-xs bg-danger-surface text-danger-fg">필수</span>
+        </div>
+        <p class="font-semibold text-fg-strong" th:text="${q.questionText}">문항</p>
+
+        <!-- 객관식 통계 -->
+        <ul th:if="${s != null and s['options'] != null}" class="mt-3 space-y-1">
+          <li th:each="o : ${s['options']}" class="text-sm">
+            <div class="flex items-center justify-between">
+              <span th:text="${o['optionText']}">선택지</span>
+              <span class="font-mono text-xs text-fg-subtle">
+                <span th:text="${o['count']}">0</span>건 ·
+                <span th:text="${#numbers.formatDecimal(o['percentage'], 1, 1)}">0.0</span>%
+              </span>
+            </div>
+            <div class="h-1.5 bg-surface-subtler rounded mt-1 overflow-hidden">
+              <div class="h-full bg-brand-40"
+                   th:attr="style='width:' + ${o['percentage']} + '%'"></div>
+            </div>
+          </li>
+        </ul>
+
+        <!-- SCALE 통계 -->
+        <div th:with="scale=${s != null ? s['scale'] : null}"
+             th:if="${scale != null and scale['cnt'] != null}"
+             class="mt-3 text-sm font-mono">
+          평균 <strong th:text="${#numbers.formatDecimal(scale['avgVal'] ?: 0, 1, 2)}">0.00</strong>
+          (n=<span th:text="${scale['cnt']}">0</span>,
+          min=<span th:text="${scale['minVal'] ?: '-'}">-</span>,
+          max=<span th:text="${scale['maxVal'] ?: '-'}">-</span>)
+        </div>
+
+        <!-- 주관식 -->
+        <div th:if="${s != null and s['textCount'] != null}" class="mt-3 text-sm">
+          주관식 응답 <strong th:text="${s['textCount']}">0</strong>건 —
+          <a th:href="@{/admin/system/survey/{id}/responses(id=${survey.surveyId})}"
+             class="text-brand-60 hover:underline">응답 목록에서 확인 →</a>
+        </div>
+      </div>
+      <div th:if="${#lists.isEmpty(survey.questions)}" class="bg-surface border border-dashed border-line rounded-large p-8 text-center text-sm text-fg-subtle">
+        등록된 문항이 없습니다.
+      </div>
+    </div>
+
+  </section>
+</body>
+</html>

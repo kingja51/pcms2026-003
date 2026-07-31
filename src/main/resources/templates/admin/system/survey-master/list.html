@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>설문 마스터 관리</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <span>설문 마스터</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">설문 마스터</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          사이트/메뉴 + 그룹 헤더 — 개별 설문은
+          <a th:href="@{/admin/system/survey}" class="text-brand-60 hover:underline">설문 관리</a> 에서.
+          총 <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+        </p>
+      </div>
+      <a th:href="@{/admin/system/survey-master/new}"
+         class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">+ 새 마스터</a>
+    </div>
+
+    <div th:if="${message}" role="status"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:action="@{/admin/system/survey-master}" method="get"
+          class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_180px_220px_140px_auto] gap-3 items-end">
+        <div>
+          <label for="keyword" class="block text-xs font-medium text-fg-subtle mb-1">검색어</label>
+          <input id="keyword" name="keyword" type="text"
+                 th:value="${search?.keyword}" maxlength="100" placeholder="그룹 제목"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div>
+          <label for="siteId" class="block text-xs font-medium text-fg-subtle mb-1">사이트</label>
+          <select id="siteId" name="siteId" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="" th:selected="${search?.siteId == null or search?.siteId == ''}">전체</option>
+            <option th:each="s : ${sites}" th:value="${s.siteId}"
+                    th:text="${s.siteCode} + ' · ' + ${s.siteName}"
+                    th:selected="${search?.siteId == s.siteId}">site</option>
+          </select>
+        </div>
+        <div>
+          <label for="menuId" class="block text-xs font-medium text-fg-subtle mb-1">메뉴 ID (UUID)</label>
+          <input id="menuId" name="menuId" type="text" maxlength="36"
+                 th:value="${search?.menuId}"
+                 placeholder="019db6f0-..."
+                 class="block w-full rounded border border-line px-3 py-2 text-xs font-mono"/>
+        </div>
+        <div>
+          <label for="useYn" class="block text-xs font-medium text-fg-subtle mb-1">사용</label>
+          <select id="useYn" name="useYn" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="" th:selected="${search?.useYn == null or search?.useYn == ''}">전체</option>
+            <option value="Y" th:selected="${search?.useYn == 'Y'}">사용중</option>
+            <option value="N" th:selected="${search?.useYn == 'N'}">사용중지</option>
+          </select>
+        </div>
+        <div class="flex items-center gap-2">
+          <button type="submit"
+                  class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">검색</button>
+          <a th:href="@{/admin/system/survey-master}"
+             class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm">초기화</a>
+        </div>
+      </div>
+    </form>
+
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <caption class="sr-only">설문 마스터 목록</caption>
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+            <th scope="col" class="px-4 py-3">그룹 제목</th>
+            <th scope="col" class="px-4 py-3">사이트</th>
+            <th scope="col" class="px-4 py-3">메뉴 ID</th>
+            <th scope="col" class="px-4 py-3">사용</th>
+            <th scope="col" class="px-4 py-3">수정일시</th>
+            <th scope="col" class="px-4 py-3 text-right">작업</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-2.5">
+              <a th:href="@{/admin/system/survey-master/{id}(id=${row.surveyMasterId})}"
+                 class="text-brand-60 hover:underline font-medium" th:text="${row.masterTitle}">제목</a>
+            </td>
+            <td class="px-4 py-2.5 text-fg" th:text="${row.siteCode}">site</td>
+            <td class="px-4 py-2.5 text-fg-subtle font-mono text-xs" th:text="${row.menuId ?: '-'}">-</td>
+            <td class="px-4 py-2.5">
+              <span th:if="${row.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용중</span>
+              <span th:unless="${row.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">중지</span>
+            </td>
+            <td class="px-4 py-2.5 text-fg-subtle font-mono text-xs" th:text="${@fmt.dt(row.updatedAt)}">-</td>
+            <td class="px-4 py-2.5 whitespace-nowrap text-right">
+              <div class="inline-flex items-center gap-1">
+                <a th:href="@{/admin/system/survey(surveyMasterId=${row.surveyMasterId})}"
+                   class="inline-flex items-center px-2.5 py-1 rounded border border-brand-30 bg-brand-5 text-xs text-brand-70 hover:bg-brand-10">설문관리</a>
+                <a th:href="@{/admin/system/survey-master/{id}/edit(id=${row.surveyMasterId})}"
+                   class="inline-flex items-center justify-center w-7 h-7 rounded border border-line bg-surface align-middle text-brand-60 hover:bg-surface-subtle mr-1" title="수정"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><span class="sr-only">수정</span></a>
+              </div>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(page.content)}">
+            <td colspan="6" class="px-4 py-10 text-center text-fg-subtle">등록된 설문 마스터가 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/admin/system/survey-master(page=${p}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, siteId=${search.siteId},
+                       menuId=${search.menuId}, useYn=${search.useYn})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                       : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

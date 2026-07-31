@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${mode == 'edit'} ? '템플릿 수정' : '템플릿 등록'">템플릿 등록</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/template}" class="hover:underline">템플릿</a>
+      <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit'} ? '수정' : '등록'">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'edit'} ? '템플릿 수정' : '템플릿 등록'">템플릿 등록</h1>
+
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+    <div th:if="${errors}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg">
+      <ul class="list-disc pl-5 space-y-1">
+        <li th:each="e : ${errors}" th:text="${e.defaultMessage}">오류</li>
+      </ul>
+    </div>
+
+    <form th:object="${form}"
+          th:action="${mode == 'edit'}
+                      ? @{/admin/system/template/{tid}(tid=${form.templateId})}
+                      : @{/admin/system/template}"
+          method="post" autocomplete="off" class="space-y-6">
+
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:if="${mode == 'edit'}" th:field="*{templateId}"/>
+
+      <fieldset class="bg-surface border border-line rounded-large p-6">
+        <legend class="px-2 text-sm font-semibold text-fg-subtle uppercase tracking-wide">기본 정보</legend>
+
+        <div class="space-y-4 mt-3">
+
+          <div>
+            <label for="templateCode" class="block text-sm font-medium text-fg mb-1">
+              코드 <span class="text-danger-fg" aria-hidden="true">*</span>
+            </label>
+            <input id="templateCode" type="text"
+                   th:field="*{templateCode}"
+                   required maxlength="50" pattern="^[A-Z][A-Z0-9_]+$"
+                   th:readonly="${mode == 'edit'}"
+                   aria-describedby="templateCode-help"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm font-mono
+                          focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none
+                          read-only:bg-surface-subtle read-only:text-fg-subtle"/>
+            <small id="templateCode-help" class="block mt-1 text-xs text-fg-subtle">
+              대문자/숫자/언더스코어. 전역 유일. 예: MODERN, CLAUDE_STYLE
+            </small>
+          </div>
+
+          <div>
+            <label for="templateName" class="block text-sm font-medium text-fg mb-1">
+              이름 <span class="text-danger-fg" aria-hidden="true">*</span>
+            </label>
+            <input id="templateName" type="text" th:field="*{templateName}" required maxlength="100"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+          </div>
+
+          <div>
+            <label for="layoutPath" class="block text-sm font-medium text-fg mb-1">
+              레이아웃 경로 <span class="text-danger-fg" aria-hidden="true">*</span>
+            </label>
+            <input id="layoutPath" type="text"
+                   th:field="*{layoutPath}"
+                   required maxlength="500" pattern="^[a-zA-Z0-9_/-]+$"
+                   placeholder="예: front/layouts/modern"
+                   aria-describedby="layoutPath-help"
+                   class="block w-full rounded border border-line px-3 py-2 text-sm font-mono focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+            <small id="layoutPath-help" class="block mt-1 text-xs text-fg-subtle">
+              Thymeleaf fragment 경로(.html 생략). 예:
+              <code class="font-mono bg-surface-subtler px-1 py-0.5 rounded">front/layouts/modern</code>
+              →
+              <code class="font-mono bg-surface-subtler px-1 py-0.5 rounded">templates/front/layouts/modern.html</code>
+              의
+              <code class="font-mono bg-surface-subtler px-1 py-0.5 rounded">main</code>
+              fragment 를 렌더링.
+            </small>
+          </div>
+
+          <div>
+            <label for="useYn" class="block text-sm font-medium text-fg mb-1">사용 여부</label>
+            <select id="useYn" th:field="*{useYn}"
+                    class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+              <option value="Y">사용</option>
+              <option value="N">미사용</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="designMd" class="block text-sm font-medium text-fg mb-1">
+              Claude Design MD
+            </label>
+            <textarea id="designMd" th:field="*{designMd}" rows="14" spellcheck="false"
+                      placeholder="# 디자인 가이드&#10;&#10;## 팔레트&#10;- primary: #...&#10;&#10;## 타이포그래피&#10;- 본문: ...&#10;&#10;## 컴포넌트 규칙&#10;- ..."
+                      aria-describedby="designMd-help"
+                      class="block w-full rounded border border-line px-3 py-2 text-sm font-mono leading-relaxed
+                             focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"></textarea>
+            <small id="designMd-help" class="block mt-1 text-xs text-fg-subtle">
+              Markdown 형식. 팔레트·타이포그래피·컴포넌트 규칙 등 템플릿 디자인의
+              Single Source of Truth. Claude / 디자이너 / 개발자가 공통 참조.
+            </small>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-fg mb-1">
+              캡쳐 이미지 <span class="text-fg-disabled font-normal">(IMAGE 카테고리, 1개)</span>
+            </label>
+            <div th:replace="~{fragments/file-picker :: picker(
+                inputName='imagePickerJson',
+                category='IMAGE',
+                multiple=false,
+                existingFiles=${existingFiles},
+                readOnly=false,
+                entityType='TEMPLATE',
+                entityId=${form.templateId},
+                siteId=${null},
+                maxFiles=1,
+                fileGroupId=${form.fileGroupId})}"></div>
+            <input type="hidden" th:field="*{fileGroupId}"/>
+            <small class="block mt-1 text-xs text-fg-subtle">
+              템플릿 미리보기/캡쳐 화면 이미지. 업로드된 이미지는 file_group 으로 묶여 저장됩니다.
+            </small>
+          </div>
+
+          <div>
+            <label for="description" class="block text-sm font-medium text-fg mb-1">설명</label>
+            <textarea id="description" th:field="*{description}" maxlength="500" rows="3"
+                      class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"></textarea>
+          </div>
+
+        </div>
+      </fieldset>
+
+      <nav aria-label="폼 작업" class="flex items-center gap-2">
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60"
+                th:text="${mode == 'edit'} ? '수정' : '등록'">저장</button>
+        <a th:href="${mode == 'edit'}
+                     ? @{/admin/system/template/{tid}(tid=${form.templateId})}
+                     : @{/admin/system/template}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+      </nav>
+    </form>
+
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+  </section>
+</body>
+</html>

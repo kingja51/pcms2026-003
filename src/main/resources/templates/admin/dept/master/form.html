@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head><title>학과 마스터 등록·수정</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span>
+      <a th:href="@{/admin/dept/master}" class="hover:underline">학과 마스터</a> <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit' ? '수정' : '등록'}">등록</span>
+    </nav>
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6" th:text="${mode == 'edit' ? '학과 수정' : '학과 등록'}">학과 등록</h1>
+
+    <form th:action="${mode == 'edit'} ? @{/admin/dept/master/{id}(id=${item.deptId})} : @{/admin/dept/master}"
+          method="post" class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">사이트코드 <span class="text-danger-fg">*</span></label>
+          <input name="siteCode" th:value="${item.siteCode}" required placeholder="me" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학과코드 <span class="text-danger-fg">*</span></label>
+          <input name="deptCode" th:value="${item.deptCode}" required placeholder="ME" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">정렬순서</label>
+          <input name="sortOrder" type="number" th:value="${item.sortOrder}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학과명 <span class="text-danger-fg">*</span></label>
+          <input name="deptName" th:value="${item.deptName}" required class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학과명(영문)</label>
+          <input name="deptNameEn" th:value="${item.deptNameEn}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <!-- 계층(tree) 정보: 노드유형 · 캠퍼스 · 단과대학 · 상위노드. depth 는 노드유형에서 자동 파생 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">노드 유형</label>
+          <select name="nodeType" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="CAMPUS"  th:selected="${item.nodeType == 'CAMPUS'}">CAMPUS · 캠퍼스</option>
+            <option value="COLLEGE" th:selected="${item.nodeType == 'COLLEGE'}">COLLEGE · 단과대학/계열</option>
+            <option value="DEPT"    th:selected="${item.nodeType == null or item.nodeType == 'DEPT'}">DEPT · 학과</option>
+            <option value="MAJOR"   th:selected="${item.nodeType == 'MAJOR'}">MAJOR · 전공</option>
+          </select></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">캠퍼스</label>
+          <input name="campus" th:value="${item.campus}" placeholder="메디컬캠퍼스 / 글로컬캠퍼스" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">단과대학/계열</label>
+          <input name="college" th:value="${item.college}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">상위 노드(부모)</label>
+          <select name="parentDeptId" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">— 없음(최상위/캠퍼스) —</option>
+            <option th:each="p : ${parents}" th:if="${p.deptId != item.deptId}"
+                    th:value="${p.deptId}" th:selected="${p.deptId == item.parentDeptId}"
+                    th:text="${p.nodeType} + ' · ' + ${p.deptName}">부모</option>
+          </select></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학과장</label>
+          <input name="headProfessor" th:value="${item.headProfessor}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">전화</label>
+          <input name="phone" th:value="${item.phone}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">팩스</label>
+          <input name="fax" th:value="${item.fax}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">이메일</label>
+          <input name="email" th:value="${item.email}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">사무실/위치</label>
+          <input name="office" th:value="${item.office}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">홈페이지</label>
+          <input name="homepage" th:value="${item.homepage}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div><label class="block text-xs font-medium text-fg-subtle mb-1">학과 소개</label>
+        <textarea name="description" rows="3" class="block w-full rounded border border-line px-3 py-2 text-sm" th:text="${item.description}"></textarea></div>
+      <div><label class="inline-flex items-center gap-2 text-sm text-fg">
+        <input type="checkbox" name="useYn" value="Y" th:checked="${item.useYn == null or item.useYn == 'Y'}"/> 사용</label></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60" th:text="${mode == 'edit' ? '수정' : '등록'}">등록</button>
+        <a th:href="@{/admin/dept/master}" class="inline-flex items-center px-4 py-2 rounded border border-line text-fg text-sm hover:bg-surface-subtle">취소</a>
+      </div>
+    </form>
+  </section>
+</body>
+</html>

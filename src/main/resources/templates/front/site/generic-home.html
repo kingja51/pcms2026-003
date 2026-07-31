@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<!--
+  제네릭 사이트 홈 — 전용 templates/{siteCode}/home.html 이 없는 사이트 공용
+  (GenericSiteUsrController). KRDS 시맨틱 토큰 + .krds-* 프리셋만 사용(raw hex 금지).
+  사이트명/설명은 tb_site, 바로가기 타일은 KY 학과형 표준 메뉴셋(교수진/공지/교육/입학) 기준.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>Home</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <!-- ══ Hero ══ -->
+  <div class="bg-surface border-b border-line">
+    <div class="max-w-content mx-auto px-4 py-16">
+      <p class="text-label-md text-fg-subtle mb-3">Konyang University</p>
+      <h1 class="text-display-md font-bold text-fg-strong"
+          th:text="${siteContext?.site?.siteName} ?: ${siteCode}">학과명</h1>
+      <p class="text-body-lg text-fg-subtle mt-4 max-w-2xl"
+         th:text="${siteContext?.site?.description} ?: '학과 홈페이지입니다.'">학과 소개</p>
+      <div class="mt-8 flex flex-wrap gap-2">
+        <a th:href="@{/prg/faculty/{sc}(sc=${siteCode})}" class="krds-btn krds-btn-primary">교수진 보기</a>
+        <a th:href="@{/bbs/{sc}/notice(sc=${siteCode})}" class="krds-btn krds-btn-tertiary">공지사항</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ 바로가기 타일 — KY 학과형 표준 메뉴셋 ══ -->
+  <div class="max-w-content mx-auto px-4 py-12">
+    <h2 class="text-heading-lg font-bold text-fg-strong mb-6">바로가기</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <a th:href="@{/prg/faculty/{sc}(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">교수진</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Faculty — 전임 교원 소개</p>
+      </a>
+      <a th:href="@{/bbs/{sc}/curriculum(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">교육과정</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Curriculum — 교육과정 안내</p>
+      </a>
+      <a th:href="@{/bbs/{sc}/admission(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">입학안내</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Admission — 입학 안내</p>
+      </a>
+      <a th:href="@{/bbs/{sc}/notice(sc=${siteCode})}"
+         class="block bg-surface border border-line rounded-large p-6 hover:border-primary-60">
+        <h3 class="text-heading-sm font-bold text-fg-strong">공지사항</h3>
+        <p class="text-body-sm text-fg-subtle mt-2">Notice — 학과 공지</p>
+      </a>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

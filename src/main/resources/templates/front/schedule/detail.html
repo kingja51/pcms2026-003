@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>일정 상세</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="program-page-wide">
+      <a th:href="@{/schedule/{masterId}(masterId=${scheduleMasterId})}" class="inline-flex items-center text-body-sm text-fg-subtle mb-4 hover:text-fg-strong">← 목록</a>
+
+      <div th:if="${error}" role="alert" aria-live="polite" class="krds-alert krds-alert-danger">
+        <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+
+      <article th:if="${schedule}" class="bg-surface border border-line rounded-large p-6">
+        <div class="flex items-center gap-2 mb-2 text-body-xs text-fg-subtle">
+          <span th:text="${@fmt.dt(schedule.startAt)}">-</span> ~
+          <span th:text="${@fmt.dt(schedule.endAt)}">-</span>
+          <span th:if="${schedule.allDayYn == 'Y'}" class="krds-badge bg-surface-subtle text-fg-subtle">종일</span>
+          <span th:if="${schedule.scheduleCategory}" class="krds-badge bg-primary-5 text-primary-50"
+                th:text="${schedule.scheduleCategory}">분류</span>
+        </div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${schedule.scheduleTitle}">제목</h1>
+
+        <dl class="grid grid-cols-[80px_1fr] gap-y-1.5 mt-4 text-body-sm">
+          <dt th:if="${schedule.location}" class="text-fg-subtle">장소</dt>
+          <dd th:if="${schedule.location}" th:text="${schedule.location}">-</dd>
+          <dt th:if="${schedule.linkUrl}" class="text-fg-subtle">링크</dt>
+          <dd th:if="${schedule.linkUrl}">
+            <a th:href="${schedule.linkUrl}" target="_blank" rel="noopener"
+               class="krds-link break-all" th:text="${schedule.linkUrl}">link</a>
+          </dd>
+        </dl>
+
+        <div th:if="${schedule.scheduleContent}"
+             class="text-body-md text-fg break-keep mt-6 border-t border-line pt-4 [&_img]:max-w-full [&_img]:h-auto [&_img]:my-4 [&_img]:rounded-medium"
+             th:utext="${schedule.scheduleContent}">본문</div>
+      </article>
+    </div>
+
+  </section>
+</body>
+</html>

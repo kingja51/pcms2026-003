@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${mode == 'create' ? '일정 마스터 등록' : '일정 마스터 수정'}">일정 마스터 폼</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/schedule-master}" class="hover:underline">일정 마스터</a> /
+      <span th:text="${mode == 'create' ? '등록' : '수정'}">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6"
+        th:text="${mode == 'create' ? '일정 마스터 등록' : '일정 마스터 수정'}">일정 마스터 등록</h1>
+
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:object="${form}" method="post"
+          th:action="${mode == 'create'} ? @{/admin/system/schedule-master}
+                                        : @{/admin/system/schedule-master/{id}(id=${form.scheduleMasterId})}"
+          class="space-y-5 bg-surface border border-line rounded-large p-6">
+
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <input type="hidden" th:if="${mode == 'edit'}" th:field="*{scheduleMasterId}"/>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="siteId" class="block text-xs font-medium text-fg-subtle mb-1">
+            사이트 <span class="text-danger-fg">*</span>
+          </label>
+          <select id="siteId" th:field="*{siteId}" required
+                  class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">선택</option>
+            <option th:each="s : ${sites}" th:value="${s.siteId}"
+                    th:text="${s.siteCode} + ' · ' + ${s.siteName}">site</option>
+          </select>
+        </div>
+        <div>
+          <label for="menuId" class="block text-xs font-medium text-fg-subtle mb-1">
+            메뉴 ID
+            <span class="text-fg-disabled ml-1 font-normal">(옵션 — 네비게이션 추적용)</span>
+          </label>
+          <input id="menuId" type="text" maxlength="36"
+                 th:field="*{menuId}"
+                 placeholder="019db6f0-... (없으면 비워두세요)"
+                 class="block w-full rounded border border-line px-3 py-2 text-xs font-mono"/>
+        </div>
+      </div>
+
+      <div>
+        <label for="masterTitle" class="block text-xs font-medium text-fg-subtle mb-1">
+          그룹 제목 <span class="text-danger-fg">*</span>
+        </label>
+        <input id="masterTitle" type="text" maxlength="200" required
+               th:field="*{masterTitle}"
+               placeholder="예: Q4 캠페인 일정"
+               class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+      </div>
+
+      <div>
+        <label for="masterContent" class="block text-xs font-medium text-fg-subtle mb-1">
+          그룹 헤더/안내 (HTML 허용 — 자동 sanitize)
+        </label>
+        <textarea id="masterContent" rows="6"
+                  th:field="*{masterContent}"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"></textarea>
+      </div>
+
+      <div>
+        <label class="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="useYn" value="Y"
+                 th:checked="${form.useYn == 'Y'}"
+                 class="rounded border-line"/>
+          사용함
+        </label>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="@{/admin/system/schedule-master}"
+           class="px-4 py-2 rounded border border-line bg-surface text-fg text-sm">취소</a>
+        <button type="submit"
+                class="px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium"
+                th:text="${mode == 'create' ? '등록' : '수정'}">등록</button>
+      </div>
+    </form>
+
+  </section>
+</body>
+</html>

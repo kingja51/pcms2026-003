@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>결산현황</title></head>
+<body>
+<section layout:fragment="content" 
+         th:with="thisYear=${T(java.time.Year).now().value}">
+
+  <header class="mb-4">
+    <h1 class="text-2xl font-bold text-slate-900 mb-1">결산현황</h1>
+    <p class="text-sm text-slate-500">기준일 <strong th:text="${ymd}">-</strong></p>
+  </header>
+
+  <form method="get" th:action="@{|/lfios/${siteCode}/settlement/status|}"
+        class="bg-white border border-slate-200 rounded p-3 mb-4 flex gap-2 text-sm">
+    <select name="fisYear" class="border rounded px-2 py-1" title="회계년도">
+      <option th:each="y : ${#numbers.sequence(2015, thisYear)}" th:value="${y}"
+              th:text="${y} + '년'" th:selected="${#strings.toString(y) == search.fisYear}"></option>
+    </select>
+    <button class="bg-slate-900 text-white rounded px-3 py-1 font-semibold">검색</button>
+    <a th:href="@{|/lfios/${siteCode}/settlement/status/excel|(fisYear=${search.fisYear})}"
+       class="inline-flex items-center gap-1 px-3 py-1 rounded border border-emerald-600 bg-white text-emerald-700 font-semibold hover:bg-emerald-50">⬇ 엑셀 다운로드</a>
+  </form>
+
+  <!-- 총계 요약 -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+    <div class="bg-white border border-slate-200 rounded p-4">
+      <p class="text-xs text-slate-500">세입 총계</p>
+      <p class="text-xl font-bold text-slate-900"
+         th:text="${#numbers.formatInteger(revenueTotal.revCurrAmt ?: 0, 1, 'COMMA')} + ' 원'">0 원</p>
+    </div>
+    <div class="bg-white border border-slate-200 rounded p-4">
+      <p class="text-xs text-slate-500">세출 예산현액 총계</p>
+      <p class="text-xl font-bold text-slate-900"
+         th:text="${#numbers.formatInteger(expenseTotal.bgtCurrAmt ?: 0, 1, 'COMMA')} + ' 원'">0 원</p>
+    </div>
+    <div class="bg-white border border-slate-200 rounded p-4">
+      <p class="text-xs text-slate-500">세출 지출액 총계</p>
+      <p class="text-xl font-bold text-slate-900"
+         th:text="${#numbers.formatInteger(expenseTotal.expdAmt ?: 0, 1, 'COMMA')} + ' 원'">0 원</p>
+    </div>
+  </div>
+
+  <p class="text-xs text-slate-500 text-right mb-1">(단위 : 원)</p>
+
+  <!-- 회계별 세입 -->
+  <div class="bg-white border border-slate-200 rounded p-4 mb-4">
+    <h2 class="text-sm font-bold text-slate-700 mb-3 pb-2 border-b border-slate-200">회계별 세입</h2>
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50">
+        <tr class="text-slate-600"><th class="px-3 py-2">회계연도</th><th class="px-3 py-2">회계구분</th><th class="px-3 py-2 text-right">세입현액</th></tr>
+      </thead>
+      <tbody>
+        <tr th:each="r : ${revenueRows}" class="border-t border-slate-100">
+          <td class="px-3 py-2 text-center" th:text="${r.fisYear}"></td>
+          <td class="px-3 py-2 text-center" th:text="${r.fisFgNm}"></td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${r.revCurrAmt})}">0</td>
+        </tr>
+        <tr th:if="${revenueRows.isEmpty()}"><td colspan="3" class="px-3 py-6 text-center text-slate-400">데이터가 없습니다.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 회계별 세출 -->
+  <div class="bg-white border border-slate-200 rounded p-4 mb-4">
+    <h2 class="text-sm font-bold text-slate-700 mb-3 pb-2 border-b border-slate-200">회계별 세출</h2>
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50">
+        <tr class="text-slate-600"><th class="px-3 py-2">회계연도</th><th class="px-3 py-2">회계구분</th><th class="px-3 py-2 text-right">예산현액</th><th class="px-3 py-2 text-right">지출액</th></tr>
+      </thead>
+      <tbody>
+        <tr th:each="r : ${expenseRows}" class="border-t border-slate-100">
+          <td class="px-3 py-2 text-center" th:text="${r.fisYear}"></td>
+          <td class="px-3 py-2 text-center"
+              th:text="${r.fisFgCd == '1' ? '일반회계' : (r.fisFgCd == '2' ? '특별회계' : (r.fisFgCd == '3' ? '공기업회계' : (r.fisFgCd == '4' ? '기금' : r.fisFgCd)))}"></td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${r.bgtCurrAmt})}">0</td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${r.expdAmt})}">0</td>
+        </tr>
+        <tr th:if="${expenseRows.isEmpty()}"><td colspan="4" class="px-3 py-6 text-center text-slate-400">데이터가 없습니다.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+</body>
+</html>

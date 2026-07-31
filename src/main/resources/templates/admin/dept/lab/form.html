@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head><title>연구실 등록·수정</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span>
+      <a th:href="@{/admin/dept/lab}" class="hover:underline">연구실</a> <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit' ? '수정' : '등록'}">등록</span>
+    </nav>
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-6" th:text="${mode == 'edit' ? '연구실 수정' : '연구실 등록'}">연구실 등록</h1>
+    <form th:action="${mode == 'edit'} ? @{/admin/dept/lab/{id}(id=${item.labId})} : @{/admin/dept/lab}"
+          method="post" class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">학과(사이트) <span class="text-danger-fg">*</span></label>
+          <select name="siteCode" required class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">선택</option>
+            <option th:each="d : ${depts}" th:value="${d.siteCode}" th:text="${d.deptName} + ' (' + ${d.siteCode} + ')'"
+                    th:selected="${d.siteCode == item.siteCode}">학과</option></select></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">개설학과코드</label>
+          <input name="deptCode" th:value="${item.deptCode}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">정렬순서</label>
+          <input name="sortOrder" type="number" th:value="${item.sortOrder}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">연구실명(국문) <span class="text-danger-fg">*</span></label>
+          <input name="nameKo" th:value="${item.nameKo}" required class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">연구실명(영문)</label>
+          <input name="nameEn" th:value="${item.nameEn}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">지도교수</label>
+          <input name="professor" th:value="${item.professor}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">홈페이지</label>
+          <input name="website" th:value="${item.website}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+        <div><label class="block text-xs font-medium text-fg-subtle mb-1">위치</label>
+          <input name="location" th:value="${item.location}" class="block w-full rounded border border-line px-3 py-2 text-sm"/></div>
+      </div>
+      <div><label class="block text-xs font-medium text-fg-subtle mb-1">연구분야</label>
+        <textarea name="researchArea" rows="2" class="block w-full rounded border border-line px-3 py-2 text-sm" th:text="${item.researchArea}"></textarea></div>
+      <div><label class="block text-xs font-medium text-fg-subtle mb-1">설명</label>
+        <textarea name="description" rows="3" class="block w-full rounded border border-line px-3 py-2 text-sm" th:text="${item.description}"></textarea></div>
+      <div><label class="inline-flex items-center gap-2 text-sm text-fg">
+        <input type="checkbox" name="useYn" value="Y" th:checked="${item.useYn == null or item.useYn == 'Y'}"/> 사용</label></div>
+      <div class="flex items-center gap-2 pt-2">
+        <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60" th:text="${mode == 'edit' ? '수정' : '등록'}">등록</button>
+        <a th:href="@{/admin/dept/lab}" class="inline-flex items-center px-4 py-2 rounded border border-line text-fg text-sm hover:bg-surface-subtle">취소</a>
+      </div>
+    </form>
+  </section>
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title th:text="${row.prdctIdentNoNm}">발주계획 상세</title></head>
+<body>
+<section layout:fragment="content">
+
+  <nav class="text-sm text-slate-500 mb-2">
+    <a th:href="@{|/g2b/order-plan/${siteCode}|}" class="hover:underline">발주계획</a>
+    <span class="mx-1">/</span>
+    <span th:text="${row.orderPlanNo}">상세</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-slate-900 mb-1" th:text="${row.prdctIdentNoNm}">사업명</h1>
+  <p class="text-sm text-slate-500 mb-4">
+    <span th:text="${row.orderPlanNo}"></span>
+    <span class="mx-2">·</span>
+    <span th:text="${@bsns.label(row.bsnsDiv)}"></span>
+  </p>
+
+  <div class="bg-white border border-slate-200 rounded p-4 mb-4">
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div><dt class="text-slate-500">발주예정월</dt><dd th:text="${row.orderPrearngeMt}"></dd></div>
+      <div><dt class="text-slate-500">공고일시</dt><dd th:text="${row.rcptDt != null ? #temporals.format(row.rcptDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div><dt class="text-slate-500">배정예산</dt><dd th:text="${row.asignBdgtAmt != null ? #numbers.formatInteger(row.asignBdgtAmt, 0, 'COMMA') + ' 원' : '-'}"></dd></div>
+      <div><dt class="text-slate-500">계약방법</dt><dd th:text="${row.cntrctMthdNm}"></dd></div>
+      <div><dt class="text-slate-500">조달방식</dt><dd th:text="${row.bidMthdNm}"></dd></div>
+      <div><dt class="text-slate-500">발주기관</dt><dd th:text="${row.orderInsttNm}"></dd></div>
+      <div><dt class="text-slate-500">총괄/수요기관</dt><dd th:text="${row.dminsttNm}"></dd></div>
+      <div th:if="${row.prdctClsfcNoNm}"><dt class="text-slate-500">품목분류</dt><dd th:text="${row.prdctClsfcNoNm}"></dd></div>
+    </dl>
+
+    <div class="mt-4 pt-4 border-t border-slate-200 flex items-center gap-2 flex-wrap">
+      <a th:href="@{|/g2b/order-plan/${siteCode}|}"
+         class="inline-flex items-center gap-1 px-4 py-2 rounded border border-slate-300 bg-white text-slate-700 text-sm font-semibold hover:bg-slate-50">
+        ← 목록
+      </a>
+      <!-- 운영자 지정 G2B 통합검색 URL (untySrchSeCd=DD = 발주계획).
+           기관 화이트리스트(instCd / demaInstCd) + 사업명(prdctIdentNoNm) 을 untySrchWord 로 prefill. -->
+      <a th:href="${'https://www.g2b.go.kr/link/FIUA006_01/single/?untySrchSeCd=DD&rowCnt=&instCd=4490000%2C4490142%2C4490043%2C4490261%2C4490058%2C4490408%2C4490465%2C4490437%2C4490438%2C4490439%2C4490259%2C4490358%2C4490152%2C5650000%2C5660000%2C5650008%2C5650010%2C5650011%2C5650013%2C5650015%2C5650019%2C5650023%2C5660009%2C5660010%2C5660012%2C5660016%2C5660017%2C5660034%2C5660025%2C5660026%2C&demaInstNm=&hghrkInstCd=&prcmBsneAreaCd=%EC%A0%84%EC%B2%B4+%EC%A1%B0070001+%EC%A1%B0070002+%EC%A1%B0070003+%EC%A1%B0070004+%EC%A1%B0070005&prcmMthoSeCd=&frcpYn=N&laseYn=N&rsrvYn=N&chkInstCd=&urlSrchSeCd=instCd&demaInstCd=IN0100000115523%2CIN0100000034469%2CIN0100000001146%2CIN0100000059711%2CIN0100000049978%2CIN0100000035700%2CIN0100000106219&prcmMaagSeCd=&untySrchWord=' + #uris.escapeQueryParam(row.prdctIdentNoNm ?: '')}"
+         target="_blank" rel="noopener noreferrer"
+         class="inline-flex items-center gap-1 px-4 py-2 rounded bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700">
+        🔗 조달청 나라장터 상세보기 →
+      </a>
+      <span th:if="${row.orderPlanNo}" class="text-xs text-slate-500 ml-2">
+        통합번호: <span th:text="${row.orderPlanNo}" class="font-mono select-all"></span>
+      </span>
+    </div>
+  </div>
+
+  <div class="mt-4 text-xs text-slate-500 text-right">
+    출처: 조달청 나라장터 (수집 일시 <span th:text="${#temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm')}"></span>)
+  </div>
+</section>
+</body>
+</html>

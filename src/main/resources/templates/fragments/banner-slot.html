@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<!--
+  공통 fragment — 사이트 활성 배너 출력.
+
+  사용법 (레이아웃의 헤더/푸터/메인 등 위치에서):
+    <th:block th:replace="~{fragments/banner-slot :: slot(
+        location='HEADER',
+        bannersByLocation=${bannersByLocation})}"/>
+
+  bannersByLocation 은 SiteContextModelAdvice 가 자동 주입하는 Map<String, List<Banner>>.
+  같은 location 키를 가진 활성 배너를 sort_order 순으로 일괄 노출.
+-->
+<body>
+
+<th:block th:fragment="slot(location, bannersByLocation)">
+  <th:block th:with="banners=${bannersByLocation != null ? bannersByLocation.get(location) : null}">
+    <div th:if="${banners != null and not banners.isEmpty()}"
+         class="pcms-banner-slot"
+         th:attr="data-location=${location}">
+      <th:block th:each="b : ${banners}">
+        <a th:href="${b.linkUrl}" th:target="${b.linkTarget}"
+           th:if="${b.linkUrl != null and !b.linkUrl.isBlank()}"
+           rel="noopener" class="pcms-banner">
+          <img th:if="${b.imageFileId}"
+               th:src="@{/fileDown/{fid}/thumb(fid=${b.imageFileId})}"
+               th:alt="${b.altText ?: b.bannerTitle}"
+               loading="lazy"/>
+          <span th:unless="${b.imageFileId}" class="pcms-banner__caption"
+                th:text="${b.bannerTitle}">제목</span>
+        </a>
+        <div th:unless="${b.linkUrl != null and !b.linkUrl.isBlank()}"
+             class="pcms-banner pcms-banner--static">
+          <img th:if="${b.imageFileId}"
+               th:src="@{/fileDown/{fid}/thumb(fid=${b.imageFileId})}"
+               th:alt="${b.altText ?: b.bannerTitle}"
+               loading="lazy"/>
+          <span th:unless="${b.imageFileId}" class="pcms-banner__caption"
+                th:text="${b.bannerTitle}">제목</span>
+        </div>
+      </th:block>
+    </div>
+  </th:block>
+</th:block>
+
+</body>
+</html>

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<!--
+  공통 fragment — 배너 캐러셀 (tb_banner, 같은 location 의 활성 배너 = 슬라이드).
+
+  사용법 (랜딩 등):
+    <th:block th:replace="~{fragments/banner-carousel :: carousel(
+        location='MAIN_CAROUSEL',
+        bannersByLocation=${bannersByLocation})}"/>
+    + 페이지 scripts 슬롯에 /js/carousel.js (CSP nonce)
+    배너 0건이면 아무것도 렌더하지 않음 — 호출측이 th:if 로 정적 폴백을 제공.
+
+  bannersByLocation 은 DefaultUsrController 가 주입(사이트 캐시). 슬라이드 1장 = 배너 1행
+  (sort_order 순). 이미지(imageFileId)가 없으면 텍스트 슬라이드(제목·alt_text)로 폴백.
+  접근성: region/aria-roledescription, 슬라이드 group + "n / m" 라벨, 자동재생은
+  prefers-reduced-motion 존중 + 일시정지 버튼(carousel.js).
+-->
+<body>
+
+<th:block th:fragment="carousel(location, bannersByLocation)">
+  <th:block th:with="banners=${bannersByLocation != null ? bannersByLocation.get(location) : null}">
+    <section th:if="${banners != null and !banners.isEmpty()}"
+             class="pcms-carousel" data-carousel
+             th:attr="data-location=${location}"
+             role="region" aria-roledescription="캐러셀" aria-label="주요 배너">
+      <div class="pcms-carousel__track" data-carousel-track>
+        <div class="pcms-carousel__slide" th:each="b, st : ${banners}" role="group"
+             th:attr="aria-label=${st.count} + ' / ' + ${#lists.size(banners)}">
+          <a th:if="${b.linkUrl != null and !b.linkUrl.isBlank()}"
+             th:href="${b.linkUrl}" th:target="${b.linkTarget}" rel="noopener"
+             class="pcms-carousel__body">
+            <th:block th:replace="~{fragments/banner-carousel :: slideContent(${b})}"/>
+          </a>
+          <div th:unless="${b.linkUrl != null and !b.linkUrl.isBlank()}" class="pcms-carousel__body">
+            <th:block th:replace="~{fragments/banner-carousel :: slideContent(${b})}"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- 컨트롤 — 슬라이드 2장 이상일 때만 -->
+      <th:block th:if="${#lists.size(banners) > 1}">
+        <button type="button" class="pcms-carousel__nav pcms-carousel__nav--prev"
+                data-action="carousel-prev" aria-label="이전 슬라이드">‹</button>
+        <button type="button" class="pcms-carousel__nav pcms-carousel__nav--next"
+                data-action="carousel-next" aria-label="다음 슬라이드">›</button>
+        <div class="pcms-carousel__controls">
+          <button type="button" class="pcms-carousel__dot" th:each="b, st : ${banners}"
+                  data-action="carousel-goto" th:attr="data-slide=${st.index},
+                  aria-label='슬라이드 ' + ${st.count}, aria-current=${st.index == 0} ? 'true' : 'false'"></button>
+          <button type="button" class="pcms-carousel__toggle" data-action="carousel-toggle"
+                  aria-pressed="false" aria-label="자동재생 일시정지">⏸</button>
+        </div>
+      </th:block>
+    </section>
+  </th:block>
+</th:block>
+
+<!-- 슬라이드 내용 — 이미지 배너 or 텍스트 배너 -->
+<th:block th:fragment="slideContent(b)">
+  <img th:if="${b.imageFileId}" th:src="@{/fileDown/{fid}(fid=${b.imageFileId})}"
+       th:alt="${b.altText ?: b.bannerTitle}" loading="lazy"/>
+  <div th:if="${b.imageFileId}" class="pcms-carousel__caption">
+    <span class="text-heading-md font-bold" th:text="${b.bannerTitle}">배너 제목</span>
+  </div>
+  <div th:unless="${b.imageFileId}" class="pcms-carousel__text">
+    <div class="max-w-content mx-auto px-4 w-full">
+      <p class="text-display-sm font-bold text-fg-strong" th:text="${b.bannerTitle}">배너 제목</p>
+      <p th:if="${b.altText}" class="text-body-lg text-fg-subtle mt-3" th:text="${b.altText}">설명</p>
+    </div>
+  </div>
+</th:block>
+
+</body>
+</html>

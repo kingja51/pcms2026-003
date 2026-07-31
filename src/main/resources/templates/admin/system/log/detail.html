@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|${typeLabel} 상세|">로그 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{|/admin/system/log/${type}|}" class="hover:underline" th:text="${typeLabel}">로그</a>
+      <span class="mx-1">/</span>
+      <span>상세</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-3 mb-4">
+      <h1 class="text-heading-lg font-bold text-fg-strong" th:text="|${typeLabel} 상세|">로그 상세</h1>
+      <a th:href="@{|/admin/system/log/${type}|}"
+         class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">← 목록</a>
+    </div>
+
+    <!-- type 별 상세 — 모든 컬럼 dt/dd 로 노출 -->
+    <div class="bg-surface border border-line rounded-large p-5">
+
+      <!-- ── access ── -->
+      <dl th:if="${type == 'access'}"
+          class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+        <dt class="text-fg-subtle">log_access_id</dt>
+        <dd class="font-mono" th:text="${row.logAccessId}">1</dd>
+
+        <dt class="text-fg-subtle">시각</dt>
+        <dd class="font-mono" th:text="${@fmt.dt(row.loggedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">site_id / code</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.siteId}">-</span>
+          <span class="text-fg-disabled">/</span>
+          <span th:text="${row.siteCode}">-</span>
+        </dd>
+
+        <dt class="text-fg-subtle">사용자</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.actorLoginId}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span class="text-fg" th:text="${row.actorUserType}">ANON</span>
+          <div class="text-xs text-fg-subtle" th:text="${row.actorUserId}">-</div>
+        </dd>
+
+        <dt class="text-fg-subtle">메서드</dt>
+        <dd class="font-mono" th:text="${row.httpMethod}">GET</dd>
+
+        <dt class="text-fg-subtle">URI</dt>
+        <dd class="font-mono break-all" th:text="${row.requestUri}">/</dd>
+
+        <dt class="text-fg-subtle">query string</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.queryString} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">referer</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.referer} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">상태 / ms / bytes</dt>
+        <dd class="font-mono">
+          <span th:text="${row.statusCode}">200</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.responseMs}">0</span> ms
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.bytesSent} ?: '—'">-</span>
+        </dd>
+
+        <dt class="text-fg-subtle">client_ip</dt>
+        <dd class="font-mono" th:text="${row.clientIp}">-</dd>
+
+        <dt class="text-fg-subtle">user_agent</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.userAgent} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">session_id</dt>
+        <dd class="font-mono text-fg" th:text="${row.sessionId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">trace_id</dt>
+        <dd class="font-mono text-fg">
+          <a th:if="${row.traceId}"
+             th:href="@{/admin/system/log/trace(traceId=${row.traceId})}"
+             class="text-brand-60 hover:underline"
+             title="이 traceId 의 모든 로그 통합 조회">
+            <span th:text="${row.traceId}">-</span> 🔗
+          </a>
+          <span th:unless="${row.traceId}">—</span>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t mt-3">created_by/ip/at</dt>
+        <dd class="font-mono pt-3 border-t mt-3">
+          <span th:text="${row.createdBy}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.createdIp}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+        </dd>
+      </dl>
+
+      <!-- ── audit ── -->
+      <dl th:if="${type == 'audit'}"
+          class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+        <dt class="text-fg-subtle">log_audit_id</dt>
+        <dd class="font-mono" th:text="${row.logAuditId}">1</dd>
+
+        <dt class="text-fg-subtle">시각</dt>
+        <dd class="font-mono" th:text="${@fmt.dt(row.loggedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">action</dt>
+        <dd class="font-mono font-semibold" th:text="${row.action}">CREATE</dd>
+
+        <dt class="text-fg-subtle">target_entity</dt>
+        <dd class="font-mono" th:text="${row.targetEntity}">-</dd>
+
+        <dt class="text-fg-subtle">target_id</dt>
+        <dd class="font-mono break-all" th:text="${row.targetId}">-</dd>
+
+        <dt class="text-fg-subtle">result</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                th:classappend="${row.result == 'SUCCESS' ? 'bg-success-surface text-success-fg' :
+                                  row.result == 'FAIL'    ? 'bg-warning-surface text-warning-fg' :
+                                                            'bg-danger-surface text-danger-fg'}"
+                th:text="${row.result}">SUCCESS</span>
+        </dd>
+
+        <dt class="text-fg-subtle">사용자</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.actorLoginId}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span class="text-fg" th:text="${row.actorUserType}">-</span>
+          <div class="text-xs text-fg-subtle" th:text="${row.actorUserId}">-</div>
+        </dd>
+
+        <dt class="text-fg-subtle">request</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.httpMethod}">GET</span>
+          <span class="ml-2" th:text="${row.requestUri}">/</span>
+        </dd>
+
+        <dt class="text-fg-subtle">client_ip</dt>
+        <dd class="font-mono" th:text="${row.clientIp}">-</dd>
+
+        <dt class="text-fg-subtle">trace_id</dt>
+        <dd class="font-mono text-fg">
+          <a th:if="${row.traceId}"
+             th:href="@{/admin/system/log/trace(traceId=${row.traceId})}"
+             class="text-brand-60 hover:underline"
+             title="이 traceId 의 모든 로그 통합 조회">
+            <span th:text="${row.traceId}">-</span> 🔗
+          </a>
+          <span th:unless="${row.traceId}">—</span>
+        </dd>
+
+        <dt class="text-fg-subtle align-top">before_json</dt>
+        <dd>
+          <pre class="bg-surface-subtle border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"
+               th:text="${row.beforeJson} ?: '—'">{}</pre>
+        </dd>
+
+        <dt class="text-fg-subtle align-top">after_json</dt>
+        <dd>
+          <pre class="bg-surface-subtle border border-line rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap"
+               th:text="${row.afterJson} ?: '—'">{}</pre>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t mt-3">created_by/ip/at</dt>
+        <dd class="font-mono pt-3 border-t mt-3">
+          <span th:text="${row.createdBy}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.createdIp}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+        </dd>
+      </dl>
+
+      <!-- ── login ── -->
+      <dl th:if="${type == 'login'}"
+          class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+        <dt class="text-fg-subtle">log_login_id</dt>
+        <dd class="font-mono" th:text="${row.logLoginId}">1</dd>
+
+        <dt class="text-fg-subtle">시각</dt>
+        <dd class="font-mono" th:text="${@fmt.dt(row.loggedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">login_id</dt>
+        <dd class="font-mono font-semibold" th:text="${row.loginId}">-</dd>
+
+        <dt class="text-fg-subtle">user_type</dt>
+        <dd class="font-mono" th:text="${row.userType}">-</dd>
+
+        <dt class="text-fg-subtle">user_id</dt>
+        <dd class="font-mono text-fg-subtle break-all" th:text="${row.userId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">result</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                th:classappend="${row.result == 'SUCCESS' ? 'bg-success-surface text-success-fg' :
+                                  row.result == 'LOCKED'  ? 'bg-danger-surface text-danger-fg' :
+                                                            'bg-warning-surface text-warning-fg'}"
+                th:text="${row.result}">SUCCESS</span>
+        </dd>
+
+        <dt class="text-fg-subtle">실패 사유</dt>
+        <dd th:text="${row.failReason} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">client_ip</dt>
+        <dd class="font-mono" th:text="${row.clientIp}">-</dd>
+
+        <dt class="text-fg-subtle">user_agent</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.userAgent} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">session_id</dt>
+        <dd class="font-mono text-fg" th:text="${row.sessionId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle pt-3 border-t mt-3">created_by/ip/at</dt>
+        <dd class="font-mono pt-3 border-t mt-3">
+          <span th:text="${row.createdBy}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.createdIp}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+        </dd>
+      </dl>
+
+      <!-- ── file-download ── -->
+      <dl th:if="${type == 'file-download'}"
+          class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+        <dt class="text-fg-subtle">log_file_download_id</dt>
+        <dd class="font-mono" th:text="${row.logFileDownloadId}">1</dd>
+
+        <dt class="text-fg-subtle">시각</dt>
+        <dd class="font-mono" th:text="${@fmt.dt(row.downloadedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">download_type</dt>
+        <dd class="font-mono" th:text="${row.downloadType}">SINGLE</dd>
+
+        <dt class="text-fg-subtle">file_id</dt>
+        <dd class="font-mono break-all" th:text="${row.fileId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">file_group_id</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.fileGroupId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">파일명</dt>
+        <dd class="font-mono break-all" th:text="${row.originalName} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">extension / size</dt>
+        <dd class="font-mono">
+          <span th:text="${row.extension} ?: '—'">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${#numbers.formatInteger(row.sizeBytes ?: 0, 1, 'COMMA')}">0</span> bytes
+        </dd>
+
+        <dt class="text-fg-subtle">사용자</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.actorLoginId}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span class="text-fg" th:text="${row.actorUserType}">-</span>
+          <div class="text-xs text-fg-subtle" th:text="${row.actorUserId}">-</div>
+        </dd>
+
+        <dt class="text-fg-subtle">request_uri</dt>
+        <dd class="font-mono break-all" th:text="${row.requestUri}">-</dd>
+
+        <dt class="text-fg-subtle">client_ip</dt>
+        <dd class="font-mono" th:text="${row.clientIp}">-</dd>
+
+        <dt class="text-fg-subtle">user_agent</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.userAgent} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">trace_id</dt>
+        <dd class="font-mono text-fg">
+          <a th:if="${row.traceId}"
+             th:href="@{/admin/system/log/trace(traceId=${row.traceId})}"
+             class="text-brand-60 hover:underline"
+             title="이 traceId 의 모든 로그 통합 조회">
+            <span th:text="${row.traceId}">-</span> 🔗
+          </a>
+          <span th:unless="${row.traceId}">—</span>
+        </dd>
+
+        <dt class="text-fg-subtle">result</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                th:classappend="${row.result == 'SUCCESS' ? 'bg-success-surface text-success-fg' :
+                                                            'bg-danger-surface text-danger-fg'}"
+                th:text="${row.result}">SUCCESS</span>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t mt-3">created_by/ip/at</dt>
+        <dd class="font-mono pt-3 border-t mt-3">
+          <span th:text="${row.createdBy}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.createdIp}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+        </dd>
+      </dl>
+
+      <!-- ── error ── -->
+      <dl th:if="${type == 'error'}"
+          class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+        <dt class="text-fg-subtle">log_error_id</dt>
+        <dd class="font-mono" th:text="${row.logErrorId}">1</dd>
+
+        <dt class="text-fg-subtle">시각</dt>
+        <dd class="font-mono" th:text="${@fmt.dt(row.loggedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">예외 클래스</dt>
+        <dd class="font-mono font-semibold text-danger-fg break-all"
+            th:text="${row.errorClass}">java.lang.NullPointerException</dd>
+
+        <dt class="text-fg-subtle align-top">메시지</dt>
+        <dd class="break-all" th:text="${row.errorMessage} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">status_code</dt>
+        <dd class="font-mono font-semibold text-danger-fg" th:text="${row.statusCode}">500</dd>
+
+        <dt class="text-fg-subtle">site_id / code</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.siteId} ?: '—'">-</span>
+          <span class="text-fg-disabled mx-1">/</span>
+          <span th:text="${row.siteCode} ?: '—'">-</span>
+        </dd>
+
+        <dt class="text-fg-subtle">사용자</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.actorLoginId}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span class="text-fg" th:text="${row.actorUserType}">ANON</span>
+          <div class="text-xs text-fg-subtle" th:text="${row.actorUserId}">-</div>
+        </dd>
+
+        <dt class="text-fg-subtle">request</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.httpMethod}">GET</span>
+          <span class="ml-2" th:text="${row.requestUri}">/</span>
+          <div class="text-xs text-fg-subtle" th:if="${row.queryString}"
+               th:text="|? ${row.queryString}|"></div>
+        </dd>
+
+        <dt class="text-fg-subtle">client_ip</dt>
+        <dd class="font-mono" th:text="${row.clientIp}">-</dd>
+
+        <dt class="text-fg-subtle">user_agent</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.userAgent} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">trace_id</dt>
+        <dd class="font-mono text-fg">
+          <a th:if="${row.traceId}"
+             th:href="@{/admin/system/log/trace(traceId=${row.traceId})}"
+             class="text-brand-60 hover:underline"
+             title="이 traceId 의 모든 로그 통합 조회">
+            <span th:text="${row.traceId}">-</span> 🔗
+          </a>
+          <span th:unless="${row.traceId}">—</span>
+        </dd>
+
+        <dt class="text-fg-subtle">session_id</dt>
+        <dd class="font-mono text-fg" th:text="${row.sessionId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle align-top">stack_trace</dt>
+        <dd>
+          <pre class="bg-gray-90 text-danger-20 border border-gray-70 rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap leading-snug max-h-[28rem]"
+               th:text="${row.stackTrace} ?: '—'">java.lang.NullPointerException ...</pre>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t mt-3">created_by/ip/at</dt>
+        <dd class="font-mono pt-3 border-t mt-3">
+          <span th:text="${row.createdBy}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.createdIp}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+        </dd>
+      </dl>
+
+      <!-- ── privacy (PIPA §29 — log_privacy_access) ── -->
+      <dl th:if="${type == 'privacy'}"
+          class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+        <dt class="text-fg-subtle">log_privacy_access_id</dt>
+        <dd class="font-mono" th:text="${row.logPrivacyAccessId}">1</dd>
+
+        <dt class="text-fg-subtle">접속 일시</dt>
+        <dd class="font-mono" th:text="${@fmt.dt(row.accessedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">access_action</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-secondary-5 text-secondary-70"
+                th:text="${row.accessAction}">READ</span>
+        </dd>
+
+        <dt class="text-fg-subtle">target_entity</dt>
+        <dd class="font-mono" th:text="${row.targetEntity}">tb_member</dd>
+
+        <dt class="text-fg-subtle">target</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.targetUserType} ?: '—'">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.targetId} ?: '(다건)'">-</span>
+          <span class="text-fg-disabled mx-1">×</span>
+          <span class="font-semibold"
+                th:text="${#numbers.formatInteger(row.targetCount ?: 1, 1, 'COMMA')}">1</span> 건
+        </dd>
+
+        <dt class="text-fg-subtle">PII 항목</dt>
+        <dd class="font-mono text-fg" th:text="${row.piiFields} ?: '—'">name,email</dd>
+
+        <dt class="text-fg-subtle align-top">access_reason</dt>
+        <dd class="text-fg break-all whitespace-pre-wrap" th:text="${row.accessReason} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">result</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                th:classappend="${row.result == 'SUCCESS' ? 'bg-success-surface text-success-fg' :
+                                  row.result == 'DENIED'  ? 'bg-danger-surface text-danger-fg' :
+                                  row.result == 'ERROR'   ? 'bg-danger-surface text-danger-fg' :
+                                                            'bg-warning-surface text-warning-fg'}"
+                th:text="${row.result}">SUCCESS</span>
+        </dd>
+
+        <dt class="text-fg-subtle">fail_reason</dt>
+        <dd class="text-fg break-all" th:text="${row.failReason} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">접속자</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.actorLoginId}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span class="text-fg" th:text="${row.actorUserType}">-</span>
+          <div class="text-xs text-fg-subtle" th:text="${row.actorUserId}">-</div>
+        </dd>
+
+        <dt class="text-fg-subtle">request</dt>
+        <dd class="font-mono break-all">
+          <span th:text="${row.httpMethod} ?: '—'">GET</span>
+          <span class="ml-2" th:text="${row.requestUri} ?: '—'">/</span>
+        </dd>
+
+        <dt class="text-fg-subtle">client_ip</dt>
+        <dd class="font-mono" th:text="${row.clientIp}">-</dd>
+
+        <dt class="text-fg-subtle">user_agent</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.userAgent} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">session_id</dt>
+        <dd class="font-mono text-fg" th:text="${row.sessionId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">trace_id</dt>
+        <dd class="font-mono text-fg">
+          <a th:if="${row.traceId}"
+             th:href="@{/admin/system/log/trace(traceId=${row.traceId})}"
+             class="text-brand-60 hover:underline"
+             title="이 traceId 의 모든 로그 통합 조회">
+            <span th:text="${row.traceId}">-</span> 🔗
+          </a>
+          <span th:unless="${row.traceId}">—</span>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t mt-3">created_by/ip/at</dt>
+        <dd class="font-mono pt-3 border-t mt-3">
+          <span th:text="${row.createdBy}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.createdIp}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+        </dd>
+      </dl>
+
+      <!-- ── security (log_security · 보안 이벤트 분리 적재) ── -->
+      <dl th:if="${type == 'security'}"
+          class="grid grid-cols-[10rem_1fr] gap-y-2 text-sm">
+        <dt class="text-fg-subtle">log_security_id</dt>
+        <dd class="font-mono" th:text="${row.logSecurityId}">1</dd>
+
+        <dt class="text-fg-subtle">시각</dt>
+        <dd class="font-mono" th:text="${@fmt.dt(row.loggedAt)}">-</dd>
+
+        <dt class="text-fg-subtle">event_type</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-warning-surface text-warning-fg"
+                th:text="${row.eventType}">UPLOAD_BLOCK</span>
+        </dd>
+
+        <dt class="text-fg-subtle">severity</dt>
+        <dd>
+          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold"
+                th:classappend="${row.severity == 'CRITICAL' ? 'bg-danger-surface text-danger-fg' :
+                                  row.severity == 'WARN'     ? 'bg-warning-surface text-warning-fg' :
+                                                                'bg-surface-subtle text-fg-subtle'}"
+                th:text="${row.severity}">WARN</span>
+        </dd>
+
+        <dt class="text-fg-subtle">actor_id</dt>
+        <dd class="font-mono break-all" th:text="${row.actorId} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">client_ip</dt>
+        <dd class="font-mono" th:text="${row.clientIp} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">user_agent</dt>
+        <dd class="font-mono break-all text-fg" th:text="${row.userAgent} ?: '—'">-</dd>
+
+        <dt class="text-fg-subtle">request_uri</dt>
+        <dd class="font-mono break-all" th:text="${row.requestUri} ?: '—'">/</dd>
+
+        <dt class="text-fg-subtle align-top">detail_json</dt>
+        <dd>
+          <pre class="bg-gray-90 text-warning-20 border border-gray-70 rounded p-3 text-xs overflow-x-auto whitespace-pre-wrap leading-snug max-h-[28rem]"
+               th:text="${row.detailJson} ?: '—'">{}</pre>
+        </dd>
+
+        <dt class="text-fg-subtle">trace_id</dt>
+        <dd class="font-mono text-fg">
+          <a th:if="${row.traceId}"
+             th:href="@{/admin/system/log/trace(traceId=${row.traceId})}"
+             class="text-brand-60 hover:underline"
+             title="이 traceId 의 모든 로그 통합 조회">
+            <span th:text="${row.traceId}">-</span> 🔗
+          </a>
+          <span th:unless="${row.traceId}">—</span>
+        </dd>
+
+        <dt class="text-fg-subtle pt-3 border-t mt-3">created_by/ip/at</dt>
+        <dd class="font-mono pt-3 border-t mt-3">
+          <span th:text="${row.createdBy}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${row.createdIp}">-</span>
+          <span class="text-fg-disabled mx-1">·</span>
+          <span th:text="${@fmt.dt(row.createdAt)}">-</span>
+        </dd>
+      </dl>
+
+    </div>
+
+  </section>
+</body>
+</html>

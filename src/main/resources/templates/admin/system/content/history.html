@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|버전 이력 - ${content.title}|">버전 이력</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/content}" class="hover:underline">콘텐츠</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/content/{cid}(cid=${content.contentId})}"
+         class="hover:underline" th:text="${content.title}">제목</a>
+      <span class="mx-1">/</span>
+      <span>이력</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">버전 이력</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          현재 v<strong class="text-fg-strong" th:text="${content.versionNo}">1</strong> · 총
+          <strong class="text-fg-strong" th:text="${#lists.size(history)}">0</strong> 개 스냅샷
+        </p>
+      </div>
+      <a th:href="@{/admin/system/content/{cid}(cid=${content.contentId})}"
+         class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">← 상세로</a>
+    </div>
+
+    <div th:if="${#lists.isEmpty(history)}"
+         class="bg-surface border border-line rounded-large p-10 text-center text-fg-subtle">
+      아직 저장된 이력이 없습니다. 콘텐츠를 수정하면 이전 버전이 자동 기록됩니다.
+    </div>
+
+    <ol th:unless="${#lists.isEmpty(history)}" class="space-y-3">
+      <li th:each="h : ${history}"
+          class="bg-surface border border-line rounded-large p-5">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="font-mono font-semibold text-fg-strong" th:text="'v' + ${h.versionNo}">v1</span>
+              <span class="text-fg-disabled">·</span>
+              <span class="text-fg" th:text="${h.changedBy} ?: '—'">—</span>
+              <span class="text-fg-disabled">·</span>
+              <span class="font-mono text-xs text-fg-subtle" th:text="${@fmt.dt(h.createdAt)}">-</span>
+            </div>
+            <p class="mt-2 text-sm font-medium text-fg-strong" th:text="${h.title}">제목</p>
+            <p th:if="${!#strings.isEmpty(h.changeNote)}"
+               class="mt-1 text-xs text-fg-subtle">
+              <span class="text-fg-subtle">변경 노트:</span>
+              <span th:text="${h.changeNote}"></span>
+            </p>
+          </div>
+        </div>
+        <details class="mt-3" th:if="${!#strings.isEmpty(h.body)}">
+          <summary class="cursor-pointer text-xs text-fg-subtle hover:text-fg-strong">본문 스냅샷 펼치기</summary>
+          <pre class="mt-2 text-xs font-mono bg-surface-subtle border border-line rounded p-3 overflow-auto max-h-96"
+               th:text="${h.body}">-</pre>
+        </details>
+      </li>
+    </ol>
+
+  </section>
+</body>
+</html>

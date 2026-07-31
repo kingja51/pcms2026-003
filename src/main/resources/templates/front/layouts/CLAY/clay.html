@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<!--
+  clay 디자인 시스템 전용 레이아웃 (front/layouts/CLAY/clay)
+    · clay.com 스타일: go-to-market SaaS 브랜드 감성
+    · 팔레트: 웜 아이보리 (#FAFAF7) + 딥 네이비 텍스트 (#0E1429) + 라임 액센트 (#A3E635)
+    · 타이포: Inter 계열 system-ui 폴백 (CSP 외부 폰트 차단 환경)
+    · 본 레이아웃은 tb_template.layout_path = 'front/layouts/CLAY/clay' 와 1:1 매칭
+    · 디렉토리 규약:
+      - 레이아웃(template_code 기준): /templates/front/layouts/{TEMPLATE_CODE}/{slug}.html
+      - 콘텐츠(site_code 기준):       /templates/{site_code}/{slug}.html
+    · clay 사이트의 10개 콘텐츠는 /templates/clay/ 하위에 존재하며 본 레이아웃을 decorate
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ko"
+      class="h-full">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <!-- CSRF — JS(file-picker 등) 가 fetch/XHR 헤더로 사용 -->
+  <meta name="_csrf"        th:content="${_csrf.token}"/>
+  <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+  <title layout:title-pattern="$CONTENT_TITLE · $LAYOUT_TITLE"
+         th:text="${siteContext?.site?.siteName} ?: ${siteCode}">Clay</title>
+
+  <link th:href="@{/css/output.css}" rel="stylesheet" />
+
+  <!-- 레이아웃 전용 CSS — /static/tmpl/css/{TEMPLATE_CODE}/ 규약 (2026-04-23) -->
+  <link rel="stylesheet" th:href="@{/tmpl/css/CLAY/clay.css}"/>
+  <!-- 사용자 프로그램(board/schedule/...) 페이지 공통 폭 컨테이너 -->
+  <link rel="stylesheet" th:href="@{/css/program-page.css}"/>
+
+  <!-- 사이트별 <head> 삽입 (tb_site.head_meta) — 관리자 작성 HTML 을 그대로 렌더 -->
+  <th:block th:if="${!#strings.isEmpty(siteContext?.site?.headMeta)}"
+            th:utext="${siteContext.site.headMeta}"/>
+</head>
+<body>
+
+<a class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-3 focus:py-2 focus:bg-white focus:rounded"
+   th:href="@{#main}">본문으로 건너뛰기</a>
+
+<!-- ══════════════ 헤더 ══════════════ -->
+<header role="banner" class="border-b hair sticky top-0 z-30" style="background:rgba(250,250,247,0.85); backdrop-filter: blur(12px);">
+  <div class="wrap flex items-center justify-between gap-6 py-4">
+    <a th:href="@{/{sc}(sc=${siteCode})}" class="flex items-center gap-2"
+       th:with="siteName=${siteContext?.site?.siteName} ?: ${siteCode}">
+      <img th:src="@{/tmpl/img/logos/{sc}_logo.svg(sc=${siteCode})}"
+           width="28" height="28" th:alt="${siteName}"
+           data-hide-on-error=""/>
+      <span style="font-size:20px;font-weight:700;letter-spacing:-0.02em"
+            th:text="${siteName}">사이트</span>
+    </a>
+
+    <div class="flex items-center gap-3">
+      <!-- 알림 종 — 인증 사용자만 노출. 30초 폴링은 notification-bell.js -->
+      <th:block th:replace="~{fragments/notification-bell :: bell(href='/notification')}"/>
+      <!-- 회원 인증 위젯 — 로그인 상태 분기 -->
+      <div sec:authorize="isAuthenticated()" class="hidden md:flex items-center gap-3 text-sm">
+        <a th:href="@{/member/mypage(siteCode=${siteCode})}" class="ink hover:text-[var(--accent-deep)] font-medium" title="마이페이지">
+          <span sec:authentication="name">회원</span>
+        </a>
+        <form th:action="@{/member/logout(siteCode=${siteCode})}" method="post" class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="siteCode" th:value="${siteContext?.site?.siteCode}"/>
+          <button type="submit" class="muted hover:ink">로그아웃</button>
+        </form>
+      </div>
+      <a sec:authorize="!isAuthenticated()" th:href="@{/member/login(siteCode=${siteCode})}"
+         class="hidden md:inline text-sm muted hover:ink">로그인</a>
+      <a sec:authorize="!isAuthenticated()" th:href="@{/member/join(siteCode=${siteCode})}" class="btn-accent">무료 가입</a>
+    </div>
+  </div>
+
+  <!-- 2차 내비 (10개 메뉴 계층) -->
+  <nav class="pnav" aria-label="주 메뉴"
+       th:with="uri=${currentUri} ?: ''">
+    <ul class="toplevel">
+      <li th:attr="data-active=${uri == '/clay/home' or uri == '/clay' or uri == '/clay/'}">
+        <a th:href="@{/clay/home}">홈</a>
+      </li>
+      <li th:attr="data-active=${uri == '/clay/product' or uri == '/clay/signals' or uri == '/clay/enrichment' or uri == '/clay/automation'}">
+        <a th:href="@{/clay/product}">제품 <span class="caret">▾</span></a>
+        <ul class="sub">
+          <li><a th:href="@{/clay/signals}">신호 탐지</a></li>
+          <li><a th:href="@{/clay/enrichment}">데이터 보강</a></li>
+          <li><a th:href="@{/clay/automation}">자동화</a></li>
+        </ul>
+      </li>
+      <li th:attr="data-active=${uri == '/clay/customers'}">
+        <a th:href="@{/clay/customers}">고객사례</a>
+      </li>
+      <li th:attr="data-active=${uri == '/clay/docs' or uri == '/clay/getting-started' or uri == '/clay/tutorials' or uri == '/clay/api-reference'}">
+        <a th:href="@{/clay/docs}">문서 <span class="caret">▾</span></a>
+        <ul class="sub">
+          <li><a th:href="@{/clay/getting-started}">시작하기</a></li>
+          <li><a th:href="@{/clay/tutorials}">튜토리얼</a></li>
+          <li><a th:href="@{/clay/api-reference}">API 레퍼런스</a></li>
+        </ul>
+      </li>
+    </ul>
+  </nav>
+</header>
+
+<!-- ══════════════ 본문 ══════════════ -->
+<main id="main" role="main">
+  <section layout:fragment="content" class="wrap section-pad">
+    <!-- 자식 페이지 주입 -->
+  </section>
+</main>
+
+<!-- ══════════════ 푸터 (건양대 표준 공용 — fragments/site-footer) ══════════════ -->
+<th:block th:replace="~{fragments/site-footer :: render}"/>
+
+<th:block th:replace="~{fragments/popup-overlay :: render(popups=${activePopups})}"/>
+<link rel="stylesheet" th:href="@{/css/popup-overlay.css}"/>
+<link rel="stylesheet" th:href="@{/css/banner-slot.css}"/>
+<script th:src="@{/js/popup-overlay.js}" th:attr="nonce=${cspNonce}"></script>
+
+<!-- 파일 뷰어 팝업 — [data-viewer-popup] 속성 가진 앵커를 팝업창으로 연다. 게시판 첨부 등. -->
+<script th:src="@{/js/file-viewer-popup.js}" th:attr="nonce=${cspNonce}"></script>
+
+<!-- htmx — 회원가입 폼의 중복확인 등 부분 갱신 필요한 페이지에서 사용 -->
+<script th:src="@{/js/htmx.min.js}" th:attr="nonce=${cspNonce}"></script>
+
+<!-- 알림 종 폴링 — 인증 사용자만 -->
+<script th:src="@{/js/notification-bell.js}" th:attr="nonce=${cspNonce}" sec:authorize="isAuthenticated()" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{front/layouts/VIEWER/viewer}"
+      lang="ko">
+<head>
+  <title th:text="|미리보기 · ${originalName}|">미리보기</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* pptx-preview 가 주입하는 슬라이드 컨테이너 */
+    .pptx-stage {
+      background: #f1f5f9;            /* slate-100 */
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px;
+      min-height: 480px;
+      overflow: auto;
+    }
+    /* 각 슬라이드 — 가운데 정렬 + 그림자 */
+    .pptx-stage > div {
+      margin: 0 auto 16px !important;
+      background: white;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.08);
+      border: 1px solid #e2e8f0;
+    }
+    .pptx-status {
+      padding: 4px 8px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .pptx-status.is-error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <!-- 헤더 1줄: 파일명 + 다운로드. -->
+    <header class="mb-1 flex items-center justify-between gap-3 flex-wrap">
+      <h1 class="min-w-0 flex-1 text-base font-semibold text-slate-900 truncate"
+          th:text="${originalName}" th:title="${originalName}">파일명.pptx</h1>
+      <a th:href="@{${downloadUrl}}"
+         class="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+        ⬇ 원본 다운로드
+      </a>
+    </header>
+
+    <!-- 헤더 2줄: 진행 상태 (1줄, 인라인) -->
+    <div id="pptx-status" class="pptx-status mb-2" role="status" aria-live="polite">
+      ⏳ 엔진 로딩 중…
+    </div>
+
+    <!-- pptx-preview 가 이 컨테이너에 슬라이드 div 들을 주입 -->
+    <div id="pptx-stage" class="pptx-stage" aria-label="PPTX 슬라이드 영역"></div>
+
+    <!-- ──────────────────────────────────────────────────────────────────
+         pptx-preview ESM 동적 import + init/preview API
+         · 라이브러리: 501351981/pptx-preview v1.0.7 (ISC 라이선스, 무료 상용)
+         · 의존성: tslib + jszip + lodash + uuid + echarts
+         · CDN: esm.sh — jsdelivr 의 +esm 은 lodash 의 named export(get/omit)를
+           default-only 로 변환해 SyntaxError 발생. esm.sh 는 CJS named import 를
+           자동 해석해 호환됨.
+         · 첫 로드 ~2~3MB (echarts 포함). 이후 CDN 캐시.
+         · CSP: 'strict-dynamic' 가 nonce'd 스크립트의 동적 import 를 신뢰하므로 URL 변경만으로 통과.
+         · 단일 개발자 프로젝트 — 일부 슬라이드 디자인 / 애니메이션 / 임베드 객체는 누락 가능.
+         · 16:9 기본 비율 가정. 4:3 PPTX 도 init width/height 가 슬라이드 메타에 자동 맞춤.
+         ────────────────────────────────────────────────────────────────── -->
+    <script type="module" th:attr="nonce=${cspNonce}" th:inline="javascript">
+      const inlineUrl   = /*[[${inlineUrl}]]*/ '';
+      const downloadUrl = /*[[${downloadUrl}]]*/ '';
+      const status      = document.getElementById('pptx-status');
+      const stage       = document.getElementById('pptx-stage');
+
+      const setStatus = (msg, error) => {
+        status.textContent = msg;
+        status.classList.toggle('is-error', !!error);
+      };
+
+      try {
+        setStatus('⏳ pptx-preview 엔진 로딩 중...');
+        const { init } = await import('https://esm.sh/pptx-preview@1.0.7');
+
+        // 슬라이드 폭 — 뷰포트에 맞춰 최대 1280px, 최소 720px
+        const targetW = Math.max(720, Math.min(1280, window.innerWidth - 64));
+        const targetH = Math.round(targetW * 9 / 16);   // 16:9 기본 비율
+        const previewer = init(stage, { width: targetW, height: targetH });
+
+        setStatus('⏳ 파일 다운로드 중...');
+        const res = await fetch(inlineUrl, { credentials: 'same-origin' });
+        if (!res.ok) {
+          throw new Error('파일 응답 ' + res.status + ' ' + res.statusText);
+        }
+        const buf = await res.arrayBuffer();
+
+        setStatus('⏳ 슬라이드 렌더링 중...');
+        const result = previewer.preview(buf);
+        // preview() 가 Promise 반환 (또는 sync) — 둘 다 await 안전
+        if (result && typeof result.then === 'function') {
+          await result;
+        }
+
+        // 렌더된 슬라이드 수 카운트 (stage 의 직접 자식 div 개수)
+        const slideCount = stage.children.length;
+        setStatus(`✅ ${slideCount} 슬라이드 · pptx-preview v1.0.7`);
+      } catch (e) {
+        console.error('[pptx-preview] 렌더 실패:', e);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.className = 'text-blue-600 hover:underline font-medium';
+        a.textContent = '원본 다운로드';
+        status.classList.add('is-error');
+        status.innerHTML = '';
+        const msg = document.createElement('span');
+        msg.textContent = '⚠️ 미리보기 실패: ' + (e && e.message ? e.message : '알 수 없는 오류') + ' — ';
+        status.appendChild(msg);
+        status.appendChild(a);
+      }
+    </script>
+
+  </section>
+</body>
+</html>

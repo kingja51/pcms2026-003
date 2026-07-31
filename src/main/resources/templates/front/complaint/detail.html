@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${article.title}">민원 상세</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div>
+      <nav aria-label="상위 경로" class="text-body-sm text-fg-subtle mb-2">
+        <a th:href="@{/complaint/{mc}(mc=${master.masterCode})}" class="hover:underline" th:text="${master.masterName}">민원</a>
+        <span class="mx-1" aria-hidden="true">/</span>
+        <span aria-current="page" th:text="${article.complaintNo}">상세</span>
+      </nav>
+
+      <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+        <span class="shrink-0 font-bold text-success-icon" aria-hidden="true">✓</span>
+        <p th:text="${message}"></p>
+      </div>
+      <div th:if="${error}" role="alert" class="krds-alert krds-alert-danger mb-4">
+        <span class="shrink-0 font-bold text-danger-icon" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+
+      <!-- 헤더 -->
+      <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-body-sm text-fg-subtle" th:text="${article.complaintNo}">-</span>
+            <span th:classappend="${article.status == 'RECEIVED'}    ? 'bg-info-surface text-info-fg'
+                               : (${article.status == 'IN_PROGRESS'} ? 'bg-warning-surface text-warning-fg'
+                               : (${article.status == 'ANSWERED'}    ? 'bg-success-surface text-success-fg'
+                               : (${article.status == 'CLOSED'}      ? 'bg-surface-subtle text-fg-subtle'
+                               : 'bg-danger-surface text-danger-fg')))"
+                  class="krds-badge"
+                  th:text="${article.status == 'RECEIVED'}    ? '접수'
+                         : (${article.status == 'IN_PROGRESS'} ? '처리중'
+                         : (${article.status == 'ANSWERED'}    ? '답변완료'
+                         : (${article.status == 'CLOSED'}      ? '종결'
+                         : '반려')))">상태</span>
+            <span th:if="${article.categoryName != null}"
+                  class="text-body-xs text-fg-subtle" th:text="'[' + ${article.categoryName} + ']'"></span>
+          </div>
+          <h1 class="text-heading-md font-bold text-fg-strong" th:text="${article.title}">제목</h1>
+        </div>
+        <div class="flex items-center gap-2">
+          <th:block th:if="${canEdit}">
+            <a th:href="@{/complaint/{mc}/{no}/edit(mc=${master.masterCode},no=${article.complaintNo})}"
+               class="krds-btn krds-btn-sm krds-btn-tertiary">수정</a>
+            <form th:action="@{/complaint/{mc}/{no}/delete(mc=${master.masterCode},no=${article.complaintNo})}"
+                  method="post" data-confirm="민원을 삭제하시겠습니까?">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <button type="submit"
+                      class="krds-btn krds-btn-sm bg-danger-50 text-white hover:bg-danger-60">삭제</button>
+            </form>
+          </th:block>
+          <th:block th:if="${isOwner and !canEdit and article.answerCount > 0}">
+            <span class="text-body-xs text-fg-disabled">답변이 등록된 민원은 수정·삭제할 수 없습니다.</span>
+          </th:block>
+          <a th:href="@{/complaint/{mc}(mc=${master.masterCode})}"
+             class="krds-btn krds-btn-sm krds-btn-tertiary">← 목록</a>
+        </div>
+      </div>
+
+      <!-- 민원 정보 -->
+      <div class="bg-surface border border-line rounded-large p-6 mb-6">
+        <dl class="grid grid-cols-2 md:grid-cols-3 gap-4 text-body-sm mb-4">
+          <div>
+            <dt class="text-fg-subtle text-body-xs mb-0.5">접수일시</dt>
+            <dd class="text-body-xs text-fg" th:text="${@fmt.dt(article.createdAt)}">-</dd>
+          </div>
+          <div th:if="${article.answerDueAt != null}">
+            <dt class="text-fg-subtle text-body-xs mb-0.5">답변 기한</dt>
+            <dd class="text-body-xs text-fg"
+                th:classappend="${article.answerDueAt.isBefore(T(java.time.LocalDateTime).now()) and article.status != 'ANSWERED' and article.status != 'CLOSED'} ? 'text-danger-50 font-bold' : ''"
+                th:text="${@fmt.dt(article.answerDueAt)}">-</dd>
+          </div>
+          <div th:if="${article.answeredAt != null}">
+            <dt class="text-fg-subtle text-body-xs mb-0.5">답변 완료일</dt>
+            <dd class="text-body-xs text-fg" th:text="${@fmt.dt(article.answeredAt)}">-</dd>
+          </div>
+        </dl>
+        <div>
+          <dt class="text-fg-subtle text-body-xs mb-1">민원 내용</dt>
+          <dd class="bg-surface-subtle rounded-medium p-4 text-body-sm text-fg whitespace-pre-wrap leading-relaxed"
+              th:text="${article.content}">-</dd>
+        </div>
+      </div>
+
+      <!-- 첨부파일 -->
+      <div th:if="${master.fileYn == 'Y' and article.fileGroupId != null}"
+           class="bg-surface border border-line rounded-large p-6 mb-6">
+        <h2 class="text-heading-xs font-bold text-fg-strong mb-3">첨부파일</h2>
+        <div th:replace="~{fragments/file-picker :: picker(
+          inputName='attachmentsJson',
+          category='ANY',
+          entityType='COMPLAINT',
+          entityId=${article.articleId},
+          siteId=${master.siteId},
+          multiple=true,
+          maxFiles=${master.fileCountMax ?: 5},
+          readOnly=true,
+          existingFiles=${existingFiles},
+          fileGroupId=${article.fileGroupId})}"></div>
+      </div>
+
+      <!-- 답변 목록 -->
+      <div class="bg-surface border border-line rounded-large p-6 mb-6">
+        <h2 class="text-heading-xs font-bold text-fg-strong mb-4">
+          답변
+          <span class="text-fg-subtle font-normal text-body-sm" th:text="'(' + ${#lists.size(answers)} + '건)'"></span>
+        </h2>
+
+        <div th:if="${#lists.isEmpty(answers)}" class="text-body-sm text-fg-subtle">
+          아직 답변이 등록되지 않았습니다.
+        </div>
+
+        <div th:each="ans : ${answers}" class="border border-line rounded-large p-4 mb-3">
+          <div class="flex items-center gap-2 mb-2 text-body-sm">
+            <span class="font-medium text-fg" th:text="${ans.answererName ?: ans.answererId}">-</span>
+            <span th:if="${ans.isFinal == 'Y'}"
+                  class="krds-badge bg-success-surface text-success-fg">최종 답변</span>
+            <span class="text-body-xs text-fg-disabled" th:text="${@fmt.dt(ans.createdAt)}">-</span>
+          </div>
+          <div class="text-body-sm whitespace-pre-wrap leading-relaxed text-fg"
+               th:text="${ans.content}">-</div>
+        </div>
+      </div>
+
+      <!-- 민원 종결 (본인 + ANSWERED 상태) -->
+      <div th:if="${canClose}"
+           class="bg-surface border border-line rounded-large p-6">
+        <h2 class="text-heading-xs font-bold text-fg-strong mb-2">민원 종결</h2>
+        <p class="text-body-xs text-fg-subtle mb-3">답변에 만족하시면 민원을 종결 처리하실 수 있습니다. 종결 후에는 추가 답변 요청이 불가합니다.</p>
+        <form th:action="@{/complaint/{mc}/{no}/close(mc=${master.masterCode}, no=${article.complaintNo})}"
+              method="post"
+              data-confirm="민원을 종결 처리하시겠습니까?">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit" class="krds-btn krds-btn-tertiary">민원 종결</button>
+        </form>
+      </div>
+
+    </div>
+
+  </section>
+  <th:block layout:fragment="scripts">
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+  </th:block>
+</body>
+</html>

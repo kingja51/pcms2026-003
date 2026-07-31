@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>파일 등록</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/file}" class="hover:underline">파일</a>
+      <span class="mx-1">/</span>
+      <span>등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-2">파일 등록</h1>
+    <p class="text-sm text-fg-subtle mb-6">
+      6중 방어 스택 통과 후 격리 → 정식 저장소로 자동 승격됩니다.
+      ClamAV 검사 완료 전까지 <code class="font-mono text-xs bg-surface-subtler px-1 rounded">PENDING</code> 상태로 유지되며 다운로드가 차단됩니다.
+    </p>
+
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <form th:action="@{/admin/system/file}" method="post" th:object="${form}"
+          enctype="multipart/form-data"
+          class="bg-surface border border-line rounded-large p-6 space-y-5">
+      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+      <div>
+        <label for="file" class="block text-sm font-medium text-fg mb-1">
+          파일 <span class="text-danger-fg">*</span>
+        </label>
+        <input id="file" type="file" name="file" required
+               class="block w-full text-sm text-fg file:mr-4 file:py-2 file:px-4
+                      file:rounded file:border-0 file:text-sm file:font-medium
+                      file:bg-gray-90 file:text-fg-on hover:file:bg-gray-70
+                      border border-line rounded"/>
+        <p class="mt-1 text-xs text-fg-subtle">
+          허용 확장자: <code class="font-mono">jpg / jpeg / png / gif / webp / pdf / hwp / hwpx / docx / xlsx / pptx / zip / txt / mp4 / mov / webm</code> — 최대 200 MB.
+          이미지는 자동 재인코딩 + 300px 썸네일 생성. 대용량 이미지(1억 픽셀 초과)·webp·동영상은 재인코딩을 skip 하고 원본 보존합니다.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label for="entityType" class="block text-sm font-medium text-fg mb-1">
+            엔티티 타입 <span class="text-danger-fg">*</span>
+          </label>
+          <select id="entityType" th:field="*{entityType}" required
+                  class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">— 선택 —</option>
+            <option th:each="t : ${entityTypes}" th:value="${t.name()}"
+                    th:text="${t.name()}">ETC</option>
+          </select>
+          <p class="mt-1 text-xs text-fg-subtle">BBS · CNT · MBR · POPUP · MAIL · ETC</p>
+        </div>
+        <div>
+          <label for="entityId" class="block text-sm font-medium text-fg mb-1">
+            상위 엔티티 ID
+          </label>
+          <input id="entityId" type="text" th:field="*{entityId}" maxlength="36"
+                 placeholder="비워두면 임시 그룹 생성 (UUID 자동 발급)"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"/>
+        </div>
+      </div>
+
+      <div>
+        <label for="siteId" class="block text-sm font-medium text-fg mb-1">
+          사이트 ID
+        </label>
+        <input id="siteId" type="text" th:field="*{siteId}" maxlength="36"
+               placeholder="멀티사이트 분리용 (선택)"
+               class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"/>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-4 border-t border-line">
+        <a th:href="@{/admin/system/file}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">등록</button>
+      </div>
+    </form>
+
+  </section>
+</body>
+</html>

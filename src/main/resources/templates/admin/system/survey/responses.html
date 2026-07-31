@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>설문 응답 목록</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/survey}" class="hover:underline">설문조사</a> /
+      <a th:href="@{/admin/system/survey/{id}(id=${survey.surveyId})}" class="hover:underline" th:text="${survey.surveyTitle}">제목</a> /
+      <span>응답</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong mb-1" th:text="'응답 — ' + ${survey.surveyTitle}">응답</h1>
+        <p class="text-sm text-fg-subtle">총 <strong th:text="${#lists.size(responses)}">0</strong>건</p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <a th:href="@{/admin/system/survey/{id}(id=${survey.surveyId})}"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm">설문 상세</a>
+        <a th:href="@{/admin/system/survey/{id}/stat(id=${survey.surveyId})}"
+           class="px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium">응답 통계</a>
+        <details class="relative">
+          <summary class="px-3 py-1.5 rounded border border-success-border bg-success-surface text-success-fg text-sm cursor-pointer select-none hover:bg-success-10">
+            ⬇ CSV 다운로드
+          </summary>
+          <form th:action="@{/admin/system/survey/{id}/responses/csv(id=${survey.surveyId})}"
+                method="post"
+                class="absolute right-0 z-10 mt-2 w-80 bg-surface border border-line rounded-large shadow-lg p-3 space-y-2">
+            <p class="text-xs text-fg-subtle">
+              CSV 는 UTF-8(BOM 포함)로 저장됩니다. Excel 에서 바로 열 수 있으며,
+              한글 깨짐이 없습니다. 다운로드 사유는 감사로그에 기록됩니다.
+            </p>
+            <label class="block text-xs font-medium text-fg">다운로드 사유 (10자 이상 필수)</label>
+            <textarea name="downloadReason" rows="3" required minlength="10" maxlength="500"
+                      placeholder="예: 분기 응답 분석 — 2026년 1분기 보고용"
+                      class="block w-full rounded border border-line px-2 py-1.5 text-xs"></textarea>
+            <div th:if="${error}" class="text-xs text-danger-fg" th:text="${error}"></div>
+            <div class="flex justify-end gap-1">
+              <button type="submit"
+                      class="px-3 py-1 rounded bg-success-50 text-fg-on text-xs font-semibold hover:bg-success-60">다운로드</button>
+            </div>
+          </form>
+        </details>
+      </div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase">
+            <th class="px-4 py-3">제출 시각</th>
+            <th class="px-4 py-3">응답자</th>
+            <th class="px-4 py-3">IP</th>
+            <th class="px-4 py-3 text-right">작업</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="r : ${responses}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-2.5 font-mono text-xs" th:text="${@fmt.dt(r.submittedAt)}">-</td>
+            <td class="px-4 py-2.5 text-fg">
+              <span th:if="${survey.anonymousYn == 'Y' or r.memberId == null}" class="text-fg-subtle italic">(익명)</span>
+              <span th:unless="${survey.anonymousYn == 'Y' or r.memberId == null}">
+                <span th:text="${r.memberLoginId ?: r.memberId}">login</span>
+                <span class="text-xs text-fg-subtle ml-1" th:if="${r.memberName}" th:text="'(' + ${r.memberName} + ')'">(name)</span>
+              </span>
+            </td>
+            <td class="px-4 py-2.5 font-mono text-xs text-fg-subtle" th:text="${r.clientIp ?: '-'}">-</td>
+            <td class="px-4 py-2.5 text-right">
+              <a th:href="@{/admin/system/survey/{sid}/responses/{rid}(sid=${survey.surveyId}, rid=${r.responseId})}"
+                 class="px-2.5 py-1 rounded border border-line bg-surface text-xs">상세</a>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(responses)}">
+            <td colspan="4" class="px-4 py-10 text-center text-fg-subtle">아직 응답이 없습니다.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+</body>
+</html>

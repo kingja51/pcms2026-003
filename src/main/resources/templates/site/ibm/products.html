@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<!-- IBM 데모 — 제품 소개 서브 페이지. Carbon content-band + tile. -->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/IBM/ibm'}__}"
+      lang="ko">
+<head>
+  <title>Products</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner">
+      <p class="cds-tag mb-4">Products</p>
+      <h1 class="cds-heading-01">Products &amp; Solutions</h1>
+      <p class="cds-body-01 cds-text-secondary mt-4 cds-measure">
+        엔터프라이즈 전 영역을 아우르는 플랫폼 포트폴리오.
+      </p>
+    </div>
+  </div>
+
+  <div class="cds-band cds-band--layer">
+    <div class="cds-band__inner grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0.5">
+      <div class="cds-tile bg-white">
+        <span class="cds-tag mb-3">AI</span>
+        <h3 class="cds-tile__title">watsonx</h3>
+        <p class="cds-tile__body">기업용 생성형 AI · 파운데이션 모델 · 거버넌스를 한 플랫폼에서.</p>
+      </div>
+      <div class="cds-tile bg-white">
+        <span class="cds-tag mb-3">Cloud</span>
+        <h3 class="cds-tile__title">Red Hat OpenShift</h3>
+        <p class="cds-tile__body">온프레미스·퍼블릭·엣지를 잇는 하이브리드 클라우드 컨테이너 플랫폼.</p>
+      </div>
+      <div class="cds-tile bg-white">
+        <span class="cds-tag mb-3">Data</span>
+        <h3 class="cds-tile__title">Db2</h3>
+        <p class="cds-tile__body">미션 크리티컬 워크로드를 위한 엔터프라이즈 데이터베이스.</p>
+      </div>
+      <div class="cds-tile bg-white">
+        <span class="cds-tag cds-tag--warning mb-3">Security</span>
+        <h3 class="cds-tile__title">QRadar</h3>
+        <p class="cds-tile__body">위협 탐지·대응(SIEM/SOAR) · Zero Trust 아키텍처.</p>
+      </div>
+      <div class="cds-tile bg-white">
+        <span class="cds-tag cds-tag--success mb-3">Automation</span>
+        <h3 class="cds-tile__title">watsonx Orchestrate</h3>
+        <p class="cds-tile__body">디지털 노동 자동화 · 워크플로 오케스트레이션.</p>
+      </div>
+      <div class="cds-tile bg-white">
+        <span class="cds-tag mb-3">Consulting</span>
+        <h3 class="cds-tile__title">IBM Consulting</h3>
+        <p class="cds-tile__body">전략·기술·운영을 아우르는 비즈니스 트랜스포메이션.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cds-band cds-bg">
+    <div class="cds-band__inner">
+      <div class="cds-tile cds-layer-01 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="cds-heading-04">도입 문의</h2>
+          <p class="cds-tile__body">데모 환경에서 실제 상담 폼(민원)으로 연결할 수 있습니다.</p>
+        </div>
+        <a th:href="@{/{sc}/about(sc=${siteCode})}" class="cds-btn cds-btn--primary shrink-0">
+          문의하기 <span aria-hidden="true">→</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

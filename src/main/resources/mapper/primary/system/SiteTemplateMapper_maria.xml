@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.system.site.mapper.SiteTemplateMapper">
+
+  <select id="findAllActive"
+          resultType="com.gonet.primary.system.site.dto.TemplateInfo">
+    SELECT template_id, template_code, template_name, layout_path, use_yn
+      FROM tb_template
+     WHERE use_yn    = 'Y'
+       AND delete_yn = 'N'
+     ORDER BY template_name ASC
+  </select>
+
+  <select id="findById"
+          resultType="com.gonet.primary.system.site.dto.TemplateInfo">
+    SELECT template_id, template_code, template_name, layout_path, use_yn
+      FROM tb_template
+     WHERE template_id = #{templateId}
+       AND use_yn      = 'Y'
+       AND delete_yn   = 'N'
+  </select>
+</mapper>

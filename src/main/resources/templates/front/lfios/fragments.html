@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<!--
+  재정정보공개 공용 Thymeleaf fragment.
+  - num   : Long 금액을 천단위 콤마 표기 (null 은 0).
+  - pager : 페이징 페이지(세부사업/지출내역) 공용 페이지 네비.
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<body>
+
+<!-- 금액(Long) 천단위 콤마 -->
+<th:block th:fragment="num(amt)"
+          th:text="${amt == null ? '0' : #numbers.formatInteger(amt, 1, 'COMMA')}">0</th:block>
+
+<!-- 목록 페이지 네비 — 10개 블록(처음/이전/다음/끝). baseUrl 예: |/lfios/${siteCode}/expense/business| -->
+<nav th:fragment="pager(baseUrl, page, search)" aria-label="페이지"
+     th:if="${page.totalPages > 1}" class="mt-8"
+     th:with="blockSize=10,
+              startPage=${((page.page - 1) / blockSize) * blockSize + 1},
+              endPage=${(startPage + blockSize - 1) > page.totalPages ? page.totalPages : (startPage + blockSize - 1)}">
+  <ul class="flex items-center justify-center gap-1 text-sm">
+    <li th:if="${startPage > 1}">
+      <a th:href="@{__${baseUrl}__(page=1, pageSize=${page.pageSize}, fisYear=${search?.fisYear},
+                   fisFgCd=${search?.fisFgCd}, deptCd=${search?.deptCd}, fldCd=${search?.fldCd},
+                   subsdBgtFg=${search?.subsdBgtFg}, dbizNm=${search?.dbizNm}, teMngMokCd=${search?.teMngMokCd})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">처음</a>
+    </li>
+    <li th:if="${startPage > 1}">
+      <a th:href="@{__${baseUrl}__(page=${startPage - 1}, pageSize=${page.pageSize}, fisYear=${search?.fisYear},
+                   fisFgCd=${search?.fisFgCd}, deptCd=${search?.deptCd}, fldCd=${search?.fldCd},
+                   subsdBgtFg=${search?.subsdBgtFg}, dbizNm=${search?.dbizNm}, teMngMokCd=${search?.teMngMokCd})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">이전</a>
+    </li>
+    <li th:each="p : ${#numbers.sequence(startPage, endPage)}">
+      <a th:href="@{__${baseUrl}__(page=${p}, pageSize=${page.pageSize}, fisYear=${search?.fisYear},
+                   fisFgCd=${search?.fisFgCd}, deptCd=${search?.deptCd}, fldCd=${search?.fldCd},
+                   subsdBgtFg=${search?.subsdBgtFg}, dbizNm=${search?.dbizNm}, teMngMokCd=${search?.teMngMokCd})}"
+         th:text="${p}"
+         th:class="${p == page.page}
+                   ? 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded bg-gray-90 text-fg-on'
+                   : 'inline-flex items-center justify-center min-w-8 px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+    </li>
+    <li th:if="${endPage &lt; page.totalPages}">
+      <a th:href="@{__${baseUrl}__(page=${endPage + 1}, pageSize=${page.pageSize}, fisYear=${search?.fisYear},
+                   fisFgCd=${search?.fisFgCd}, deptCd=${search?.deptCd}, fldCd=${search?.fldCd},
+                   subsdBgtFg=${search?.subsdBgtFg}, dbizNm=${search?.dbizNm}, teMngMokCd=${search?.teMngMokCd})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">다음</a>
+    </li>
+    <li th:if="${endPage &lt; page.totalPages}">
+      <a th:href="@{__${baseUrl}__(page=${page.totalPages}, pageSize=${page.pageSize}, fisYear=${search?.fisYear},
+                   fisFgCd=${search?.fisFgCd}, deptCd=${search?.deptCd}, fldCd=${search?.fldCd},
+                   subsdBgtFg=${search?.subsdBgtFg}, dbizNm=${search?.dbizNm}, teMngMokCd=${search?.teMngMokCd})}"
+         class="inline-flex items-center justify-center px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">끝</a>
+    </li>
+  </ul>
+</nav>
+
+</body>
+</html>

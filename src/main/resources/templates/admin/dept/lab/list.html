@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head><title>연구실 관리</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span> <span>연구실</span>
+    </nav>
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div><h1 class="text-heading-lg font-bold text-fg-strong">연구실 관리</h1>
+        <p class="text-sm text-fg-subtle mt-1">총 <strong th:text="${list != null ? #lists.size(list) : 0}">0</strong> 개</p></div>
+      <a th:href="@{/admin/dept/lab/new}" class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">+ 새 연구실</a>
+    </div>
+    <form method="get" class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[220px_1fr_auto] gap-3 items-end">
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">학과 선택</label>
+          <select name="siteCode" class="block w-full rounded border border-line px-3 py-2 text-sm">
+            <option value="">전체 학과</option>
+            <option th:each="d : ${depts}" th:value="${d.siteCode}" th:text="${d.deptName} + ' (' + ${d.siteCode} + ')'"
+                    th:selected="${d.siteCode == siteCode}">학과</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-fg-subtle mb-1">검색어 (연구실명/지도교수/연구분야)</label>
+          <input name="keyword" type="text" th:value="${keyword}" maxlength="100" class="block w-full rounded border border-line px-3 py-2 text-sm"/>
+        </div>
+        <div class="flex gap-2">
+          <button type="submit" class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">검색</button>
+          <a th:href="@{/admin/dept/lab}" class="inline-flex items-center px-4 py-2 rounded border border-line text-fg text-sm hover:bg-surface-subtle">초기화</a>
+        </div>
+      </div>
+    </form>
+    <div class="bg-surface border border-line rounded-large overflow-x-auto">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <thead class="bg-surface-subtle text-fg-subtle"><tr>
+          <th class="px-4 py-3 text-left font-medium">사이트</th>
+          <th class="px-4 py-3 text-left font-medium">연구실명</th>
+          <th class="px-4 py-3 text-left font-medium">지도교수</th>
+          <th class="px-4 py-3 text-left font-medium">연구분야</th>
+          <th class="px-4 py-3 text-right font-medium">관리</th>
+        </tr></thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="l : ${list}" class="hover:bg-surface-subtle align-top">
+            <td class="px-4 py-3 whitespace-nowrap font-mono text-fg-subtle" th:text="${l.siteCode}">me</td>
+            <td class="px-4 py-3"><span class="font-medium text-fg-strong" th:text="${l.nameKo}">연구실</span>
+              <span class="block text-fg-disabled text-xs" th:if="${l.nameEn}" th:text="${l.nameEn}">EN</span></td>
+            <td class="px-4 py-3 whitespace-nowrap" th:text="${l.professor}">교수</td>
+            <td class="px-4 py-3 text-fg-subtle" th:text="${l.researchArea}">연구분야</td>
+            <td class="px-4 py-3 whitespace-nowrap text-right">
+              <a th:href="@{/admin/dept/lab/{id}/edit(id=${l.labId})}" class="inline-flex items-center justify-center w-7 h-7 rounded border border-line bg-surface align-middle text-brand-60 hover:bg-surface-subtle mr-1" title="수정"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg><span class="sr-only">수정</span></a>
+              <form th:action="@{/admin/dept/lab/{id}/delete(id=${l.labId})}" method="post" class="inline-block align-middle" data-confirm="삭제하시겠습니까?">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <button type="submit" class="inline-flex items-center justify-center w-7 h-7 rounded border border-line bg-surface align-middle text-danger-fg hover:bg-danger-surface" title="삭제"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg><span class="sr-only">삭제</span></button></form>
+            </td>
+          </tr>
+          <tr th:if="${list == null or #lists.isEmpty(list)}"><td colspan="5" class="px-4 py-10 text-center text-fg-subtle">등록된 연구실이 없습니다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</body>
+</html>

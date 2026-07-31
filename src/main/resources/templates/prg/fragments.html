@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<!--
+  학과 프로그램 데이터 조각 — ProgramDataUsrController(secondary)가 fragment 단위로 반환.
+  레이아웃 decorate 없음(htmx swap 대상, #prg-panel 안으로 innerHTML 삽입).
+  · 목록 조각(faculty/staff/lab/syllabus): 검색폼(관리자 동일 조건) + 목록 + 페이징. 항목 클릭 → 상세.
+  · 상세 조각(*Detail): 단건 전체 정보 + "목록으로"(htmx 재로드).
+  · 교수 실적 조각(facultyPrograms): 교수 상세 하단 탭 6종(논문/저서/연구과제/학술활동/
+    지식재산권/수상) — 탭 클릭 시 자신(.faculty-programs)을 outerHTML 교체.
+  raw hex 없이 .cds-* + 유틸리티만. 직급/직책은 공통코드(@code).
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<body>
+
+<!-- ══════════ 공통 페이저 ══════════ -->
+<nav th:fragment="pager(pg, program, siteCode, position, year, semester, keyword)"
+     th:if="${pg != null and pg.totalPages > 1}" aria-label="페이지" class="mt-6">
+  <ul class="flex items-center justify-center gap-1">
+    <li th:each="p : ${#numbers.sequence(1, pg.totalPages)}">
+      <a th:attr="hx-get=@{/prg/{prog}/{sc}/list(prog=${program}, sc=${siteCode}, page=${p},
+                    position=${position}, year=${year}, semester=${semester}, keyword=${keyword})}"
+         hx-target="#prg-panel" hx-swap="innerHTML"
+         th:text="${p}"
+         th:aria-current="${p == pg.page} ? 'page' : null"
+         th:classappend="${p == pg.page} ? ' bg-gray-90 text-fg-on border-gray-90 font-bold' : ' bg-surface hover:bg-surface-subtle'"
+         class="inline-flex items-center justify-center min-w-9 h-9 px-2 text-body-sm rounded-small border border-line cursor-pointer">1</a>
+    </li>
+  </ul>
+</nav>
+
+<!-- ══════════ 교수진 목록 ══════════ -->
+<div th:fragment="faculty">
+  <!-- 검색 — 사용자 프로그램 공통 표준(.program-search, 게시판과 동일 포맷) -->
+  <form th:attr="hx-get=@{/prg/faculty/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+        role="search" aria-label="교수진 검색" class="program-search">
+    <div class="program-search__field program-search__field--grow">
+      <label for="prgFacultyKeyword" class="program-search__label">검색어</label>
+      <input id="prgFacultyKeyword" name="keyword" type="text" th:value="${keyword}" maxlength="100"
+             placeholder="이름/직급/연구분야를 입력해 주세요" class="krds-input"/>
+    </div>
+    <div class="program-search__field">
+      <label for="prgFacultyPosition" class="program-search__label">직급</label>
+      <select id="prgFacultyPosition" name="position" class="krds-input">
+        <option value="">전체</option>
+        <option th:each="o : ${@code.options('FACULTY_POSITION')}" th:value="${o.code}"
+                th:text="${o.codeName}" th:selected="${o.code == position}">직급</option>
+      </select>
+    </div>
+    <div class="program-search__actions">
+      <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+      <button type="button" th:attr="hx-get=@{/prg/faculty/{sc}/list(sc=${siteCode})}"
+              hx-target="#prg-panel" hx-swap="innerHTML"
+              class="krds-btn krds-btn-tertiary">초기화</button>
+    </div>
+  </form>
+
+  <p class="text-body-sm text-fg mb-2 mt-6" th:if="${page != null}">
+    총 <strong class="text-primary-60" th:text="${page.totalElements}">0</strong>명</p>
+
+  <div th:if="${page != null and !#lists.isEmpty(page.content)}"
+       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0.5">
+    <div th:each="f : ${page.content}"
+         th:attr="hx-get=@{/prg/faculty/{sc}/{id}(sc=${siteCode}, id=${f.facultyId})}"
+         hx-target="#prg-panel" hx-swap="innerHTML" hx-trigger="click"
+         role="button" tabindex="0" class="cds-tile cds-tile--clickable flex gap-4 cursor-pointer">
+      <span class="cds-mono shrink-0 inline-flex items-center justify-center w-12 h-12 cds-layer-01 cds-heading-04"
+            th:text="${#strings.length(f.nameKo) > 0} ? ${#strings.substring(f.nameKo,0,1)} : '·'">기</span>
+      <div class="min-w-0">
+        <h3 class="cds-heading-04">
+          <span th:text="${f.nameKo}">이름</span>
+          <span class="cds-caption cds-text-secondary" th:if="${f.nameEn}" th:text="${f.nameEn}">Name</span>
+        </h3>
+        <p class="cds-tag mt-1" th:if="${f.position}" th:text="${f.position}">교수</p>
+        <p class="cds-body-short cds-text-secondary mt-2" th:if="${f.researchArea}" th:text="${f.researchArea}">연구분야</p>
+        <p class="cds-caption cds-link mt-2">상세보기 →</p>
+      </div>
+    </div>
+  </div>
+  <div th:unless="${page != null and !#lists.isEmpty(page.content)}"
+       class="cds-tile cds-text-secondary cds-body-short">등록된 교수진이 없습니다.</div>
+
+  <div th:replace="~{prg/fragments :: pager(${page}, 'faculty', ${siteCode}, ${position}, null, null, ${keyword})}"></div>
+</div>
+
+<!-- ══════════ 교수진 상세 ══════════ -->
+<div th:fragment="facultyDetail">
+  <button type="button" th:attr="hx-get=@{/prg/faculty/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+          class="cds-btn cds-btn--tertiary mb-6">← 목록으로</button>
+  <div class="cds-tile">
+    <div class="flex gap-6 items-start">
+      <img th:if="${item.photoUrl}" th:src="${item.photoUrl}" alt="" class="w-28 h-28 object-cover shrink-0"/>
+      <span th:unless="${item.photoUrl}"
+            class="cds-mono shrink-0 inline-flex items-center justify-center w-28 h-28 cds-layer-01 cds-heading-01"
+            th:text="${#strings.length(item.nameKo) > 0} ? ${#strings.substring(item.nameKo,0,1)} : '·'">기</span>
+      <div class="min-w-0">
+        <h1 class="cds-heading-02" th:text="${item.nameKo}">이름</h1>
+        <p class="cds-body-short cds-text-secondary" th:if="${item.nameEn}" th:text="${item.nameEn}">Name</p>
+        <p class="cds-tag mt-2" th:if="${item.position}" th:text="${item.position}">교수</p>
+      </div>
+    </div>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mt-8 cds-body-short">
+      <div th:if="${item.researchArea}" class="md:col-span-2">
+        <dt class="cds-caption cds-text-secondary mb-1">연구분야</dt><dd th:text="${item.researchArea}">연구분야</dd></div>
+      <div th:if="${item.office}"><dt class="cds-caption cds-text-secondary mb-1">연구실</dt><dd th:text="${item.office}">위치</dd></div>
+      <div th:if="${item.phone}"><dt class="cds-caption cds-text-secondary mb-1">전화</dt><dd class="cds-mono" th:text="${item.phone}">전화</dd></div>
+      <div th:if="${item.email}"><dt class="cds-caption cds-text-secondary mb-1">이메일</dt>
+        <dd><a class="cds-link" th:href="'mailto:' + ${item.email}" th:text="${item.email}">email</a></dd></div>
+      <div th:if="${item.website}"><dt class="cds-caption cds-text-secondary mb-1">홈페이지</dt>
+        <dd><a class="cds-link" th:href="${item.website}" target="_blank" rel="noopener noreferrer" th:text="${item.website}">homepage</a></dd></div>
+    </dl>
+  </div>
+
+  <!-- 실적 탭(논문/저서/연구과제/학술활동/지식재산권/수상) — 기본 탭(JOURNAL) 자동 로드,
+       이후 탭 전환은 facultyPrograms 조각이 자신을 outerHTML 교체 -->
+  <div class="mt-6"
+       th:attr="hx-get=@{/prg/faculty/{sc}/{id}/programs/JOURNAL(sc=${siteCode}, id=${item.facultyId})}"
+       hx-trigger="load" hx-swap="innerHTML">
+    <p class="cds-caption cds-text-secondary">실적을 불러오는 중…</p>
+  </div>
+</div>
+
+<!-- ══════════ 교수 실적 탭 조각 ══════════
+     ProgramDataUsrController.facultyPrograms 가 반환. 탭바 + 활성 유형 표를 함께 렌더 —
+     탭 클릭 시 조각 루트(.faculty-programs)를 outerHTML 로 교체해 활성 탭을 서버 렌더. -->
+<div th:fragment="facultyPrograms" class="faculty-programs">
+  <nav aria-label="교수 실적 분류" class="flex flex-wrap gap-0.5 border-b border-line">
+    <button th:each="t : ${types}" type="button"
+            th:attr="hx-get=@{/prg/faculty/{sc}/{id}/programs/{tp}(sc=${siteCode}, id=${facultyId}, tp=${t.name()})}"
+            hx-target="closest .faculty-programs" hx-swap="outerHTML"
+            th:aria-current="${t == activeType} ? 'true' : null"
+            th:classappend="${t == activeType} ? ' cds-layer-01 text-primary-60 border-b-2 border-primary-60 font-bold' : ' cds-text-secondary hover:underline'"
+            class="px-3 py-2 cds-body-short cursor-pointer">
+      <span th:text="${t.labelKo}">논문</span>
+      <span class="cds-caption cds-text-secondary" th:text="'(' + ${t.labelEn} + ')'">(Journal)</span>
+    </button>
+  </nav>
+
+  <div class="overflow-x-auto cds-tile p-0 mt-4" th:if="${!#lists.isEmpty(items)}">
+    <table class="w-full text-left border-collapse cds-body-short">
+      <thead class="cds-layer-01" th:switch="${activeType.name()}">
+        <tr th:case="'PATENT'" class="cds-text-secondary">
+          <th class="p-3 whitespace-nowrap cds-body-02">No</th>
+          <th class="p-3 cds-body-02" th:text="${activeType.titleLabel}">출원등록명</th>
+          <th class="p-3 whitespace-nowrap cds-body-02" th:text="${activeType.dateLabel}">등록일자</th>
+          <th class="p-3 whitespace-nowrap cds-body-02" th:text="${activeType.orgLabel}">등록번호</th>
+          <th class="p-3 whitespace-nowrap cds-body-02">출원구분</th>
+        </tr>
+        <tr th:case="'AWARD'" class="cds-text-secondary">
+          <th class="p-3 whitespace-nowrap cds-body-02">No</th>
+          <th class="p-3 cds-body-02" th:text="${activeType.titleLabel}">수상명</th>
+          <th class="p-3 whitespace-nowrap cds-body-02" th:text="${activeType.orgLabel}">수상기관</th>
+          <th class="p-3 whitespace-nowrap cds-body-02" th:text="${activeType.dateLabel}">수상일</th>
+          <th class="p-3 whitespace-nowrap cds-body-02">구분</th>
+        </tr>
+        <tr th:case="*" class="cds-text-secondary">
+          <th class="p-3 whitespace-nowrap cds-body-02">No</th>
+          <th class="p-3 cds-body-02" th:text="${activeType.titleLabel}">명칭</th>
+          <th class="p-3 whitespace-nowrap cds-body-02" th:text="${activeType.orgLabel}">기관</th>
+          <th class="p-3 whitespace-nowrap cds-body-02" th:text="${activeType.dateLabel}">일자</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="p, st : ${items}" class="border-t border-line align-top" th:switch="${activeType.name()}">
+          <th:block th:case="'PATENT'">
+            <td class="p-3 whitespace-nowrap cds-mono" th:text="${#lists.size(items) - st.index}">8</td>
+            <td class="p-3" th:text="${p.title}">출원등록명</td>
+            <td class="p-3 whitespace-nowrap cds-mono" th:text="${p.issueDate}">2026.03.04</td>
+            <td class="p-3 whitespace-nowrap cds-mono" th:text="${p.regNo}">10-2936704</td>
+            <td class="p-3 whitespace-nowrap" th:text="${p.category}">국내</td>
+          </th:block>
+          <th:block th:case="'AWARD'">
+            <td class="p-3 whitespace-nowrap cds-mono" th:text="${#lists.size(items) - st.index}">4</td>
+            <td class="p-3" th:text="${p.title}">수상명</td>
+            <td class="p-3 whitespace-nowrap" th:text="${p.organization}">수상기관</td>
+            <td class="p-3 whitespace-nowrap cds-mono" th:text="${p.issueDate}">2022.05.16</td>
+            <td class="p-3 whitespace-nowrap" th:text="${p.category}">교내</td>
+          </th:block>
+          <th:block th:case="*">
+            <td class="p-3 whitespace-nowrap cds-mono" th:text="${#lists.size(items) - st.index}">33</td>
+            <td class="p-3" th:text="${p.title}">명칭</td>
+            <td class="p-3 whitespace-nowrap" th:text="${p.organization} ?: ${p.roleDesc}">기관</td>
+            <td class="p-3 whitespace-nowrap cds-mono" th:text="${p.displayDate}">2025.12.31</td>
+          </th:block>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div th:if="${#lists.isEmpty(items)}" class="cds-tile cds-text-secondary cds-body-short mt-4">
+    등록된 <span th:text="${activeType.labelKo}">논문</span> 실적이 없습니다.</div>
+</div>
+
+<!-- ══════════ 직원 목록 ══════════ -->
+<div th:fragment="staff">
+  <!-- 검색 — 사용자 프로그램 공통 표준(.program-search) -->
+  <form th:attr="hx-get=@{/prg/staff/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+        role="search" aria-label="직원 검색" class="program-search">
+    <div class="program-search__field program-search__field--grow">
+      <label for="prgStaffKeyword" class="program-search__label">검색어</label>
+      <input id="prgStaffKeyword" name="keyword" type="text" th:value="${keyword}" maxlength="100"
+             placeholder="이름/직책/담당업무를 입력해 주세요" class="krds-input"/>
+    </div>
+    <div class="program-search__field">
+      <label for="prgStaffPosition" class="program-search__label">직책</label>
+      <select id="prgStaffPosition" name="position" class="krds-input">
+        <option value="">전체</option>
+        <option th:each="o : ${@code.options('STAFF_POSITION')}" th:value="${o.code}"
+                th:text="${o.codeName}" th:selected="${o.code == position}">직책</option>
+      </select>
+    </div>
+    <div class="program-search__actions">
+      <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+      <button type="button" th:attr="hx-get=@{/prg/staff/{sc}/list(sc=${siteCode})}"
+              hx-target="#prg-panel" hx-swap="innerHTML"
+              class="krds-btn krds-btn-tertiary">초기화</button>
+    </div>
+  </form>
+
+  <p class="text-body-sm text-fg mb-2 mt-6" th:if="${page != null}">
+    총 <strong class="text-primary-60" th:text="${page.totalElements}">0</strong>명</p>
+
+  <div th:if="${page != null and !#lists.isEmpty(page.content)}"
+       class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0.5">
+    <div th:each="s : ${page.content}"
+         th:attr="hx-get=@{/prg/staff/{sc}/{id}(sc=${siteCode}, id=${s.staffId})}"
+         hx-target="#prg-panel" hx-swap="innerHTML" hx-trigger="click"
+         role="button" tabindex="0" class="cds-tile cds-tile--clickable cursor-pointer">
+      <div class="flex items-baseline justify-between gap-2">
+        <h3 class="cds-heading-04" th:text="${s.name} ?: ${s.position}">직책</h3>
+        <span class="cds-tag" th:if="${s.name != null and s.position != null}" th:text="${s.position}">PL</span>
+      </div>
+      <p class="cds-body-short cds-text-secondary mt-2" th:if="${s.duty}" th:text="${s.duty}">담당업무</p>
+      <p class="cds-caption cds-link mt-2">상세보기 →</p>
+    </div>
+  </div>
+  <div th:unless="${page != null and !#lists.isEmpty(page.content)}"
+       class="cds-tile cds-text-secondary cds-body-short">등록된 직원이 없습니다.</div>
+
+  <div th:replace="~{prg/fragments :: pager(${page}, 'staff', ${siteCode}, ${position}, null, null, ${keyword})}"></div>
+</div>
+
+<!-- ══════════ 직원 상세 ══════════ -->
+<div th:fragment="staffDetail">
+  <button type="button" th:attr="hx-get=@{/prg/staff/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+          class="cds-btn cds-btn--tertiary mb-6">← 목록으로</button>
+  <div class="cds-tile">
+    <div class="flex items-baseline gap-3">
+      <h1 class="cds-heading-02" th:text="${item.name} ?: ${item.position}">이름</h1>
+      <span class="cds-tag" th:if="${item.name != null and item.position != null}" th:text="${item.position}">직책</span>
+    </div>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mt-8 cds-body-short">
+      <div th:if="${item.duty}" class="md:col-span-2">
+        <dt class="cds-caption cds-text-secondary mb-1">담당업무</dt><dd th:text="${item.duty}">담당업무</dd></div>
+      <div th:if="${item.office}"><dt class="cds-caption cds-text-secondary mb-1">사무실</dt><dd th:text="${item.office}">사무실</dd></div>
+      <div th:if="${item.phone}"><dt class="cds-caption cds-text-secondary mb-1">전화</dt><dd class="cds-mono" th:text="${item.phone}">전화</dd></div>
+      <div th:if="${item.email}"><dt class="cds-caption cds-text-secondary mb-1">이메일</dt>
+        <dd><a class="cds-link" th:href="'mailto:' + ${item.email}" th:text="${item.email}">email</a></dd></div>
+    </dl>
+  </div>
+</div>
+
+<!-- ══════════ 연구실 목록 ══════════ -->
+<div th:fragment="lab">
+  <!-- 검색 — 사용자 프로그램 공통 표준(.program-search) -->
+  <form th:attr="hx-get=@{/prg/lab/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+        role="search" aria-label="연구실 검색" class="program-search">
+    <div class="program-search__field program-search__field--grow">
+      <label for="prgLabKeyword" class="program-search__label">검색어</label>
+      <input id="prgLabKeyword" name="keyword" type="text" th:value="${keyword}" maxlength="100"
+             placeholder="연구실명/지도교수/연구분야를 입력해 주세요" class="krds-input"/>
+    </div>
+    <div class="program-search__actions">
+      <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+      <button type="button" th:attr="hx-get=@{/prg/lab/{sc}/list(sc=${siteCode})}"
+              hx-target="#prg-panel" hx-swap="innerHTML"
+              class="krds-btn krds-btn-tertiary">초기화</button>
+    </div>
+  </form>
+
+  <p class="text-body-sm text-fg mb-2 mt-6" th:if="${page != null}">
+    총 <strong class="text-primary-60" th:text="${page.totalElements}">0</strong>개</p>
+
+  <div th:if="${page != null and !#lists.isEmpty(page.content)}"
+       class="grid grid-cols-1 md:grid-cols-2 gap-0.5">
+    <div th:each="l : ${page.content}"
+         th:attr="hx-get=@{/prg/lab/{sc}/{id}(sc=${siteCode}, id=${l.labId})}"
+         hx-target="#prg-panel" hx-swap="innerHTML" hx-trigger="click"
+         role="button" tabindex="0" class="cds-tile cds-tile--clickable cursor-pointer">
+      <h3 class="cds-heading-04" th:text="${l.nameKo}">연구실명</h3>
+      <p class="cds-body-short cds-text-secondary" th:if="${l.nameEn}" th:text="${l.nameEn}">Lab Name</p>
+      <p class="cds-tag mt-2" th:if="${l.professor}" th:text="${l.professor} + ' 교수'">지도교수</p>
+      <p class="cds-body-short cds-text-secondary mt-2" th:if="${l.researchArea}" th:text="${l.researchArea}">연구분야</p>
+      <p class="cds-caption cds-link mt-2">상세보기 →</p>
+    </div>
+  </div>
+  <div th:unless="${page != null and !#lists.isEmpty(page.content)}"
+       class="cds-tile cds-text-secondary cds-body-short">등록된 연구실이 없습니다.</div>
+
+  <div th:replace="~{prg/fragments :: pager(${page}, 'lab', ${siteCode}, null, null, null, ${keyword})}"></div>
+</div>
+
+<!-- ══════════ 연구실 상세 ══════════ -->
+<div th:fragment="labDetail">
+  <button type="button" th:attr="hx-get=@{/prg/lab/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+          class="cds-btn cds-btn--tertiary mb-6">← 목록으로</button>
+  <div class="cds-tile">
+    <h1 class="cds-heading-02" th:text="${item.nameKo}">연구실명</h1>
+    <p class="cds-body-short cds-text-secondary" th:if="${item.nameEn}" th:text="${item.nameEn}">Lab Name</p>
+    <p class="cds-tag mt-2" th:if="${item.professor}" th:text="${item.professor} + ' 교수'">지도교수</p>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mt-8 cds-body-short">
+      <div th:if="${item.researchArea}" class="md:col-span-2">
+        <dt class="cds-caption cds-text-secondary mb-1">연구분야</dt><dd th:text="${item.researchArea}">연구분야</dd></div>
+      <div th:if="${item.description}" class="md:col-span-2">
+        <dt class="cds-caption cds-text-secondary mb-1">소개</dt><dd class="whitespace-pre-line" th:text="${item.description}">소개</dd></div>
+      <div th:if="${item.location}"><dt class="cds-caption cds-text-secondary mb-1">위치</dt><dd th:text="${item.location}">위치</dd></div>
+      <div th:if="${item.website}"><dt class="cds-caption cds-text-secondary mb-1">홈페이지</dt>
+        <dd><a class="cds-link" th:href="${item.website}" target="_blank" rel="noopener noreferrer" th:text="${item.website}">homepage</a></dd></div>
+    </dl>
+  </div>
+</div>
+
+<!-- ══════════ 수업계획서 목록 ══════════ -->
+<div th:fragment="syllabus">
+  <!-- 검색 — 사용자 프로그램 공통 표준(.program-search) -->
+  <form th:attr="hx-get=@{/prg/syllabus/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+        role="search" aria-label="수업계획서 검색" class="program-search">
+    <div class="program-search__field program-search__field--grow">
+      <label for="prgSyllabusKeyword" class="program-search__label">검색어</label>
+      <input id="prgSyllabusKeyword" name="keyword" type="text" th:value="${keyword}" maxlength="100"
+             placeholder="교과목명/과목코드/담당교수를 입력해 주세요" class="krds-input"/>
+    </div>
+    <div class="program-search__field">
+      <label for="prgSyllabusYear" class="program-search__label">학년도</label>
+      <select id="prgSyllabusYear" name="year" class="krds-input">
+        <option value="">전체</option>
+        <option th:each="y : ${years}" th:value="${y}" th:text="${y} + '년'" th:selected="${y == year}">2026</option>
+      </select>
+    </div>
+    <div class="program-search__field">
+      <label for="prgSyllabusSemester" class="program-search__label">학기</label>
+      <select id="prgSyllabusSemester" name="semester" class="krds-input">
+        <option value="">전체</option>
+        <option value="1학기" th:selected="${semester == '1학기'}">1학기</option>
+        <option value="2학기" th:selected="${semester == '2학기'}">2학기</option>
+      </select>
+    </div>
+    <div class="program-search__actions">
+      <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+      <button type="button" th:attr="hx-get=@{/prg/syllabus/{sc}/list(sc=${siteCode})}"
+              hx-target="#prg-panel" hx-swap="innerHTML"
+              class="krds-btn krds-btn-tertiary">초기화</button>
+    </div>
+  </form>
+
+  <p class="text-body-sm text-fg mb-2 mt-6" th:if="${page != null}">
+    총 <strong class="text-primary-60" th:text="${page.totalElements}">0</strong>건</p>
+
+  <div th:if="${page != null and !#lists.isEmpty(page.content)}" class="overflow-x-auto cds-tile p-0">
+    <table class="w-full text-left border-collapse cds-body-short">
+      <thead class="cds-layer-01">
+        <tr class="cds-text-secondary">
+          <th class="p-3 whitespace-nowrap cds-body-02">년도·학기</th>
+          <th class="p-3 whitespace-nowrap cds-body-02">이수구분</th>
+          <th class="p-3 cds-body-02">교과목명 · 과목코드</th>
+          <th class="p-3 whitespace-nowrap cds-body-02">분반</th>
+          <th class="p-3 whitespace-nowrap cds-body-02">학점/시수</th>
+          <th class="p-3 whitespace-nowrap cds-body-02">담당교수</th>
+          <th class="p-3 whitespace-nowrap cds-body-02">상세</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="s : ${page.content}" class="border-t border-line align-top">
+          <td class="p-3 whitespace-nowrap cds-mono">
+            <span th:text="${s.year}">2026</span> <span th:text="${s.semester}">2학기</span>
+          </td>
+          <td class="p-3 whitespace-nowrap" th:text="${s.completionType}">이수구분</td>
+          <td class="p-3">
+            <a th:attr="hx-get=@{/prg/syllabus/{sc}/{id}(sc=${siteCode}, id=${s.syllabusId})}"
+               hx-target="#prg-panel" hx-swap="innerHTML" class="cds-link cursor-pointer">
+              <span class="cds-body-02" th:text="${s.courseName}">교과목명</span>
+              <span class="cds-caption cds-mono cds-text-secondary" th:if="${s.courseCode}" th:text="'[' + ${s.courseCode} + ']'">[코드]</span>
+            </a>
+          </td>
+          <td class="p-3 whitespace-nowrap cds-mono" th:text="${s.section}">01</td>
+          <td class="p-3 whitespace-nowrap cds-mono" th:text="${s.creditHours}">2-1-2</td>
+          <td class="p-3 whitespace-nowrap" th:text="${s.professor}">담당교수</td>
+          <td class="p-3 whitespace-nowrap">
+            <a th:attr="hx-get=@{/prg/syllabus/{sc}/{id}(sc=${siteCode}, id=${s.syllabusId})}"
+               hx-target="#prg-panel" hx-swap="innerHTML" class="cds-link cursor-pointer">상세 →</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div th:unless="${page != null and !#lists.isEmpty(page.content)}"
+       class="cds-tile cds-text-secondary cds-body-short">등록된 수업계획서가 없습니다.</div>
+
+  <div th:replace="~{prg/fragments :: pager(${page}, 'syllabus', ${siteCode}, null, ${year}, ${semester}, ${keyword})}"></div>
+</div>
+
+<!-- ══════════ 수업계획서 상세 ══════════ -->
+<div th:fragment="syllabusDetail">
+  <button type="button" th:attr="hx-get=@{/prg/syllabus/{sc}/list(sc=${siteCode})}" hx-target="#prg-panel" hx-swap="innerHTML"
+          class="cds-btn cds-btn--tertiary mb-6">← 목록으로</button>
+  <div class="cds-tile">
+    <p class="cds-tag mb-2">
+      <span th:text="${item.year}">2026</span> <span th:text="${item.semester}">2학기</span>
+      <span th:if="${item.completionType}" th:text="' · ' + ${item.completionType}">· 전공필수</span>
+    </p>
+    <h1 class="cds-heading-02">
+      <span th:text="${item.courseName}">교과목명</span>
+      <span class="cds-caption cds-mono cds-text-secondary" th:if="${item.courseCode}" th:text="'[' + ${item.courseCode} + ']'">[코드]</span>
+    </h1>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 mt-8 cds-body-short">
+      <div th:if="${item.professor}"><dt class="cds-caption cds-text-secondary mb-1">담당교수</dt><dd th:text="${item.professor}">담당교수</dd></div>
+      <div th:if="${item.deptName}"><dt class="cds-caption cds-text-secondary mb-1">개설학과</dt><dd th:text="${item.deptName}">개설학과</dd></div>
+      <div th:if="${item.section}"><dt class="cds-caption cds-text-secondary mb-1">분반</dt><dd class="cds-mono" th:text="${item.section}">01</dd></div>
+      <div th:if="${item.courseCategory}"><dt class="cds-caption cds-text-secondary mb-1">과정구분</dt><dd th:text="${item.courseCategory}">일반</dd></div>
+      <div th:if="${item.creditHours}"><dt class="cds-caption cds-text-secondary mb-1">학점/시수</dt><dd class="cds-mono" th:text="${item.creditHours}">2-1-2</dd></div>
+      <div th:if="${item.summary}" class="md:col-span-2">
+        <dt class="cds-caption cds-text-secondary mb-1">개요</dt><dd class="whitespace-pre-line" th:text="${item.summary}">개요</dd></div>
+      <div th:if="${!#strings.isEmpty(item.fileGroupId)}" class="md:col-span-2">
+        <dt class="cds-caption cds-text-secondary mb-1">수업계획서 파일</dt>
+        <dd><a th:href="@{/api/v1/file/group/{gid}/download(gid=${item.fileGroupId})}" class="cds-link">다운로드 ↓</a></dd></div>
+    </dl>
+  </div>
+</div>
+
+</body>
+</html>

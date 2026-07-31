@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<!--
+  공통 fragment — 헤더 우측 현재 날씨 뱃지 (htmx 비동기 로드).
+
+  사용법 (레이아웃에서 placeholder):
+    <div hx-get="@{/weather/widget(nx=62,ny=110)}"
+         hx-trigger="load, every 600s"
+         hx-swap="outerHTML"></div>
+
+  컨트롤러는 본 fragment 의 :: badge 만 단독 렌더하여 swap.
+  · snapshot 있으면 라벨/온도/이모지 노출
+  · snapshot null 이면 회색 ─ 뱃지로 노출 (호버 시 사유 안내) — 진단을 위해 visible
+-->
+<body>
+
+<th:block th:fragment="badge(snapshot)">
+  <a th:if="${snapshot != null}"
+     th:href="@{|/${siteCode}/weather|}"
+     class="md:inline-flex items-center gap-1.5 text-sm font-medium ink px-3 py-1.5 rounded-full border border-[var(--hairline)] hover:bg-[var(--cloud)]"
+     th:title="|${snapshot.label()} · 습도 ${snapshot.reh ?: '-'}% · 풍속 ${snapshot.wsd ?: '-'}m/s · 예보 ${snapshot.fcstDate} ${snapshot.fcstTime}|"
+     aria-label="현재 날씨">
+    <span aria-hidden="true" th:text="${snapshot.emoji()}">☀️</span>
+    <span th:if="${snapshot.tmp != null}" th:text="|${snapshot.tmp}°|">22°</span>
+    <span class="ash" th:text="${snapshot.label()}">맑음</span>
+  </a>
+  <span th:unless="${snapshot != null}"
+        class="md:inline-flex items-center gap-1.5 text-xs font-medium ash px-3 py-1.5 rounded-full border border-[var(--hairline)] bg-[var(--cloud)]"
+        title="현재 날씨 데이터 없음 — 스케줄러 미가동 / DDL 미적용 / URL access 미등록 가능">
+    <span aria-hidden="true">🌡️</span>
+    <span>—</span>
+  </span>
+</th:block>
+
+</body>
+</html>

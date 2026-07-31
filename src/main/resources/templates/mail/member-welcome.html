@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<!--
+  회원가입 축하 메일 — MemberServiceImpl.join() 직후 발송.
+  모델 변수:
+    memberName : 회원 이름 (PII)
+    loginId    : 로그인 ID
+    siteName   : 가입한 사이트명 (SiteContext)
+    sentAt     : 발송 일시 (LocalDateTime)
+    loginUrl   : 로그인 URL (예: https://example.go.kr/member/login)
+-->
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <title>회원가입을 환영합니다</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f8fafc;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="560" cellspacing="0" cellpadding="0" border="0"
+               style="background-color:#ffffff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;">
+
+          <!-- 헤더 -->
+          <tr>
+            <td style="padding:24px 32px;border-bottom:1px solid #e2e8f0;background:linear-gradient(135deg,#0f172a 0%,#1e40af 100%);">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="width:40px;height:40px;background-color:#ffffff;border-radius:8px;color:#0f172a;text-align:center;font-weight:700;font-size:20px;line-height:40px;">G</td>
+                  <td style="padding-left:12px;color:#ffffff;">
+                    <div style="font-weight:700;font-size:18px;" th:text="${@project.nameKo}">관리자</div>
+                    <div style="font-size:12px;opacity:0.8;" th:text="${siteName} ?: ${@project.nameKo}">기본 사이트</div>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- 본문 -->
+          <tr>
+            <td style="padding:32px;">
+              <div style="display:inline-block;background-color:#dbeafe;color:#1e40af;font-size:12px;font-weight:600;padding:4px 10px;border-radius:4px;letter-spacing:0.3px;margin-bottom:12px;">WELCOME</div>
+              <h1 style="margin:0 0 16px 0;font-size:22px;line-height:1.4;color:#0f172a;">
+                <span th:text="${memberName}">홍길동</span>님, <br/>회원가입을 환영합니다 🎉
+              </h1>
+              <p style="margin:0 0 20px 0;font-size:14px;line-height:1.7;color:#334155;">
+                <strong th:text="${siteName} ?: ${@project.nameKo}">홈</strong> 에 가입해 주셔서 진심으로 감사합니다.
+                이제 모든 서비스를 편리하게 이용하실 수 있습니다.
+              </p>
+
+              <!-- 계정 정보 -->
+              <div style="margin:20px 0;padding:16px 20px;background-color:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;">
+                <div style="font-size:11px;color:#64748b;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px;">내 로그인 ID</div>
+                <div style="font-family:ui-monospace,'SFMono-Regular','SF Mono',Menlo,Consolas,monospace;font-size:15px;color:#0f172a;font-weight:600;"
+                     th:text="${loginId}">example_user</div>
+              </div>
+
+              <!-- 액션 -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0;">
+                <tr>
+                  <td>
+                    <a th:href="${loginUrl} ?: '#'"
+                       style="display:inline-block;background-color:#2563eb;color:#ffffff;font-weight:600;font-size:14px;padding:12px 24px;border-radius:6px;text-decoration:none;">
+                      로그인하고 시작하기 →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- 시작 가이드 -->
+              <h2 style="margin:28px 0 12px 0;font-size:15px;color:#0f172a;">💡 시작하기 전에</h2>
+              <ul style="margin:0 0 16px 20px;padding:0;font-size:13px;line-height:1.8;color:#334155;">
+                <li>마이페이지에서 프로필을 완성해 주세요.</li>
+                <li>비밀번호는 주기적으로 변경하시는 것을 권장합니다.</li>
+                <li>본인확인을 위해 이메일 주소는 최신 상태로 유지해 주세요.</li>
+              </ul>
+
+              <div style="margin-top:28px;padding-top:16px;border-top:1px dashed #e2e8f0;">
+                <p style="margin:0;font-size:12px;color:#94a3b8;">
+                  가입 일시:
+                  <span th:text="${#temporals.format(sentAt, 'yyyy-MM-dd HH:mm:ss')}">2026-04-21 15:30:00</span>
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- 푸터 -->
+          <tr>
+            <td style="padding:16px 32px;border-top:1px solid #e2e8f0;background-color:#f8fafc;font-size:11px;color:#94a3b8;line-height:1.6;">
+              본 메일은 <span th:text="${@project.nameKo}">관리자</span> 시스템에서 자동 발송되었습니다. 회신이 불가합니다.<br/>
+              본인이 가입하지 않으셨다면 <a href="mailto:kingja51@gmail.com" style="color:#64748b;">고객센터</a>로 문의해 주세요.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

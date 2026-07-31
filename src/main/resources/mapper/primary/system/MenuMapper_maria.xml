@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_menu CRUD Mapper.
+  resultType 기반. 감사컬럼 자동 주입은 AuditInterceptor.
+-->
+<mapper namespace="com.gonet.primary.system.menu.mapper.MenuMapper">
+
+  <sql id="menuColumnsFull">
+    m.menu_id, m.site_id, m.parent_menu_id, m.menu_name, m.menu_type,
+    m.link_target_id, m.link_url, m.sort_order, m.depth,
+    m.auth_required_yn, m.use_yn, m.delete_yn,
+    m.created_by, m.created_ip, m.created_at,
+    m.updated_by, m.updated_ip, m.updated_at,
+    s.site_code AS site_code,
+	(SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+    p.menu_name AS parent_menu_name
+  </sql>
+
+  <sql id="baseFilter">
+    WHERE m.delete_yn = 'N'
+      AND m.site_id   = #{search.siteId}
+    <if test="search.useYn != null and search.useYn != ''">
+      AND m.use_yn = #{search.useYn}
+    </if>
+    <if test="search.menuType != null and search.menuType != ''">
+      AND m.menu_type = #{search.menuType}
+    </if>
+  </sql>
+
+  <!-- 트리 조립용 — 검색어 없이 전체 -->
+  <select id="findBySite" resultType="com.gonet.primary.system.menu.dto.Menu">
+    SELECT <include refid="menuColumnsFull"/>
+      FROM tb_menu m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+      LEFT JOIN tb_menu p ON p.menu_id = m.parent_menu_id
+    <include refid="baseFilter"/>
+    ORDER BY m.depth ASC, m.sort_order ASC, m.menu_name ASC
+  </select>
+
+  <!-- Sitemap 전용 — 활성 메뉴 + tb_content.slug JOIN (link_slug 로 노출) -->
+  <select id="findSitemapFlat" resultType="com.gonet.primary.system.menu.dto.Menu">
+    SELECT m.menu_id, m.site_id, m.parent_menu_id, m.menu_name, m.menu_type,
+           m.link_target_id, m.link_url, m.sort_order, m.depth,
+           m.auth_required_yn, m.use_yn, m.delete_yn,
+           c.slug AS link_slug
+      FROM tb_menu m
+      LEFT JOIN tb_content c
+        ON c.content_id = m.link_target_id
+       AND c.delete_yn  = 'N'
+     WHERE m.site_id   = #{siteId}
+       AND m.delete_yn = 'N'
+       AND m.use_yn    = 'Y'
+     ORDER BY m.depth ASC, m.sort_order ASC, m.menu_name ASC
+  </select>
+
+  <!-- 검색어 포함 flat 목록 (트리 X) -->
+  <select id="findFlat" resultType="com.gonet.primary.system.menu.dto.Menu">
+    SELECT <include refid="menuColumnsFull"/>
+      FROM tb_menu m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+      LEFT JOIN tb_menu p ON p.menu_id = m.parent_menu_id
+    <include refid="baseFilter"/>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (m.menu_name LIKE CONCAT('%', #{search.keyword}, '%')
+        OR m.link_url  LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+    ORDER BY m.menu_name ASC
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.system.menu.dto.Menu">
+    SELECT <include refid="menuColumnsFull"/>
+      FROM tb_menu m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+      LEFT JOIN tb_menu p ON p.menu_id = m.parent_menu_id
+     WHERE m.menu_id   = #{menuId}
+       AND m.delete_yn = 'N'
+  </select>
+
+    <select id="findBySiteCode" resultType="com.gonet.primary.system.menu.dto.Menu">
+        SELECT <include refid="menuColumnsFull"/>
+        FROM tb_content c
+        LEFT OUTER JOIN tb_site s ON c.site_id = s.site_id
+        LEFT OUTER JOIN tb_menu m ON c.site_id = m.site_id AND c.menu_id = m.menu_id
+        LEFT OUTER JOIN tb_menu p ON p.menu_id = m.parent_menu_id
+        WHERE s.site_code = #{siteCode} AND c.slug = #{slug}
+        AND c.delete_yn = 'N'
+        AND m.delete_yn = 'N'
+    </select>
+
+    <select id="findByLinkUrl" resultType="com.gonet.primary.system.menu.dto.Menu">
+        SELECT
+        m.menu_id, m.site_id, m.parent_menu_id, m.menu_name, m.menu_type,
+        m.link_target_id, m.link_url, m.sort_order, m.depth,
+        m.auth_required_yn, m.use_yn, m.delete_yn,
+        m.created_by, m.created_ip, m.created_at,
+        m.updated_by, m.updated_ip, m.updated_at,
+        (SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+
+        s.site_code AS site_code,
+        s.site_name AS site_name
+
+        FROM tb_site s
+            LEFT OUTER JOIN tb_menu m ON s.site_id = m.site_id
+        WHERE s.site_code = #{siteCode} AND m.link_url = #{linkUrl}
+        AND s.delete_yn = 'N'
+        AND m.delete_yn = 'N'
+        LIMIT 0,1
+    </select>
+
+
+
+
+  <select id="findSiblings" resultType="com.gonet.primary.system.menu.dto.Menu">
+    SELECT <include refid="menuColumnsFull"/>
+      FROM tb_menu m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+      LEFT JOIN tb_menu p ON p.menu_id = m.parent_menu_id
+     WHERE m.site_id   = #{siteId}
+       AND m.delete_yn = 'N'
+       AND <choose>
+             <when test="parentMenuId != null and parentMenuId != ''">
+               m.parent_menu_id = #{parentMenuId}
+             </when>
+             <otherwise>
+               m.parent_menu_id IS NULL
+             </otherwise>
+           </choose>
+     ORDER BY m.sort_order ASC, m.menu_name ASC
+  </select>
+
+  <select id="countChildren" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_menu
+     WHERE parent_menu_id = #{menuId}
+       AND delete_yn      = 'N'
+  </select>
+
+  <!--
+    orphan 가드 — fk_content_menu DROP 이후 애플리케이션 측 정합성 검증용.
+    tb_content.menu_id 가 삭제 대상 메뉴를 참조하는 활성 콘텐츠 수.
+  -->
+  <select id="countContentReferences" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_content
+     WHERE menu_id    = #{menuId}
+       AND delete_yn  = 'N'
+  </select>
+
+  <select id="maxSortOrder" resultType="java.lang.Integer">
+    SELECT MAX(sort_order)
+      FROM tb_menu
+     WHERE site_id   = #{siteId}
+       AND delete_yn = 'N'
+       AND <choose>
+             <when test="parentMenuId != null and parentMenuId != ''">
+               parent_menu_id = #{parentMenuId}
+             </when>
+             <otherwise>
+               parent_menu_id IS NULL
+             </otherwise>
+           </choose>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.system.menu.dto.Menu">
+    INSERT INTO tb_menu (
+      menu_id, site_id, parent_menu_id, menu_name, menu_type,
+      link_target_id, link_url, sort_order, depth, auth_required_yn,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{menuId}, #{siteId}, #{parentMenuId}, #{menuName}, #{menuType},
+      #{linkTargetId}, #{linkUrl}, #{sortOrder}, #{depth},
+      COALESCE(#{authRequiredYn}, 'N'),
+      COALESCE(#{useYn}, 'Y'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.system.menu.dto.Menu">
+    UPDATE tb_menu SET
+      <if test="menuName != null and menuName != ''">menu_name=#{menuName},</if>
+      <if test="menuType != null and menuType != ''">menu_type=#{menuType},</if>
+      <if test="linkTargetId != null and linkTargetId != ''">link_target_id=#{linkTargetId},</if>
+      <if test="linkUrl != null and linkUrl != ''">link_url=#{linkUrl},</if>
+      auth_required_yn=COALESCE(#{authRequiredYn}, auth_required_yn),
+      use_yn=COALESCE(#{useYn}, use_yn),
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE menu_id   = #{menuId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updateSortOrder">
+    UPDATE tb_menu
+       SET sort_order = #{sortOrder},
+           updated_at = CURRENT_TIMESTAMP
+     WHERE menu_id   = #{menuId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_menu
+       SET delete_yn  = 'Y',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE menu_id   = #{menuId}
+       AND delete_yn = 'N'
+  </update>
+
+  <!-- 색인 재구축용 — 활성 메뉴 전체. CONTENT/BOARD 타입의 URL 자료(tb_content.slug, tb_bbs_master.bbs_code)도 LEFT JOIN. -->
+  <select id="findAllForReindex" resultType="com.gonet.primary.system.menu.dto.Menu">
+    SELECT m.menu_id, m.site_id, m.parent_menu_id, m.menu_name, m.menu_type,
+           m.link_target_id, m.link_url, m.sort_order, m.depth,
+           m.auth_required_yn, m.use_yn, m.delete_yn,
+           m.created_by, m.created_ip, m.created_at,
+           m.updated_by, m.updated_ip, m.updated_at,
+           s.site_code AS site_code,
+           c.slug      AS link_slug, c.body, c.original_content, c.summary
+      FROM tb_menu m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+      LEFT JOIN tb_content c
+        ON c.content_id = m.link_target_id
+       AND c.delete_yn  = 'N'
+     WHERE m.delete_yn = 'N'
+     ORDER BY m.created_at ASC
+  </select>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_menu
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+</mapper>

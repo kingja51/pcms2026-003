@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>수집 이력 상세</title></head>
+<body>
+<section layout:fragment="content">
+  <nav class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/g2b/collect-log}" class="hover:underline">수집 이력</a>
+    <span class="mx-1">/</span><span th:text="${row.id}">상세</span>
+  </nav>
+
+  <h1 class="text-heading-lg font-bold text-fg-strong mb-4">수집 이력 #<span th:text="${row.id}"></span></h1>
+
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div><dt class="text-fg-subtle">API</dt><dd class="font-medium" th:text="${row.apiKind}"></dd></div>
+      <div><dt class="text-fg-subtle">업종</dt><dd th:text="${@bsns.label(row.bsnsDiv)}"></dd></div>
+      <div><dt class="text-fg-subtle">수요기관코드</dt><dd th:text="${row.dminsttCd}"></dd></div>
+      <div><dt class="text-fg-subtle">조회 시작</dt><dd th:text="${row.inqryBgnDt != null ? #temporals.format(row.inqryBgnDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div><dt class="text-fg-subtle">조회 종료</dt><dd th:text="${row.inqryEndDt != null ? #temporals.format(row.inqryEndDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div><dt class="text-fg-subtle">페이지</dt><dd th:text="${row.pageNo + ' (numOfRows=' + row.numOfRows + ')'}"></dd></div>
+      <div><dt class="text-fg-subtle">전체 결과 수</dt><dd th:text="${row.totalCount}"></dd></div>
+      <div><dt class="text-fg-subtle">응답 행 수</dt><dd th:text="${row.fetchedCount}"></dd></div>
+      <div><dt class="text-fg-subtle">적재 행 수</dt><dd class="font-semibold" th:text="${row.upsertedCount}"></dd></div>
+      <div><dt class="text-fg-subtle">소요(ms)</dt><dd th:text="${row.elapsedMs}"></dd></div>
+      <div>
+        <dt class="text-fg-subtle">상태</dt>
+        <dd>
+          <span th:if="${row.status == 'SUCCESS'}" class="inline-block px-2 py-0.5 rounded bg-success-10 text-success-fg text-xs font-semibold">SUCCESS</span>
+          <span th:if="${row.status == 'FAIL'}"    class="inline-block px-2 py-0.5 rounded bg-danger-10 text-danger-fg text-xs font-semibold">FAIL</span>
+        </dd>
+      </div>
+      <div><dt class="text-fg-subtle">결과 코드</dt><dd th:text="${row.resultCode + ' ' + (row.resultMsg ?: '')}"></dd></div>
+    </dl>
+  </div>
+
+  <div th:if="${row.errorMessage}" class="bg-danger-surface border border-danger-border rounded p-4 mb-4">
+    <h2 class="text-sm font-semibold text-danger-fg mb-2">에러 메시지</h2>
+    <pre class="text-xs text-danger-fg whitespace-pre-wrap" th:text="${row.errorMessage}"></pre>
+  </div>
+
+  <div class="mt-4 text-xs text-fg-subtle">
+    적재 일시: <span th:text="${#temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></span>
+  </div>
+</section>
+</body>
+</html>

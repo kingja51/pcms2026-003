@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>설문 참여</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div>
+      <a th:href="@{/survey/{sc}(sc=${siteCode})}" class="inline-flex items-center text-body-sm text-fg-subtle mb-4 hover:text-fg-strong">← 목록</a>
+
+      <div th:if="${error}" role="alert" class="krds-alert krds-alert-danger">
+        <span class="shrink-0 font-bold text-danger-icon" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+      <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+        <span class="shrink-0 font-bold text-success-icon" aria-hidden="true">✓</span>
+        <p th:text="${message}"></p>
+      </div>
+
+      <article th:if="${survey}" class="bg-surface border border-line rounded-large p-6">
+        <div class="flex items-center gap-2 mb-2 text-body-xs text-fg-subtle">
+          <span th:text="${@fmt.dtm(survey.startAt)}">-</span> ~ <span th:text="${@fmt.dtm(survey.endAt)}">-</span>
+          <span class="krds-badge"
+                th:classappend="${openNow} ? 'bg-success-surface text-success-fg' : 'bg-surface-subtle text-fg-subtle'"
+                th:text="${openNow ? '진행중' : (closed ? '설문 종료' : '응답 불가')}">진행중</span>
+          <span th:if="${survey.anonymousYn == 'Y'}" class="krds-badge bg-surface-subtle text-fg-subtle">🔒 익명</span>
+        </div>
+
+        <h1 class="text-heading-md font-bold text-fg-strong" th:text="${survey.surveyTitle}">제목</h1>
+
+        <div th:if="${survey.surveyDescription}" class="mt-4 prose prose-sm max-w-none"
+             th:utext="${survey.surveyDescription}">설명</div>
+
+        <!-- 안내: 비회원 / 이미 응답함 / 기간 외 -->
+        <div th:unless="${isMember}"
+             class="mt-6 krds-alert krds-alert-warning">
+          <p>
+            이 설문은 회원만 응답할 수 있습니다.
+            <a th:href="@{/member/login}" class="krds-link ml-1">로그인하기 →</a>
+          </p>
+        </div>
+        <div th:if="${isMember and alreadyResponded}"
+             class="mt-6 krds-alert border-line bg-surface-subtle text-fg">
+          <p>이미 이 설문에 응답하셨습니다. 1인 1회 응답으로 제한된 설문입니다.</p>
+        </div>
+        <div th:if="${isMember and !alreadyResponded and !openNow}"
+             class="mt-6 krds-alert border-line bg-surface-subtle text-fg">
+          <p>현재는 응답 가능 기간이 아닙니다.</p>
+        </div>
+
+        <!-- 응답 폼 -->
+        <form th:if="${isMember and !alreadyResponded and openNow}"
+              th:action="@{/survey/{sc}/{id}/submit(sc=${siteCode}, id=${survey.surveyId})}" method="post"
+              class="mt-6 space-y-5">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+
+          <div th:each="q,qStat : ${survey.questions}"
+               class="border-t border-line pt-4"
+               th:with="qName='q_' + ${q.questionId}">
+            <p class="text-body-md font-bold text-fg-strong">
+              <span th:text="${qStat.count} + '. ' + ${q.questionText}">1. 문항</span>
+              <span th:if="${q.requiredYn == 'Y'}" class="text-danger-50 ml-1">*</span>
+            </p>
+
+            <!-- TEXT -->
+            <input th:if="${q.questionType == 'TEXT'}" type="text"
+                   th:name="${qName}" th:required="${q.requiredYn == 'Y'}" maxlength="1000"
+                   class="krds-input mt-2"/>
+
+            <!-- TEXTAREA -->
+            <textarea th:if="${q.questionType == 'TEXTAREA'}" rows="4"
+                      th:name="${qName}" th:required="${q.requiredYn == 'Y'}"
+                      class="krds-input mt-2"></textarea>
+
+            <!-- RADIO -->
+            <div th:if="${q.questionType == 'RADIO'}" class="mt-2 space-y-1">
+              <label th:each="o : ${q.options}" class="flex items-center gap-2 text-body-sm">
+                <input type="radio" th:name="${qName}" th:value="${o.optionId}"
+                       th:required="${q.requiredYn == 'Y'}"
+                       class="size-5 accent-primary-50"/>
+                <span th:text="${o.optionText}">선택지</span>
+              </label>
+            </div>
+
+            <!-- CHECKBOX -->
+            <div th:if="${q.questionType == 'CHECKBOX'}" class="mt-2 space-y-1">
+              <label th:each="o : ${q.options}" class="flex items-center gap-2 text-body-sm">
+                <input type="checkbox" th:name="${qName}" th:value="${o.optionId}"
+                       class="size-5 accent-primary-50"/>
+                <span th:text="${o.optionText}">선택지</span>
+              </label>
+            </div>
+
+            <!-- SELECT -->
+            <select th:if="${q.questionType == 'SELECT'}"
+                    th:name="${qName}" th:required="${q.requiredYn == 'Y'}"
+                    class="krds-input mt-2">
+              <option value="">선택</option>
+              <option th:each="o : ${q.options}" th:value="${o.optionId}" th:text="${o.optionText}">선택지</option>
+            </select>
+
+            <!-- SCALE -->
+            <div th:if="${q.questionType == 'SCALE'}" class="mt-2"
+                 th:with="min=${q.scaleMin ?: 1}, max=${q.scaleMax ?: 5}">
+              <div class="flex flex-wrap gap-3">
+                <label th:each="n : ${#numbers.sequence(min, max)}"
+                       class="inline-flex items-center gap-1.5 text-body-sm">
+                  <input type="radio" th:name="${qName}" th:value="${n}"
+                         th:required="${q.requiredYn == 'Y'}"
+                         class="size-5 accent-primary-50"/>
+                  <span th:text="${n}">3</span>
+                </label>
+              </div>
+              <div class="text-body-xs text-fg-subtle mt-1"
+                   th:text="'점수 범위: ' + ${min} + '~' + ${max}">점수 범위: 1~5</div>
+            </div>
+          </div>
+
+          <div th:if="${#lists.isEmpty(survey.questions)}"
+               class="border-t border-line pt-4 text-body-sm text-fg-subtle">등록된 문항이 없습니다.</div>
+
+          <div th:if="${not #lists.isEmpty(survey.questions)}"
+               class="flex justify-end pt-4 border-t border-line">
+            <button type="submit" class="krds-btn krds-btn-primary">
+              응답 제출
+            </button>
+          </div>
+        </form>
+      </article>
+    </div>
+
+  </section>
+</body>
+</html>

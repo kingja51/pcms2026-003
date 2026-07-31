@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>URL 접근 규칙</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <span>URL 접근 규칙</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">URL 접근 규칙</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          tb_role_url_access — DynamicAuthorizationManager 가 매 요청마다 우선순위순 매칭.
+          변경 시 캐시 즉시 무효화.
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/url-access/new}"
+           class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm hover:bg-gray-70">+ 규칙 추가</a>
+      </div>
+    </div>
+
+    <div th:if="${message}"
+         class="mb-4 rounded bg-success-surface border border-success-border px-3 py-2 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}"
+         class="mb-4 rounded bg-danger-surface border border-danger-border px-3 py-2 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <!-- 검색 폼 -->
+    <form method="get" th:action="@{/admin/system/url-access}"
+          class="bg-surface border border-line rounded-large p-3 mb-4 flex items-end gap-2 flex-wrap">
+      <div>
+        <label class="block text-xs text-fg-subtle mb-0.5">사이트</label>
+        <select name="siteId" class="rounded border border-line px-2 py-1 text-sm">
+          <option value="">전체</option>
+          <option th:each="s : ${sites}"
+                  th:value="${s.siteId}"
+                  th:text="|${s.siteCode} (${s.siteName})|"
+                  th:selected="${s.siteId == search.siteId}">site</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-fg-subtle mb-0.5">HTTP</label>
+        <select name="httpMethod" class="rounded border border-line px-2 py-1 text-sm">
+          <option value="">전체</option>
+          <option th:each="m : ${ {'ALL','GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'} }"
+                  th:value="${m}" th:text="${m}"
+                  th:selected="${m == search.httpMethod}">ALL</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-fg-subtle mb-0.5">접근유형</label>
+        <select name="accessType" class="rounded border border-line px-2 py-1 text-sm">
+          <option value="">전체</option>
+          <option th:each="t : ${ {'PERMIT_ALL','AUTHENTICATED','ANONYMOUS','ROLE','AUTH','IP_ONLY','DENY'} }"
+                  th:value="${t}" th:text="${t}"
+                  th:selected="${t == search.accessType}">PERMIT_ALL</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-fg-subtle mb-0.5">사용</label>
+        <select name="useYn" class="rounded border border-line px-2 py-1 text-sm">
+          <option value="">전체</option>
+          <option value="Y" th:selected="${search.useYn == 'Y'}">사용</option>
+          <option value="N" th:selected="${search.useYn == 'N'}">중지</option>
+        </select>
+      </div>
+      <div class="flex-1 min-w-[200px]">
+        <label class="block text-xs text-fg-subtle mb-0.5">키워드</label>
+        <input type="text" name="keyword" th:value="${search.keyword}"
+               placeholder="URL 패턴 / 설명 / 메모"
+               class="block w-full rounded border border-line px-2 py-1 text-sm"/>
+      </div>
+      <button type="submit"
+              class="px-4 py-1.5 rounded bg-gray-90 text-fg-on text-sm hover:bg-gray-70">검색</button>
+    </form>
+
+    <p class="text-xs text-fg-subtle mb-2">
+      총 <strong class="font-mono text-fg-strong" th:text="${#numbers.formatInteger(page.totalElements, 1, 'COMMA')}">0</strong> 건
+      <span class="mx-1 text-gray-30">·</span>
+      페이지 <strong class="text-fg-strong" th:text="${page.page}">1</strong> /
+      <span th:text="${page.totalPages}">1</span>
+    </p>
+
+    <div class="bg-surface border border-line rounded-large overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead class="bg-surface-subtle text-fg-subtle uppercase">
+          <tr>
+            <th class="px-2 py-2 text-right w-12">우선</th>
+            <th class="px-2 py-2 text-left w-16">HTTP</th>
+            <th class="px-2 py-2 text-left">URL 패턴</th>
+            <th class="px-2 py-2 text-left w-28">접근유형</th>
+            <th class="px-2 py-2 text-left w-32">required_roles</th>
+            <th class="px-2 py-2 text-left w-28">사용자유형</th>
+            <th class="px-2 py-2 text-left w-20">사이트</th>
+            <th class="px-2 py-2 text-center w-12">CSRF</th>
+            <th class="px-2 py-2 text-center w-12">2FA</th>
+            <th class="px-2 py-2 text-center w-16">사용</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="r : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-2 py-1.5 text-right font-mono font-semibold"
+                th:text="${r.priority}">100</td>
+            <td class="px-2 py-1.5 font-mono"
+                th:classappend="${r.httpMethod == 'ALL'} ? 'text-fg-subtle' : 'text-fg-strong font-semibold'"
+                th:text="${r.httpMethod}">ALL</td>
+            <td class="px-2 py-1.5 font-mono break-all">
+              <a th:href="@{|/admin/system/url-access/${r.roleUrlAccessId}|}"
+                 class="text-brand-60 hover:underline" th:text="${r.urlPattern}">/admin/**</a>
+            </td>
+            <td class="px-2 py-1.5">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    th:classappend="${r.accessType == 'PERMIT_ALL' ? 'bg-success-surface text-success-fg' :
+                                      r.accessType == 'DENY'        ? 'bg-danger-surface text-danger-fg' :
+                                      r.accessType == 'ROLE'        ? 'bg-secondary-5 text-secondary-70' :
+                                                                      'bg-surface-subtler text-fg'}"
+                    th:text="${r.accessType}">PERMIT_ALL</span>
+            </td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle break-all"
+                th:text="${r.requiredRoles} ?: '—'">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle"
+                th:text="${r.allowedUserTypes} ?: '—'">-</td>
+            <td class="px-2 py-1.5 font-mono text-fg-subtle"
+                th:text="${r.siteCode} ?: '*'">*</td>
+            <td class="px-2 py-1.5 text-center"
+                th:text="${r.requireCsrfYn}">Y</td>
+            <td class="px-2 py-1.5 text-center"
+                th:text="${r.require2faYn}">N</td>
+            <td class="px-2 py-1.5 text-center">
+              <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold"
+                    th:classappend="${r.useYn == 'Y' ? 'bg-success-surface text-success-fg' : 'bg-surface-subtler text-fg-subtle'}"
+                    th:text="${r.useYn}">Y</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p th:if="${#lists.isEmpty(page.content)}"
+         class="text-center text-sm text-fg-subtle py-12">
+        해당 조건에 맞는 URL 규칙이 없습니다.
+      </p>
+    </div>
+
+    <!-- 페이지 네비 -->
+    <nav th:if="${page.totalPages > 1}" aria-label="페이지" class="mt-4">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:if="${page.page > 1}">
+          <a th:href="@{/admin/system/url-access(page=${page.page - 1}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, siteId=${search.siteId},
+                       httpMethod=${search.httpMethod}, accessType=${search.accessType}, useYn=${search.useYn})}"
+             class="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">‹</a>
+        </li>
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/admin/system/url-access(page=${p}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, siteId=${search.siteId},
+                       httpMethod=${search.httpMethod}, accessType=${search.accessType}, useYn=${search.useYn})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                       : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+        <li th:if="${page.page < page.totalPages}">
+          <a th:href="@{/admin/system/url-access(page=${page.page + 1}, pageSize=${page.pageSize},
+                       keyword=${search.keyword}, siteId=${search.siteId},
+                       httpMethod=${search.httpMethod}, accessType=${search.accessType}, useYn=${search.useYn})}"
+             class="inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle">›</a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- 엑셀 다운로드 -->
+    <details class="mt-6 bg-surface border border-line rounded-large p-4">
+      <summary class="cursor-pointer text-sm font-semibold text-fg">엑셀 다운로드</summary>
+      <form method="post" th:action="@{/admin/system/url-access/excel}"
+            class="mt-3 space-y-2">
+        <input type="hidden" th:each="key,iter : ${ {'siteId','httpMethod','accessType','useYn','keyword'} }"
+               th:name="${key}" th:value="${key == 'siteId' ? search.siteId :
+                                            key == 'httpMethod' ? search.httpMethod :
+                                            key == 'accessType' ? search.accessType :
+                                            key == 'useYn' ? search.useYn : search.keyword}"/>
+        <label class="block text-xs text-fg-subtle">다운로드 사유 (10자 이상, 감사 기록 대상)</label>
+        <textarea name="downloadReason" required minlength="10" rows="3"
+                  class="block w-full rounded border border-line px-2 py-1 text-sm font-mono"
+                  placeholder="예: 운영 정책 점검 — 2026Q2 보안 감사 보고서 첨부용"></textarea>
+        <button type="submit"
+                class="px-4 py-1.5 rounded bg-success-60 text-fg-on text-sm hover:bg-success-70">
+          엑셀 다운로드
+        </button>
+      </form>
+    </details>
+
+  </section>
+</body>
+</html>

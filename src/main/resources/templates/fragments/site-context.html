@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<!--
+  사이트 컨텍스트 전파 fragment — I-014 멀티탭 session-sticky 가드.
+
+  용도: 프런트 폼(POST) 내부에 포함해 제출 시점의 사이트 컨텍스트를 서버로 전파.
+  이유: 탭 A=airbnb, 탭 B=clay 를 동시에 열어놓으면 session 의 PCMS_SITE_CODE 가
+       마지막 접근으로 덮어써지므로, 폼 POST 시 hidden 필드로 명시 전달하면
+       SiteContextInterceptor 의 1단계(명시 파라미터)가 최우선 적용된다.
+
+  사용 예:
+    <form th:action="@{/member/login}" method="post">
+      <th:block th:replace="~{fragments/site-context :: hiddenSiteCode}"/>
+      ...
+    </form>
+-->
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<th:block th:fragment="hiddenSiteCode">
+  <input type="hidden" name="siteCode"
+         th:if="${siteContext != null and siteContext.site != null}"
+         th:value="${siteContext.site.siteCode}"/>
+</th:block>
+
+</body>
+</html>

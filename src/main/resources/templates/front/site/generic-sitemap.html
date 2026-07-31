@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<!-- 제네릭 사이트맵 — GenericSiteUsrController 가 menuTree(List<MenuTreeNode>)·totalCount 주입. -->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>Sitemap</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <div class="max-w-content mx-auto px-4 py-12">
+    <h1 class="text-heading-xl font-bold text-fg-strong">사이트맵</h1>
+    <p class="text-body-sm text-fg-subtle mt-2">총 <span th:text="${totalCount} ?: 0">0</span>개 메뉴</p>
+
+    <div th:if="${menuTree != null and !#lists.isEmpty(menuTree)}"
+         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
+      <div th:each="root : ${menuTree}" class="bg-surface border border-line rounded-large p-6">
+        <h2 class="text-heading-sm font-bold text-fg-strong mb-3">
+          <a th:if="${!#strings.isEmpty(root.linkUrl)}" th:href="@{${root.linkUrl}}"
+             class="hover:text-primary-60 hover:underline" th:text="${root.menuName}">1차 메뉴</a>
+          <span th:unless="${!#strings.isEmpty(root.linkUrl)}" th:text="${root.menuName}">1차 메뉴</span>
+        </h2>
+        <!-- 2~4차 — 재귀 프래그먼트(branch)로 렌더 (2026-07-07: 기존 2차 하드코딩 → 4차까지 확장) -->
+        <th:block th:replace="~{:: branch(nodes=${root.children}, depth=2)}"/>
+      </div>
+    </div>
+
+    <!-- ══ 재귀 하위 메뉴 프래그먼트 — depth 2~4 렌더, 4차에서 중단 ══ -->
+    <th:block th:fragment="branch(nodes, depth)">
+      <ul th:if="${nodes != null and !#lists.isEmpty(nodes)}"
+          th:class="${depth == 2} ? 'space-y-2' : 'mt-1 pl-4 space-y-1 border-l border-line'">
+        <li th:each="c : ${nodes}">
+          <a th:if="${!#strings.isEmpty(c.linkUrl)}" th:href="@{${c.linkUrl}}"
+             class="hover:text-primary-60 hover:underline"
+             th:classappend="${depth == 2} ? ' text-body-sm text-fg'
+                             : (${depth == 3} ? ' text-body-sm text-fg-subtle' : ' text-body-xs text-fg-subtle')"
+             th:text="${c.menuName}">하위 메뉴</a>
+          <span th:unless="${!#strings.isEmpty(c.linkUrl)}"
+                th:classappend="${depth <= 3} ? ' text-body-sm' : ' text-body-xs'"
+                class="text-fg-subtle" th:text="${c.menuName}">하위 메뉴</span>
+          <th:block th:if="${depth < 4}"
+                    th:replace="~{:: branch(nodes=${c.children}, depth=${depth + 1})}"/>
+        </li>
+      </ul>
+    </th:block>
+    <div th:unless="${menuTree != null and !#lists.isEmpty(menuTree)}"
+         class="mt-8 bg-surface border border-line rounded-large p-6 text-body-sm text-fg-subtle">
+      등록된 메뉴가 없습니다.
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

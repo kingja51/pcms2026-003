@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>선거인 상세</title>
+</head>
+<body>
+<div layout:fragment="content" class="p-6 space-y-4">
+
+  <!-- 헤더 -->
+  <div class="flex items-center justify-between">
+    <div>
+      <div class="text-xs text-gray-30 mb-1">
+        <a th:href="@{/admin/system/election-voter}" class="hover:text-fg-subtle">선거인명부</a>
+        <span class="mx-1">›</span>
+        <span>상세</span>
+      </div>
+      <h1 class="text-xl font-bold text-fg-strong">선거인 상세 정보</h1>
+      <p class="text-xs text-fg-subtle font-mono mt-1" th:text="${voter.voterId}">UUID</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button"
+              data-history-back
+              th:attr="data-history-back-fallback=@{/admin/system/election-voter}"
+              class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+        ← 뒤로가기
+      </button>
+      <a th:href="@{/admin/system/election-voter}"
+         class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+        목록 처음으로
+      </a>
+      <form sec:authorize="hasRole('ADMIN')"
+            th:action="@{/admin/system/election-voter/{id}/delete(id=${voter.voterId})}"
+            method="post"
+            data-confirm="이 선거인 1건을 영구 hard delete 합니다. 복구 불가."
+            class="inline">
+        <button type="submit"
+                class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border text-danger-fg text-sm hover:bg-danger-surface">
+          🗑️ 삭제
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div th:if="${error}" class="rounded bg-danger-surface text-danger-fg px-3 py-2 text-sm border border-danger-border"
+       th:text="${error}">오류</div>
+
+  <!-- PII (복호화된 평문) -->
+  <section class="bg-warning-surface rounded-large shadow-sm border border-warning-border p-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-base font-semibold text-warning-fg">🔓 개인정보 (복호화 평문)</h2>
+      <span class="text-xs text-warning-fg">※ 조회 자체가 감사 대상입니다</span>
+    </div>
+    <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+      <div>
+        <dt class="text-warning-fg text-xs">성명</dt>
+        <dd class="text-fg-strong font-semibold text-base" th:text="${voter.voterName}">홍길동</dd>
+      </div>
+      <div>
+        <dt class="text-warning-fg text-xs">생년월일</dt>
+        <dd class="text-fg-strong font-mono" th:text="${voter.birthDate}">19800101</dd>
+      </div>
+      <div>
+        <dt class="text-warning-fg text-xs">주민번호 끝 3자리</dt>
+        <dd class="text-fg-strong font-mono" th:text="${voter.residentNoSuffix}">123</dd>
+      </div>
+      <div>
+        <dt class="text-warning-fg text-xs">성별</dt>
+        <dd class="text-fg-strong">
+          <span th:if="${voter.gender == '남'}" class="inline-flex px-2 py-0.5 rounded bg-info-surface text-info-fg">남</span>
+          <span th:if="${voter.gender == '여'}" class="inline-flex px-2 py-0.5 rounded bg-point-5 text-point-70">여</span>
+          <span th:if="${voter.gender == 'M'}" class="inline-flex px-2 py-0.5 rounded bg-info-surface text-info-fg">남</span>
+          <span th:if="${voter.gender == 'F'}" class="inline-flex px-2 py-0.5 rounded bg-point-5 text-point-70">여</span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- 투표 정보 -->
+  <section class="bg-surface rounded-large shadow-sm border border-line p-5">
+    <h2 class="text-base font-semibold text-fg mb-3">투표 정보</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+      <div>
+        <dt class="text-fg-subtle text-xs">투표구</dt>
+        <dd class="text-fg-strong" th:text="${voter.votingDistrict}">투표구</dd>
+      </div>
+      <div>
+        <dt class="text-fg-subtle text-xs">투표장소</dt>
+        <dd class="text-fg-strong" th:text="${voter.pollingPlace}">투표장소</dd>
+      </div>
+      <div class="md:col-span-2">
+        <dt class="text-fg-subtle text-xs">투표장소 위치</dt>
+        <dd class="text-fg text-xs whitespace-pre-wrap" th:text="${voter.pollingLocation} ?: '-'">상세 위치</dd>
+      </div>
+      <div>
+        <dt class="text-fg-subtle text-xs">법정동명</dt>
+        <dd class="text-fg-strong" th:text="${voter.legalDongName} ?: '-'">법정동</dd>
+      </div>
+      <div>
+        <dt class="text-fg-subtle text-xs">법정동 코드</dt>
+        <dd class="text-fg font-mono text-xs" th:text="${voter.legalDongCode} ?: '-'">코드</dd>
+      </div>
+      <div>
+        <dt class="text-fg-subtle text-xs">등재번호</dt>
+        <dd class="text-fg-strong font-mono" th:text="${voter.registerNo} ?: '-'">번호</dd>
+      </div>
+      <div>
+        <dt class="text-fg-subtle text-xs">선거 ID / 사이트 ID</dt>
+        <dd class="text-fg font-mono text-xs break-all">
+          <span th:text="${voter.electionId} ?: '-'">election-id</span>
+          <span class="text-fg-disabled mx-1">/</span>
+          <span th:text="${voter.siteId} ?: '-'">site-id</span>
+        </dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- 감사 정보 -->
+  <section class="bg-surface rounded-large shadow-sm border border-line p-5 text-xs text-fg-subtle">
+    <h2 class="text-sm font-semibold text-fg mb-2">감사 정보</h2>
+    <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-1">
+      <div><dt class="text-gray-30">생성자</dt><dd class="font-mono break-all" th:text="${voter.createdBy} ?: '-'">-</dd></div>
+      <div><dt class="text-gray-30">생성 IP</dt><dd class="font-mono" th:text="${voter.createdIp} ?: '-'">-</dd></div>
+      <div><dt class="text-gray-30">생성 일시</dt>
+        <dd th:text="${voter.createdAt != null ? #temporals.format(voter.createdAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">-</dd></div>
+      <div><dt class="text-gray-30">수정자</dt><dd class="font-mono break-all" th:text="${voter.updatedBy} ?: '-'">-</dd></div>
+      <div><dt class="text-gray-30">수정 IP</dt><dd class="font-mono" th:text="${voter.updatedIp} ?: '-'">-</dd></div>
+      <div><dt class="text-gray-30">수정 일시</dt>
+        <dd th:text="${voter.updatedAt != null ? #temporals.format(voter.updatedAt, 'yyyy-MM-dd HH:mm:ss') : '-'}">-</dd></div>
+    </dl>
+  </section>
+
+</div>
+</body>
+</html>

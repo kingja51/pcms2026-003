@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|콘텐츠 상세 - ${content.title}|">콘텐츠 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/content}" class="hover:underline">콘텐츠</a>
+      <span class="mx-1">/</span>
+      <span th:text="${content.title}">제목</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${content.title}">제목</h1>
+        <div class="mt-2 flex items-center gap-2 text-sm">
+          <span th:class="|inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+            ${currentStatus.name() == 'PUBLISHED'   ? 'bg-success-surface text-success-fg' :
+              currentStatus.name() == 'APPROVED'    ? 'bg-info-surface text-info-fg' :
+              currentStatus.name() == 'REVIEW'      ? 'bg-warning-surface text-warning-fg' :
+              currentStatus.name() == 'UNPUBLISHED' ? 'bg-surface-subtler text-fg' :
+                                                       'bg-surface-subtler text-fg-subtle'}|"
+                th:text="${currentStatus.name()}">DRAFT</span>
+          <span class="text-fg-subtle">· v<span th:text="${content.versionNo}">1</span></span>
+          <span class="text-fg-subtle">· 조회 <span th:text="${content.viewCount}">0</span></span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/content/{cid}/preview(cid=${content.contentId})}" target="_blank"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">미리보기</a>
+        <a th:href="@{/admin/system/content/{cid}/history(cid=${content.contentId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">이력</a>
+        <a th:href="@{/admin/system/content/{cid}/edit(cid=${content.contentId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">수정</a>
+
+        <!-- 파일 생성 — PUBLISHED + slug 보유 시에만 활성화 -->
+        <form th:if="${fileGenerable}"
+              th:action="@{/admin/system/content/{cid}/generate-file(cid=${content.contentId})}"
+              method="post" class="inline gen-file-form"
+              th:attr="data-site-code=${content.siteCode},data-slug=${content.slug}">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded bg-success-50 text-fg-on text-sm font-medium hover:bg-success-60">파일생성</button>
+        </form>
+        <script th:if="${fileGenerable}" th:inline="none">
+          document.querySelectorAll('.gen-file-form').forEach(function (f) {
+            f.addEventListener('submit', function (e) {
+              var sc = f.dataset.siteCode || '';
+              var sl = f.dataset.slug || '';
+              if (!confirm('파일을 생성합니다.\n경로: templates/' + sc + '/' + sl + '.html\n진행하시겠습니까?')) {
+                e.preventDefault();
+              }
+            });
+          });
+        </script>
+        <button th:unless="${fileGenerable}" type="button" disabled
+                title="PUBLISHED 상태이고 slug 가 채워져 있어야 파일을 생성할 수 있습니다."
+                class="inline-flex items-center px-3 py-1.5 rounded bg-surface-subtler text-fg-subtle text-sm font-medium cursor-not-allowed">파일생성</button>
+
+        <form th:action="@{/admin/system/content/{cid}(cid=${content.contentId})}" method="post" class="inline"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="_method" value="delete"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm hover:bg-danger-surface">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <!-- 상태 전환 패널 -->
+    <section th:if="${!#lists.isEmpty(transitions)}"
+             class="bg-surface border border-line rounded-large p-4 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-2">상태 전환</h2>
+      <div class="flex items-center gap-2 flex-wrap">
+        <form th:each="t : ${transitions}"
+              th:action="@{/admin/system/content/{cid}/status(cid=${content.contentId})}"
+              method="post" class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="target" th:value="${t.name()}"/>
+          <button type="submit"
+                  th:class="|inline-flex items-center px-3 py-1.5 rounded text-sm font-medium
+                  ${t.name() == 'PUBLISHED'   ? 'bg-success-50 text-fg-on hover:bg-success-60' :
+                    t.name() == 'APPROVED'    ? 'bg-brand-50 text-fg-on hover:bg-brand-60' :
+                    t.name() == 'UNPUBLISHED' ? 'bg-gray-70 text-fg-on hover:bg-gray-80' :
+                                                 'border border-line bg-surface text-fg hover:bg-surface-subtle'}|"
+                  th:text="'→ ' + ${t.name()}">→ X</button>
+        </form>
+      </div>
+    </section>
+
+    <section th:if="${!#strings.isEmpty(content.contentId)}"
+             class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-2">콘텐츠</h2>
+      <p class="text-sm text-fg-strong whitespace-pre-wrap" th:text="${content.contentId}"></p>
+    </section>
+
+    <!-- 메타 정보 -->
+    <section class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-3">메타</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+
+        <div><dt class="inline text-fg-subtle">사이트: </dt>
+          <dd class="inline font-medium text-fg-strong"
+              th:text="${content.siteCode} + ' · ' + ${content.siteName}">site</dd></div>
+        <div><dt class="inline text-fg-subtle">메뉴: </dt>
+             <dd class="inline text-fg-strong" th:text="${content.menuName} ?: '—'">—</dd></div>
+        <div><dt class="inline text-fg-subtle">slug: </dt>
+             <dd class="inline font-mono text-fg-strong" th:text="${content.slug} ?: '—'">—</dd></div>
+        <div><dt class="inline text-fg-subtle">버전: </dt>
+             <dd class="inline font-mono text-fg-strong" th:text="'v' + ${content.versionNo}">v1</dd></div>
+        <div><dt class="inline text-fg-subtle">게시시각: </dt>
+             <dd class="inline font-mono text-fg-strong" th:text="${@fmt.dt(content.publishedAt)}">—</dd></div>
+        <div><dt class="inline text-fg-subtle">게시 중단 예정: </dt>
+             <dd class="inline font-mono text-fg-strong" th:text="${@fmt.dt(content.unpublishAt)}">—</dd></div>
+        <div><dt class="inline text-fg-subtle">등록: </dt>
+             <dd class="inline text-fg"
+                 th:text="${content.createdBy} + ' · ' + ${@fmt.dt(content.createdAt)}">-</dd></div>
+        <div><dt class="inline text-fg-subtle">수정: </dt>
+             <dd class="inline text-fg"
+                 th:text="${content.updatedBy} + ' · ' + ${@fmt.dt(content.updatedAt)}">-</dd></div>
+      </dl>
+    </section>
+
+    <section th:if="${!#strings.isEmpty(content.summary)}"
+             class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-2">요약</h2>
+      <p class="text-sm text-fg-strong whitespace-pre-wrap" th:text="${content.summary}"></p>
+    </section>
+
+    <section class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-2">원본 Markdown</h2>
+      <pre class="text-xs font-mono bg-surface-subtle border border-line rounded p-3 overflow-auto max-h-96"
+           th:text="${content.originalContent} ?: '(없음)'">-</pre>
+    </section>
+
+    <section class="bg-surface border border-line rounded-large p-5">
+      <h2 class="text-sm font-semibold text-fg mb-2">렌더 HTML (body)</h2>
+      <pre class="text-xs font-mono bg-surface-subtle border border-line rounded p-3 overflow-auto max-h-96"
+           th:text="${content.body} ?: '(없음)'">-</pre>
+    </section>
+
+  </section>
+</body>
+</html>

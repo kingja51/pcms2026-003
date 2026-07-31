@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>공휴일 캘린더</title>
+  <link rel="stylesheet" th:href="@{/css/calendar.css}"/>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="program-page-wide">
+
+      <div class="flex items-center justify-between gap-4 mb-6">
+        <h1 class="text-heading-md font-bold text-fg-strong">공휴일 캘린더</h1>
+        <a th:href="@{/holiday}"
+           class="krds-btn krds-btn-sm krds-btn-tertiary">목록 보기</a>
+      </div>
+
+      <div class="pcms-cal">
+        <header class="pcms-cal__head">
+          <h2 class="pcms-cal__title"
+              th:text="${cm.ym.year} + '년 ' + ${cm.ym.monthValue} + '월'">2026년 4월</h2>
+          <nav class="pcms-cal__nav" aria-label="월 이동">
+            <a th:href="@{/holiday/calendar(year=${cm.prev.year}, month=${cm.prev.monthValue})}">←</a>
+            <a th:href="@{/holiday/calendar}">오늘</a>
+            <a th:href="@{/holiday/calendar(year=${cm.next.year}, month=${cm.next.monthValue})}">→</a>
+          </nav>
+        </header>
+
+        <div class="pcms-cal__grid">
+          <div class="pcms-cal__dow pcms-cal__dow--sun">일</div>
+          <div class="pcms-cal__dow">월</div>
+          <div class="pcms-cal__dow">화</div>
+          <div class="pcms-cal__dow">수</div>
+          <div class="pcms-cal__dow">목</div>
+          <div class="pcms-cal__dow">금</div>
+          <div class="pcms-cal__dow pcms-cal__dow--sat">토</div>
+
+          <th:block th:each="week : ${cm.weeks}">
+            <div th:each="d : ${week.days}"
+                 th:with="hs=${byDate.get(d.key)},
+                          isOut=${!d.inMonth},
+                          isToday=${d.today},
+                          numMod=${hs != null and !hs.empty ? 'holiday' : (d.sunday ? 'sun' : (d.saturday ? 'sat' : ''))}"
+                 th:class="${'pcms-cal_' + '_cell' + (isOut ? ' pcms-cal_' + '_cell--out' : '') + (isToday ? ' pcms-cal_' + '_cell--today' : '')}">
+              <span th:text="${d.dayOfMonth}"
+                    th:classappend="${numMod.empty ? '' : 'pcms-cal__num--' + numMod}"
+                    class="pcms-cal__num">1</span>
+              <th:block th:if="${hs != null}">
+                <a th:each="h : ${hs}"
+                   th:href="@{/holiday/{id}(id=${h.holidayId})}"
+                   class="pcms-cal__entry pcms-cal__entry--holiday"
+                   th:text="${h.holidayName}"
+                   th:title="${h.holidayName}">공휴일</a>
+              </th:block>
+            </div>
+          </th:block>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+</body>
+</html>

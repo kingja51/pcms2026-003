@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title th:text="${article.title} + ' — ' + ${master.bbsName}">유튜브 영상</title>
+  <style th:attr="nonce=${cspNonce}">
+    /* 구조적 스타일만 유지 — 색은 KRDS CSS 변수 (Design.md §2) */
+    .yt-content {
+      padding: 2px 0 8px;
+      font-size: 17px;
+      line-height: 1.8;
+      color: var(--c-fg);
+      white-space: pre-wrap;
+      word-break: keep-all;
+    }
+    .yt-content img { max-width: 100%; height: auto; margin: 1.6rem 0; border-radius: var(--radius-medium); }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content" 
+           th:with="canManage=${master.bbsMasterId == article.bbsMasterId}">
+
+    <nav aria-label="상위 경로" class="text-body-sm text-fg-subtle mb-4">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}" class="hover:underline"
+         th:text="${master.bbsName}">유튜브</a>
+      <span class="mx-1">/</span>
+      <span class="text-fg">상세</span>
+    </nav>
+
+    <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <p th:text="${message}">처리되었습니다.</p>
+    </div>
+    <div th:if="${error}" role="alert" aria-live="polite" class="krds-alert krds-alert-danger mb-4">
+      <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+      </svg>
+      <p th:text="${error}">오류가 발생했습니다.</p>
+    </div>
+
+    <!-- 비밀글 차단 -->
+    <div th:unless="${canSeeBody}"
+         class="bg-surface-subtle border border-line rounded-large p-12 text-center mb-8">
+      <p class="text-heading-md mb-2">🔒</p>
+      <p class="text-fg-subtle">비밀글입니다. 작성자 또는 관리자만 본문을 볼 수 있습니다.</p>
+    </div>
+
+    <th:block th:if="${canSeeBody}" th:with="ytId=${article.youtubeId}">
+
+      <!-- 헤더 -->
+      <header class="border-t-2 border-t-line-strong border-b border-b-line pt-5 pb-4">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span th:if="${article.noticeYn == 'Y'}" class="krds-badge bg-danger-surface text-danger-fg">공지</span>
+          <span th:if="${article.secretYn == 'Y'}" class="krds-badge bg-surface-subtle text-fg-subtle">🔒 비밀</span>
+          <span th:if="${article.categoryName != null and !#strings.isEmpty(article.categoryName)}"
+                class="krds-badge bg-primary-5 text-primary-50" th:text="${article.categoryName}">카테고리</span>
+        </div>
+        <h1 class="text-heading-md font-bold text-fg-strong mt-1.5 mb-2.5" th:text="${article.title}">영상 제목</h1>
+        <div class="flex items-center gap-4 flex-wrap text-body-sm text-fg-subtle pt-2.5 border-t border-divider">
+          <span title="작성자" class="inline-flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+            <span th:text="${article.writerName}">작성자</span>
+          </span>
+          <span title="게시일" class="inline-flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+            <span th:text="${article.publishedAt != null ? #temporals.format(article.publishedAt, 'yyyy-MM-dd') : @fmt.dt(article.createdAt)}">2026-04-27</span>
+          </span>
+          <span title="조회" class="inline-flex items-center gap-1">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5s8.577 3.01 9.964 7.183c.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5s-8.577-3.01-9.964-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span th:text="${article.viewCount}">0</span>
+          </span>
+        </div>
+      </header>
+
+      <!-- ===== 클릭 가능한 HD 썸네일 (iframe 미사용) =====
+           YouTube 임베드 iframe 은 일부 환경(localhost/127.0.0.1, 광고차단기 사용 사용자 등)
+           에서 거부될 수 있고 CSP 와 충돌(object-src plugin probe 경고)도 발생.
+           HD 썸네일 + 외부 링크 패턴으로 전환 — 클릭 시 YouTube 새 탭에서 재생.
+           maxresdefault 는 일부 영상에서 404 → data-src-fallback 으로 hqdefault 폴백(app.js 위임).
+      -->
+      <a th:if="${ytId != null}"
+         th:href="${article.linkUrl}"
+         target="_blank" rel="noopener noreferrer ugc"
+         class="group relative mt-6 mb-3 block w-full aspect-video overflow-hidden rounded-xlarge bg-surface-subtler no-underline shadow-e3 transition-shadow hover:shadow-e4"
+         th:attr="aria-label=${article.title} + ' — YouTube 에서 재생'">
+        <img th:src="'https://i.ytimg.com/vi/' + ${ytId} + '/maxresdefault.jpg'"
+             th:alt="${article.title}"
+             loading="lazy"
+             data-src-fallback="maxresdefault:hqdefault"
+             class="absolute inset-0 block h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"/>
+        <span aria-hidden="true"
+              class="pointer-events-none absolute left-1/2 top-1/2 flex h-16 w-[88px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xlarge bg-danger-icon text-fg-on shadow-e3 transition-transform group-hover:scale-105">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="ml-1 size-8 fill-current"><path d="M8 5v14l11-7z"/></svg>
+        </span>
+        <span class="pointer-events-none absolute bottom-3 right-4 rounded-small bg-dim px-2.5 py-1 text-body-xs font-bold text-fg-on">▶ YouTube 에서 재생</span>
+      </a>
+
+      <!-- 영상 ID 미추출 시 — 잘못된 URL 안내 -->
+      <div th:if="${ytId == null and article.linkUrl != null and !#strings.isEmpty(article.linkUrl)}"
+           class="mt-6 mb-3 flex w-full aspect-video items-center justify-center overflow-hidden rounded-xlarge bg-surface-subtler text-fg-subtle">
+        <div class="text-center p-8">
+          <p class="text-heading-lg mb-3">⚠️</p>
+          <p class="mb-1 text-fg">유튜브 영상 ID 를 추출하지 못했습니다.</p>
+          <p class="text-body-sm">아래 원문 링크로 외부에서 시청해 주세요.</p>
+        </div>
+      </div>
+
+      <!-- 외부 원본 / URL 노출 -->
+      <div class="flex items-center gap-2 mt-1 mb-6 flex-wrap" th:if="${article.linkUrl != null and !#strings.isEmpty(article.linkUrl)}">
+        <a th:href="${article.linkUrl}" target="_blank" rel="noopener noreferrer ugc"
+           class="krds-btn krds-btn-tertiary krds-btn-sm gap-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" class="size-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M21.582 6.186a2.506 2.506 0 0 0-1.768-1.768C18.254 4 12 4 12 4s-6.254 0-7.814.418A2.506 2.506 0 0 0 2.418 6.186 26.118 26.118 0 0 0 2 12a26.118 26.118 0 0 0 .418 5.814 2.506 2.506 0 0 0 1.768 1.768C5.746 20 12 20 12 20s6.254 0 7.814-.418a2.506 2.506 0 0 0 1.768-1.768A26.118 26.118 0 0 0 22 12a26.118 26.118 0 0 0-.418-5.814zM10 15.464V8.536L16 12z"/>
+          </svg>
+          <span>유튜브에서 보기</span>
+        </a>
+        <span class="text-body-xs text-fg-disabled break-all" th:text="${article.linkUrl}">https://...</span>
+      </div>
+
+      <!-- ===== 좋아요 / 신고 ===== -->
+      <div class="flex items-center justify-end mb-4">
+        <th:block th:replace="~{fragments/bbs-like-report :: actions(
+            type='ARTICLE',
+            id=${article.articleId},
+            likeCount=${article.likeCount},
+            liked=${articleLikedByMe})}"/>
+      </div>
+
+      <!-- ===== 본문 ===== -->
+      <article class="yt-content"><th:block
+          th:replace="~{fragments/bbs-content :: render(content=${article.content}, htmlYn=${master.htmlYn})}"></th:block></article>
+
+    </th:block>
+
+
+    <!-- 액션 바 -->
+    <!-- 이전글/다음글 -->
+    <th:block th:replace="~{fragments/bbs-prev-next :: nav(prev=${prevArticle}, next=${nextArticle})}"/>
+
+    <div class="flex items-center justify-between gap-2 pt-6 mt-6 border-t border-line">
+      <a th:href="@{/bbs/{sc}/{bc}(sc=${siteCode}, bc=${bbsCode})}"
+         class="krds-btn krds-btn-tertiary">목록</a>
+      <div class="flex items-center gap-2" th:if="${canManage and (canEdit or canDelete)}">
+        <a th:if="${canEdit}"
+           th:href="@{/bbs/{sc}/{bc}/{aid}/edit(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+           class="krds-btn krds-btn-primary">수정</a>
+        <form th:if="${canDelete}"
+              th:action="@{/bbs/{sc}/{bc}/{aid}/delete(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+              method="post"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit"
+                  class="krds-btn bg-danger-50 text-white hover:bg-danger-60">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- 댓글 -->
+    <section th:if="${canSeeBody and master.commentYn == 'Y'}"
+             xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+             class="mt-10 pt-6 border-t border-line" id="comments">
+      <h2 class="text-heading-sm text-fg-strong mb-4">
+        댓글 <span class="text-fg-subtle" th:text="'(' + ${article.commentCount} + ')'">(0)</span>
+      </h2>
+
+      <div th:if="${commentError}" role="alert" class="krds-alert krds-alert-danger mb-3">
+        <svg xmlns="http://www.w3.org/2000/svg" class="size-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+        </svg>
+        <p th:text="${commentError}">댓글 오류</p>
+      </div>
+
+      <ul th:if="${not #lists.isEmpty(comments)}" class="space-y-3 mb-6">
+        <li th:each="cm : ${comments}"
+            th:class="${cm.parentCommentId != null}
+                      ? 'pl-8 border-l-2 border-divider'
+                      : ''"
+            class="bg-surface">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="text-body-xs text-fg-subtle mb-1">
+                <strong class="text-fg" th:text="${cm.writerName}">작성자</strong>
+                <span class="mx-1">·</span>
+                <span th:text="${@fmt.dt(cm.createdAt)}">-</span>
+                <span th:if="${cm.status == 'HIDDEN'}"
+                      class="ml-1 krds-badge bg-surface-subtler text-fg-subtle">숨김</span>
+                <span th:if="${cm.status == 'REPORTED'}"
+                      class="ml-1 krds-badge bg-warning-surface text-warning-fg">신고됨</span>
+                <span th:if="${cm.secretYn == 'Y'}"
+                      class="ml-1 krds-badge bg-surface-subtle text-fg-subtle">🔒 비밀</span>
+              </div>
+              <p th:if="${cm.status == 'PUBLISHED'}"
+                 class="text-body-sm whitespace-pre-wrap"
+                 th:classappend="${cm.secretYn == 'Y' and #strings.startsWith(cm.content, '🔒')} ? ' text-fg-disabled italic' : ' text-fg'"
+                 th:text="${cm.content}">내용</p>
+              <p th:unless="${cm.status == 'PUBLISHED'}"
+                 class="text-body-sm text-fg-disabled italic">관리자에 의해 가려진 댓글입니다.</p>
+              <th:block th:replace="~{fragments/bbs-like-report :: commentActions(cm=${cm}, commentLikedIds=${commentLikedIds})}"/>
+            </div>
+            <div class="flex items-start gap-1 shrink-0"
+                 th:with="
+                   isCommentOwner=${#authentication != null
+                                     and #authentication.principal instanceof T(com.gonet.primary.system.login.dto.CustomUserDetails)
+                                     and #authentication.principal.userId != null
+                                     and (#authentication.principal.userId == cm.writerUserId
+                                       or #authentication.principal.userId == cm.createdBy)},
+                   isAdminUser=${#authentication != null
+                                  and #authentication.principal instanceof T(com.gonet.primary.system.login.dto.CustomUserDetails)
+                                  and #authentication.principal.userType == 'ADMIN'},
+                   canEditComment=${isCommentOwner},
+                   canDeleteComment=${isCommentOwner or isAdminUser}">
+              <details th:if="${cm.parentCommentId == null and #authentication.authenticated}"
+                       class="relative">
+                <summary class="list-none px-2 py-1 rounded-small text-body-xs text-fg-subtle hover:bg-surface-subtle cursor-pointer">↩ 답글</summary>
+                <form th:action="@{/bbs/{sc}/{bc}/{aid}/comments(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+                      method="post"
+                      class="absolute right-0 mt-1 p-3 w-80 bg-surface border border-line rounded-medium shadow-e3 z-10">
+                  <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                  <input type="hidden" name="parentCommentId" th:value="${cm.commentId}"/>
+                  <textarea name="content" required rows="3" maxlength="4000"
+                            placeholder="답글 입력"
+                            class="krds-input text-body-sm"></textarea>
+                  <label class="mt-2 inline-flex items-center gap-1.5 text-body-xs text-fg">
+                    <input type="checkbox" name="secretYn" value="Y"
+                           class="rounded-small border-line"/>
+                    🔒 비밀 답글
+                  </label>
+                  <button type="submit"
+                          class="krds-btn krds-btn-primary krds-btn-sm mt-2 w-full">답글 등록</button>
+                </form>
+              </details>
+              <details th:if="${canManage and (canEditComment or canDeleteComment)}"
+                       class="relative">
+                <summary class="list-none px-2 py-1 rounded-small text-body-xs text-fg-subtle hover:bg-surface-subtle cursor-pointer">⋯</summary>
+                <div class="absolute right-0 mt-1 p-2 w-48 bg-surface border border-line rounded-medium shadow-e3 z-10 space-y-1">
+                  <details th:if="${canEditComment}" class="block">
+                    <summary class="list-none w-full px-2 py-1 text-body-xs text-fg hover:bg-surface-subtle rounded-small cursor-pointer">수정</summary>
+                    <form th:action="@{/bbs/{sc}/{bc}/{aid}/comments/{cid}(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId}, cid=${cm.commentId})}"
+                          method="post" class="mt-2">
+                      <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                      <textarea name="content" required rows="3" maxlength="4000"
+                                th:text="${cm.content}"
+                                class="krds-input text-body-xs"></textarea>
+                      <label class="mt-2 inline-flex items-center gap-1.5 text-body-xs text-fg">
+                        <input type="checkbox" name="secretYn" value="Y"
+                               th:checked="${cm.secretYn == 'Y'}"
+                               class="rounded-small border-line"/>
+                        🔒 비밀 댓글
+                      </label>
+                      <button type="submit"
+                              class="krds-btn krds-btn-primary krds-btn-sm mt-2 w-full">저장</button>
+                    </form>
+                  </details>
+                  <form th:if="${canDeleteComment}"
+                        th:action="@{/bbs/{sc}/{bc}/{aid}/comments/{cid}/delete(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId}, cid=${cm.commentId})}"
+                        method="post"
+                        data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit"
+                            class="block w-full text-left px-2 py-1 text-body-xs text-danger-fg hover:bg-danger-surface rounded-small">삭제</button>
+                  </form>
+                </div>
+              </details>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <p th:if="${#lists.isEmpty(comments)}"
+         class="text-body-sm text-fg-subtle mb-4">첫 번째 댓글을 남겨보세요.</p>
+
+      <form sec:authorize="isAuthenticated()"
+            th:action="@{/bbs/{sc}/{bc}/{aid}/comments(sc=${siteCode}, bc=${bbsCode}, aid=${article.articleId})}"
+            method="post" th:object="${commentForm}"
+            class="bg-surface-subtle border border-line rounded-large p-3">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <textarea th:field="*{content}" required rows="3" maxlength="4000"
+                  placeholder="댓글을 입력하세요"
+                  class="krds-input text-body-sm"></textarea>
+        <div class="mt-2 flex items-center justify-between gap-3">
+          <label class="inline-flex items-center gap-1.5 text-body-sm text-fg">
+            <input type="checkbox" name="secretYn" value="Y"
+                   th:checked="${commentForm.secretYn == 'Y'}"
+                   class="rounded-small border-line"/>
+            🔒 비밀 댓글 (작성자 · 글 주인 · 관리자만 본문 조회)
+          </label>
+          <button type="submit"
+                  class="krds-btn krds-btn-primary krds-btn-sm">댓글 등록</button>
+        </div>
+      </form>
+      <div sec:authorize="!isAuthenticated()"
+           class="bg-surface-subtle border border-line rounded-large p-4 text-center text-body-sm text-fg-subtle">
+        <a th:href="@{/member/login}" class="krds-link">로그인</a>
+        후 댓글 작성이 가능합니다.
+      </div>
+    </section>
+
+    <script th:src="@{/js/bbs-like-report.js}" th:attr="nonce=${cspNonce}" defer></script>
+
+  </section>
+</body>
+</html>

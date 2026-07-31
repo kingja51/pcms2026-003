@@ -123,18 +123,27 @@ class ArchitectureTest {
 
     /**
      * R6. {@code common} 독립성 — primary(dto 제외)/secondary/scheduler 의존 금지.
-     * {@code common/audit} → {@code logging} 은 허용(감사 기록기).
+     *
+     * <p>허용하는 의존 (개발가이드 §4-4 R6 실측 예외):
+     * <ul>
+     *   <li>{@code common/audit} → {@code logging} — 감사 기록기가 logging DB 매퍼를 쓴다</li>
+     *   <li>{@code common} → {@code primary..dto} — DTO 는 계층 간 이동이 전제다</li>
+     *   <li>{@code common/mail} → {@code primary.system.mail} — {@code MailService} 가
+     *       DB 에 저장된 메일 템플릿({@code tb_mail_template})을 조회한다.
+     *       템플릿은 운영자가 관리하는 도메인 데이터라 common 안에 둘 수 없다</li>
+     * </ul>
      */
     @ArchTest
     static final ArchRule r6_common_independence =
         noClasses().that().resideInAPackage("com.gonet.common..")
             .should().dependOnClassesThat(
                 DescribedPredicate.describe(
-                    "primary(dto 제외)/secondary/scheduler",
+                    "primary(dto·system.mail 제외)/secondary/scheduler",
                     c -> c.getPackageName().startsWith("com.gonet.secondary")
                       || c.getPackageName().startsWith("com.gonet.scheduler")
                       || (c.getPackageName().startsWith("com.gonet.primary")
-                          && !c.getPackageName().contains(".dto"))))
+                          && !c.getPackageName().contains(".dto")
+                          && !c.getPackageName().startsWith("com.gonet.primary.system.mail"))))
             .allowEmptyShould(true);
 
     /**

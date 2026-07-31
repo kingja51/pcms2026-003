@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>감사로그(audit) action 가이드</title>
+  <style th:attr="nonce=${cspNonce}">
+    .ag-toc {
+      position: sticky; top: 1rem;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: .85rem 1rem;
+      font-size: .8rem;
+    }
+    .ag-toc h3 {
+      font-size: .7rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em;
+      color: #64748b; margin: 0 0 .5rem;
+    }
+    .ag-toc a {
+      display: block;
+      padding: .2rem 0;
+      color: #334155;
+      text-decoration: none;
+    }
+    .ag-toc a:hover { color: #1d4ed8; text-decoration: underline; }
+
+    .ag-section {
+      margin-bottom: 2rem;
+      scroll-margin-top: 1rem;
+    }
+    .ag-section h2 {
+      display: flex; align-items: center; gap: .5rem;
+      font-size: 1.1rem; font-weight: 800;
+      color: #0f172a;
+      padding-bottom: .4rem;
+      border-bottom: 2px solid #0f172a;
+      margin-bottom: .75rem;
+    }
+    .ag-section h2 .ag-emoji { font-size: 1.25rem; }
+    .ag-section p.ag-desc {
+      font-size: .82rem; color: #475569;
+      margin-bottom: .75rem;
+      line-height: 1.6;
+    }
+
+    .ag-table {
+      width: 100%;
+      font-size: .8rem;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .ag-table thead {
+      background: #f1f5f9;
+      color: #475569;
+      font-size: .68rem;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+    .ag-table th, .ag-table td {
+      padding: .55rem .75rem;
+      text-align: left;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: top;
+    }
+    .ag-table tbody tr:hover { background: #f8fafc; }
+    .ag-table .ag-action {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+    }
+    .ag-table .ag-entity {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      color: #64748b;
+      white-space: nowrap;
+    }
+    .ag-table .ag-when { color: #475569; }
+    .ag-table .ag-result {
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: .72rem;
+    }
+    .ag-table td code {
+      background: #f1f5f9;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: .72rem;
+      color: #475569;
+    }
+
+    .ag-pill {
+      display: inline-flex; align-items: center;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: .65rem;
+      font-weight: 700;
+      margin-right: .25rem;
+    }
+    .ag-pill--ok    { background: #ecfdf5; color: #047857; }
+    .ag-pill--fail  { background: #fffbeb; color: #b45309; }
+    .ag-pill--err   { background: #fef2f2; color: #b91c1c; }
+    .ag-pill--lock  { background: #fef2f2; color: #b91c1c; }
+    .ag-pill--deny  { background: #fef2f2; color: #b91c1c; }
+
+    .ag-callout {
+      background: #f0f9ff;
+      border-left: 3px solid #0284c7;
+      padding: .75rem 1rem;
+      border-radius: 0 6px 6px 0;
+      font-size: .82rem;
+      color: #075985;
+      margin-bottom: 1.25rem;
+      line-height: 1.6;
+    }
+    .ag-callout strong { color: #0c4a6e; }
+  </style>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/log/audit}" class="hover:underline">감사 로그</a>
+      <span class="mx-1">/</span>
+      <span>action 가이드</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
+      <h1 class="text-heading-lg font-bold text-fg-strong">📖 감사로그(audit) action 가이드</h1>
+      <a th:href="@{/admin/system/log/audit}"
+         class="px-3 py-1.5 rounded border border-line bg-surface text-fg text-xs hover:bg-surface-subtle">← 감사 로그 목록</a>
+    </div>
+
+    <div class="ag-callout">
+      <strong>감사로그(log_audit)</strong>는 시스템에서 일어나는 의미 있는 변경·조회 이벤트를
+      구조화된 형태로 영구 기록합니다. <code>action</code>(행위 코드) + <code>target_entity</code>(대상 테이블)
+      + <code>actor</code>(누가) + <code>result</code>(결과) + <code>before/after JSON</code>(변경 내역)
+      이 핵심 컬럼이며, 모든 이벤트는 동시에 5경로(① log_audit DB ② Logback JSON ③ Spring Event
+      ④ MariaDB server_audit ⑤ binlog/CDC)로 팬아웃됩니다.
+      <br><br>
+      <strong>result 값</strong>:
+      <span class="ag-pill ag-pill--ok">SUCCESS</span> 정상 처리 ·
+      <span class="ag-pill ag-pill--fail">FAIL</span> 4xx 검증/권한 실패 ·
+      <span class="ag-pill ag-pill--err">ERROR</span> 5xx 또는 예외 ·
+      <span class="ag-pill ag-pill--lock">LOCKED</span> 로그인 잠금 ·
+      <span class="ag-pill ag-pill--deny">DENIED</span> 정책 거부
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
+
+      <!-- TOC -->
+      <aside>
+        <div class="ag-toc">
+          <h3>섹션</h3>
+          <a href="#sec-auth">🔐 인증·세션·2FA</a>
+          <a href="#sec-account">👤 회원·직원·관리자</a>
+          <a href="#sec-content">📝 콘텐츠</a>
+          <a href="#sec-board">📋 게시판 마스터/카테고리</a>
+          <a href="#sec-article">✍ 게시글</a>
+          <a href="#sec-comment">💬 댓글</a>
+          <a href="#sec-engagement">👍 좋아요·신고</a>
+          <a href="#sec-file">📎 파일·바이러스 스캔</a>
+          <a href="#sec-popup">🪟 팝업·배너</a>
+          <a href="#sec-calendar">📅 공휴일·일정·설문</a>
+          <a href="#sec-access">🛡 권한·접근제어</a>
+          <a href="#sec-search">🔍 검색</a>
+          <a href="#sec-excel">📊 엑셀 다운로드</a>
+          <a href="#sec-http">🌐 HTTP 자동 포착</a>
+        </div>
+      </aside>
+
+      <!-- 본문 -->
+      <main class="min-w-0">
+
+        <!-- ============ 1. 인증·세션·2FA ============ -->
+        <section id="sec-auth" class="ag-section">
+          <h2><span class="ag-emoji">🔐</span> 인증·세션·2FA</h2>
+          <p class="ag-desc">
+            로그인 시도, 거부, 2FA TOTP 활성화·검증 이벤트.
+            <code>tb_member</code>·<code>tb_admin</code>·<code>tb_employee</code>·<code>auth</code>
+            네 가지 entity 가 user_type 에 따라 분기 적재됩니다. 로그인 성공/실패 자체는
+            <code>log_login</code> 에도 별도 기록되며, 감사 측에는 거부 사유·메타데이터를 남깁니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr>
+                <th>action</th>
+                <th>entity</th>
+                <th>발생 시점</th>
+                <th>주요 result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">LOGIN</td>
+                <td class="ag-entity">tb_member · tb_admin · tb_employee · auth</td>
+                <td class="ag-when">로그인 시도 (성공 또는 실패) — 정상 인증 시 SuccessHandler, 실패 시 FailureHandler 가 발행</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--fail">FAIL</span>
+                  <span class="ag-pill ag-pill--lock">LOCKED</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="ag-action">LOGIN_DENY</td>
+                <td class="ag-entity">tb_admin</td>
+                <td class="ag-when">관리자 인증은 통과했지만 ① IP 화이트리스트 위반 ② ROLE_STAFF 미만 가드에서 거부 — 즉시 세션 무효화</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--deny">DENIED</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">LOGIN_2FA</td>
+                <td class="ag-entity">tb_admin</td>
+                <td class="ag-when">관리자 2FA TOTP 검증 단계 — <code>/admin/login/2fa</code> 진입 후 코드 검증 결과</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--fail">FAIL</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="ag-action">2FA_ENABLE</td>
+                <td class="ag-entity">tb_admin</td>
+                <td class="ag-when">관리자 본인이 2FA TOTP 를 신규 활성화 (QR 등록 후 첫 검증 통과)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 2. 회원·직원·관리자 ============ -->
+        <section id="sec-account" class="ag-section">
+          <h2><span class="ag-emoji">👤</span> 회원·직원·관리자 — 탈퇴/퇴사</h2>
+          <p class="ag-desc">
+            계정 라이프사이클의 종료 이벤트. <code>after_value</code> JSON 에 사유 카테고리와
+            자유 텍스트 note 가 보관되며, PII 최소화 정책상 자유 텍스트는 DB 컬럼이 아닌
+            감사 로그에만 남깁니다. 일반 회원/관리자/직원 CUD 는 HTTP Interceptor 가
+            CREATE/UPDATE/DELETE 로 자동 포착(섹션 14 참고).
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr>
+                <th>action</th>
+                <th>entity</th>
+                <th>발생 시점</th>
+                <th>주요 result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">MEMBER_WITHDRAW</td>
+                <td class="ag-entity">tb_member_withdraw</td>
+                <td class="ag-when">회원 본인이 마이페이지에서 탈퇴 처리 — 보존기간 만료일이 함께 기록</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">MEMBER_FORCE_DELETE</td>
+                <td class="ag-entity">tb_member_withdraw</td>
+                <td class="ag-when">관리자가 회원 관리 화면에서 강제 탈퇴 처리</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">EMPLOYEE_WITHDRAW</td>
+                <td class="ag-entity">tb_employee_withdraw</td>
+                <td class="ag-when">직원 퇴사 처리 — 인사 사유 카테고리 포함</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">ADMIN_WITHDRAW</td>
+                <td class="ag-entity">tb_admin_withdraw</td>
+                <td class="ag-when">관리자 계정 탈퇴 (정책상 본인 또는 상위 관리자가 처리)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 3. 콘텐츠 ============ -->
+        <section id="sec-content" class="ag-section">
+          <h2><span class="ag-emoji">📝</span> 콘텐츠 (Content)</h2>
+          <p class="ag-desc">
+            CMS 콘텐츠의 CRUD + 게시 워크플로 상태 전이.
+            <code>DRAFT → REVIEW → APPROVED → PUBLISHED → UNPUBLISHED</code> 전이가 모두
+            STATUS_CHANGE 로 적재되며, before/after JSON 에 양쪽 상태가 기록됩니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">CONTENT_CREATE</td>
+                <td class="ag-entity">tb_content</td>
+                <td class="ag-when">콘텐츠 신규 등록 (기본 상태 DRAFT)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">CONTENT_UPDATE</td>
+                <td class="ag-entity">tb_content</td>
+                <td class="ag-when">콘텐츠 본문/메타 수정 — 자동으로 tb_content_history 에 버전 스냅샷 적재</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">CONTENT_DELETE</td>
+                <td class="ag-entity">tb_content</td>
+                <td class="ag-when">콘텐츠 soft delete — PUBLISHED 상태는 먼저 UNPUBLISHED 전환 필요</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--fail">FAIL</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="ag-action">CONTENT_STATUS_CHANGE</td>
+                <td class="ag-entity">tb_content</td>
+                <td class="ag-when">상태 전이 — PUBLISHED 시 published_at, UNPUBLISHED 시 unpublish_at 자동 세팅</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 4. 게시판 마스터/카테고리 ============ -->
+        <section id="sec-board" class="ag-section">
+          <h2><span class="ag-emoji">📋</span> 게시판 마스터 · 카테고리</h2>
+          <p class="ag-desc">
+            게시판 자체(NOTICE/BODO/FREE/FAQ/GALLERY/QNA/FILE 7 타입) 와 카테고리의 운영 이벤트.
+            <code>BBS_MASTER_DOWNLOAD_AUTH_CASCADE</code> 는 마스터의 download_auth 변경이
+            소속 file_group 들에 일괄 cascade 됐을 때 발생합니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">BBS_MASTER_CREATE</td>
+                <td class="ag-entity">tb_bbs_master</td>
+                <td class="ag-when">게시판 신규 등록</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_MASTER_UPDATE</td>
+                <td class="ag-entity">tb_bbs_master</td>
+                <td class="ag-when">게시판 설정 변경 (이름·정책·권한)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_MASTER_USE_TOGGLE</td>
+                <td class="ag-entity">tb_bbs_master</td>
+                <td class="ag-when">게시판 사용중지 ↔ 재개 토글</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_MASTER_DELETE</td>
+                <td class="ag-entity">tb_bbs_master</td>
+                <td class="ag-when">게시판 soft delete</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_MASTER_DOWNLOAD_AUTH_CASCADE</td>
+                <td class="ag-entity">tb_bbs_master</td>
+                <td class="ag-when">마스터의 첨부 다운로드 권한 변경이 소속 file_group N 건에 일괄 cascade</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_CATEGORY_CREATE</td>
+                <td class="ag-entity">tb_bbs_category</td>
+                <td class="ag-when">게시판 내 카테고리 신규</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_CATEGORY_UPDATE</td>
+                <td class="ag-entity">tb_bbs_category</td>
+                <td class="ag-when">카테고리명/순서 변경</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_CATEGORY_USE_TOGGLE</td>
+                <td class="ag-entity">tb_bbs_category</td>
+                <td class="ag-when">카테고리 사용중지 ↔ 재개</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_CATEGORY_DELETE</td>
+                <td class="ag-entity">tb_bbs_category</td>
+                <td class="ag-when">카테고리 soft delete</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 5. 게시글 ============ -->
+        <section id="sec-article" class="ag-section">
+          <h2><span class="ag-emoji">✍</span> 게시글 (Article)</h2>
+          <p class="ag-desc">
+            게시글 본문의 CRUD + 모더레이션 + 첨부파일 분리 이벤트. STATUS 는 관리자 강제 전환,
+            NOTICE 는 공지글 토글입니다. FILE_REMOVE 는 작성/수정 시점에 사용자가 첨부에서
+            X 표 한 파일이 soft delete 되며 발생합니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">BBS_ARTICLE_CREATE</td>
+                <td class="ag-entity">tb_bbs_article</td>
+                <td class="ag-when">게시글 신규 등록 — 기본 상태 PUBLISHED</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_ARTICLE_UPDATE</td>
+                <td class="ag-entity">tb_bbs_article</td>
+                <td class="ag-when">게시글 본문/메타 수정 (작성자 본인 또는 관리자)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_ARTICLE_DELETE</td>
+                <td class="ag-entity">tb_bbs_article</td>
+                <td class="ag-when">게시글 soft delete</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_ARTICLE_STATUS</td>
+                <td class="ag-entity">tb_bbs_article</td>
+                <td class="ag-when">관리자가 강제 상태 전환 — PUBLISHED ↔ HIDDEN ↔ REPORTED ↔ DELETED</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_ARTICLE_NOTICE</td>
+                <td class="ag-entity">tb_bbs_article</td>
+                <td class="ag-when">공지글 토글 — notice_yn 변경 (관리자 권한)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_ARTICLE_FILE_REMOVE</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">게시글 수정 시 첨부에서 빠진 파일 1건당 발행 — 해당 파일 soft delete</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 6. 댓글 ============ -->
+        <section id="sec-comment" class="ag-section">
+          <h2><span class="ag-emoji">💬</span> 댓글 (Comment)</h2>
+          <p class="ag-desc">
+            댓글/대댓글 CUD + 관리자 모더레이션. 댓글 좋아요·신고는 다음 섹션 참고.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">BBS_COMMENT_CREATE</td>
+                <td class="ag-entity">tb_bbs_comment</td>
+                <td class="ag-when">댓글/대댓글 작성 (회원 인증 필수)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_COMMENT_UPDATE</td>
+                <td class="ag-entity">tb_bbs_comment</td>
+                <td class="ag-when">댓글 본문 수정 (작성자 본인)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_COMMENT_DELETE</td>
+                <td class="ag-entity">tb_bbs_comment</td>
+                <td class="ag-when">댓글 soft delete (작성자 또는 관리자)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_COMMENT_STATUS</td>
+                <td class="ag-entity">tb_bbs_comment</td>
+                <td class="ag-when">관리자가 강제 상태 전환 — HIDDEN/REPORTED/PUBLISHED</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 7. 좋아요·신고 ============ -->
+        <section id="sec-engagement" class="ag-section">
+          <h2><span class="ag-emoji">👍</span> 좋아요 · 신고</h2>
+          <p class="ag-desc">
+            게시글/댓글에 대한 사용자 참여 이벤트. <code>BBS_AUTO_REPORTED</code> 는 신고 누적이
+            임계(<code>gopcms.board.report-threshold</code>, 기본 5)에 도달했을 때 시스템이
+            PUBLISHED → REPORTED 로 자동 전환하며 발행합니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">BBS_LIKE_ON</td>
+                <td class="ag-entity">tb_bbs_article · tb_bbs_comment</td>
+                <td class="ag-when">사용자가 좋아요 토글 ON — 멱등 처리 (이미 ON 이면 변경 없음)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_LIKE_OFF</td>
+                <td class="ag-entity">tb_bbs_article · tb_bbs_comment</td>
+                <td class="ag-when">사용자가 좋아요 토글 OFF</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_REPORT_CREATE</td>
+                <td class="ag-entity">tb_bbs_report</td>
+                <td class="ag-when">사용자가 게시글/댓글 신고 — 사유 카테고리·메모 포함</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_AUTO_REPORTED</td>
+                <td class="ag-entity">tb_bbs_article · tb_bbs_comment</td>
+                <td class="ag-when">신고 누적 임계 도달 → 시스템이 자동으로 PUBLISHED → REPORTED 전환</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">BBS_REPORT_REVIEW</td>
+                <td class="ag-entity">tb_bbs_report</td>
+                <td class="ag-when">관리자가 신고 검토 처리 — REVIEWED/REJECTED + 검토 메모</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 8. 파일·바이러스 스캔 ============ -->
+        <section id="sec-file" class="ag-section">
+          <h2><span class="ag-emoji">📎</span> 파일 · 바이러스 스캔</h2>
+          <p class="ag-desc">
+            업로드 6중 방어 스택과 모든 다운로드 경로를 추적합니다.
+            <code>FILE_PRIVACY_DOWNLOAD</code> 는 PII 가 포함된 파일 그룹 다운로드,
+            <code>FILE_ADMIN_DOWNLOAD</code> 는 관리자 화면 직접 다운로드,
+            <code>VIRUS_SCAN_INFECTED</code> 는 ClamAV 가 감염을 탐지했을 때만 발행됩니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">FILE_UPLOAD</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">업로드 6중 방어 스택 통과 후 commit — virus_scan_status=PENDING 으로 시작</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">FILE_DOWNLOAD</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">사용자 단건 다운로드 (/fileDown/{fileId})</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--deny">DENIED</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="ag-action">FILE_ADMIN_DOWNLOAD</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">관리자 파일 관리 화면 직접 다운로드</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">FILE_DOWNLOAD_GROUP</td>
+                <td class="ag-entity">tb_file_group</td>
+                <td class="ag-when">파일 그룹 ZIP 일괄 다운로드 (/fileDown/group/{groupId})</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">FILE_PRIVACY_DOWNLOAD</td>
+                <td class="ag-entity">tb_file_group</td>
+                <td class="ag-when">PII 포함 파일 그룹 다운로드 — 별도 감사 강조 (PIPA §29 보강)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">FILE_DELETE</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">파일 soft delete (관리자 또는 도메인 cascade)</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">FILE_PURGE</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">FilePurgeScheduler 가 soft delete 후 보존기간 경과한 파일을 물리 삭제</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">FILE_PURGE_BATCH</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">물리 삭제 배치 1회 완료 — 처리 건수 요약 기록</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+              <tr>
+                <td class="ag-action">VIRUS_SCAN_INFECTED</td>
+                <td class="ag-entity">tb_file</td>
+                <td class="ag-when">ClamAV INSTREAM 스캔이 감염 시그니처를 탐지 — virus_scan_status=INFECTED</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--fail">FAIL</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 9. 팝업·배너 ============ -->
+        <section id="sec-popup" class="ag-section">
+          <h2><span class="ag-emoji">🪟</span> 팝업 · 배너</h2>
+          <p class="ag-desc">
+            사이트 전면 노출용 팝업(LAYER/MODAL/WINDOW/BANNER) 과 배너 슬롯의 운영 이벤트.
+            CUD 후 active 캐시(<code>ACTIVE_POPUPS</code>·<code>ACTIVE_BANNERS</code>)가
+            evict 되어 사용자 화면에 즉시 반영됩니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="ag-action">POPUP_CREATE</td><td class="ag-entity">tb_popup</td><td class="ag-when">팝업 신규</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">POPUP_UPDATE</td><td class="ag-entity">tb_popup</td><td class="ag-when">팝업 수정 (이미지·일정·요일·시간대 등)</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">POPUP_USE_TOGGLE</td><td class="ag-entity">tb_popup</td><td class="ag-when">사용중지 토글</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">POPUP_DELETE</td><td class="ag-entity">tb_popup</td><td class="ag-when">팝업 soft delete</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">BANNER_CREATE</td><td class="ag-entity">tb_banner</td><td class="ag-when">배너 신규 (위치 키 — HEADER/FOOTER/SIDE/MAIN_TOP 등)</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">BANNER_UPDATE</td><td class="ag-entity">tb_banner</td><td class="ag-when">배너 수정</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">BANNER_USE_TOGGLE</td><td class="ag-entity">tb_banner</td><td class="ag-when">사용중지 토글</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">BANNER_DELETE</td><td class="ag-entity">tb_banner</td><td class="ag-when">배너 soft delete</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 10. 공휴일·일정·설문 ============ -->
+        <section id="sec-calendar" class="ag-section">
+          <h2><span class="ag-emoji">📅</span> 공휴일 · 일정 · 설문</h2>
+          <p class="ag-desc">
+            캘린더·설문 도메인의 운영 이벤트. <code>HOLIDAY_*</code> 는 전역 공통 마스터(2026-04-29 전환),
+            <code>SCHEDULE_*</code> 는 사이트별 일정. <code>SURVEY_RESPONSE</code> 는 회원이
+            설문 응답을 제출했을 때 1건당 발행됩니다 (1인 1회 제한 시 UNIQUE 제약과 함께 동작).
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="ag-action">HOLIDAY_CREATE</td><td class="ag-entity">tb_holiday</td><td class="ag-when">공휴일 신규 (전역 공통)</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">HOLIDAY_UPDATE</td><td class="ag-entity">tb_holiday</td><td class="ag-when">공휴일 수정</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">HOLIDAY_USE_TOGGLE</td><td class="ag-entity">tb_holiday</td><td class="ag-when">사용중지 토글 (전 사이트 영향)</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">HOLIDAY_DELETE</td><td class="ag-entity">tb_holiday</td><td class="ag-when">공휴일 soft delete</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SCHEDULE_CREATE</td><td class="ag-entity">tb_schedule</td><td class="ag-when">사이트 일정 등록</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SCHEDULE_UPDATE</td><td class="ag-entity">tb_schedule</td><td class="ag-when">일정 수정</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SCHEDULE_USE_TOGGLE</td><td class="ag-entity">tb_schedule</td><td class="ag-when">사용중지 토글</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SCHEDULE_DELETE</td><td class="ag-entity">tb_schedule</td><td class="ag-when">일정 soft delete</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SCHEDULE_MASTER_*</td><td class="ag-entity">tb_schedule_master</td><td class="ag-when">일정 분류/카테고리 마스터의 CRUD/USE_TOGGLE</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SURVEY_CREATE</td><td class="ag-entity">tb_survey</td><td class="ag-when">설문 신규 (DRAFT 상태로 시작)</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SURVEY_UPDATE</td><td class="ag-entity">tb_survey</td><td class="ag-when">설문 본문/문항/선택지 일괄 재작성</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SURVEY_STATUS</td><td class="ag-entity">tb_survey</td><td class="ag-when">설문 상태 전환 — DRAFT/PUBLISHED/CLOSED</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SURVEY_USE_TOGGLE</td><td class="ag-entity">tb_survey</td><td class="ag-when">사용중지 토글</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SURVEY_DELETE</td><td class="ag-entity">tb_survey</td><td class="ag-when">설문 soft delete</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SURVEY_RESPONSE</td><td class="ag-entity">tb_survey_response</td><td class="ag-when">회원이 응답 제출 — 1건당 발행</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">SURVEY_MASTER_*</td><td class="ag-entity">tb_survey_master</td><td class="ag-when">설문 분류 마스터 CRUD/USE_TOGGLE</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 11. 권한·접근제어 ============ -->
+        <section id="sec-access" class="ag-section">
+          <h2><span class="ag-emoji">🛡</span> 권한 · 접근제어</h2>
+          <p class="ag-desc">
+            URL 인가의 단일 출처인 <code>tb_role_url_access</code> 의 변경 이벤트.
+            DynamicAuthorizationManager 가 즉시 로드하므로 운영 영향이 큰 변경은
+            모두 감사로그로 추적됩니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="ag-action">URL_ACCESS_CREATE</td><td class="ag-entity">tb_role_url_access</td><td class="ag-when">URL 가드 규칙 신규 등록</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">URL_ACCESS_UPDATE</td><td class="ag-entity">tb_role_url_access</td><td class="ag-when">규칙 수정 (역할 CSV·HTTP 메서드 등)</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">URL_ACCESS_USE_TOGGLE</td><td class="ag-entity">tb_role_url_access</td><td class="ag-when">사용중지 토글</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+              <tr><td class="ag-action">URL_ACCESS_DELETE</td><td class="ag-entity">tb_role_url_access</td><td class="ag-when">규칙 삭제</td><td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 12. 검색 ============ -->
+        <section id="sec-search" class="ag-section">
+          <h2><span class="ag-emoji">🔍</span> 검색</h2>
+          <p class="ag-desc">
+            통합 검색 색인(<code>tb_search_index</code>) 의 운영 이벤트.
+            평소 색인 동기화는 도메인 CUD 직후 자동 호출되어 audit 로그를 별도로 남기지 않으며,
+            관리자가 명시적으로 트리거한 재구축만 기록됩니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">SEARCH_REBUILD</td>
+                <td class="ag-entity">tb_search_index</td>
+                <td class="ag-when">관리자가 [전체 색인 재구축] 버튼 클릭 — 시작/완료 시점에 각각 발행</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--err">ERROR</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 13. 엑셀 다운로드 ============ -->
+        <section id="sec-excel" class="ag-section">
+          <h2><span class="ag-emoji">📊</span> 엑셀 다운로드</h2>
+          <p class="ag-desc">
+            모든 관리자 화면의 엑셀 다운로드는 <code>downloadReason</code>(필수 사유 입력)과
+            <code>count</code>(다운로드 행수)를 <code>after_value</code> JSON 으로 보존합니다.
+            entity 컬럼이 도메인을 구분하므로 같은 EXCEL_DOWNLOAD action 도 별도 추적이 가능합니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">EXCEL_DOWNLOAD</td>
+                <td class="ag-entity">tb_admin · tb_admin_group · tb_member · tb_employee · tb_role · tb_role_url_access · tb_site · tb_template · tb_menu · tb_department · tb_code · tb_code_group · tb_content · tb_bbs_master · tb_bbs_article</td>
+                <td class="ag-when">관리자가 각 도메인 목록 화면에서 엑셀 다운로드 폼 제출 — 사유(downloadReason) 10자 이상 필수</td>
+                <td class="ag-result"><span class="ag-pill ag-pill--ok">SUCCESS</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- ============ 14. HTTP 자동 포착 ============ -->
+        <section id="sec-http" class="ag-section">
+          <h2><span class="ag-emoji">🌐</span> HTTP 자동 포착 (AuditHttpInterceptor)</h2>
+          <p class="ag-desc">
+            <code>/admin/**</code> 의 POST/PUT/PATCH/DELETE 요청을 도메인 Service 가 명시적으로
+            audit 를 발행하지 않은 경우에도 보강 기록합니다. 도메인별 명시 audit 가 있는 경우에는
+            의미 있는 도메인 코드(예: <code>BBS_ARTICLE_UPDATE</code>) + 자동 보강(<code>UPDATE</code>)이
+            중복으로 적재될 수 있으므로 분석 시 entity 와 함께 봅니다.
+          </p>
+          <table class="ag-table">
+            <thead>
+              <tr><th>action</th><th>entity</th><th>발생 시점</th><th>주요 result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ag-action">CREATE</td>
+                <td class="ag-entity">URL의 4번째 segment</td>
+                <td class="ag-when">/admin/system/{entity} 의 POST — 휴리스틱: 5 세그먼트 미만이면 신규 등록으로 추정</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--fail">FAIL</span>
+                  <span class="ag-pill ag-pill--err">ERROR</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="ag-action">UPDATE</td>
+                <td class="ag-entity">URL의 4번째 segment</td>
+                <td class="ag-when">/admin/system/{entity}/{id} 의 POST/PUT/PATCH — 5 세그먼트 이상이면 수정으로 추정</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--fail">FAIL</span>
+                  <span class="ag-pill ag-pill--err">ERROR</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="ag-action">DELETE</td>
+                <td class="ag-entity">URL의 4번째 segment</td>
+                <td class="ag-when">DELETE 메서드의 모든 /admin/** 요청</td>
+                <td class="ag-result">
+                  <span class="ag-pill ag-pill--ok">SUCCESS</span>
+                  <span class="ag-pill ag-pill--fail">FAIL</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+      </main>
+    </div>
+
+  </section>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>공휴일 상세</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="max-w-[672px] mx-auto px-4 py-6">
+      <a th:href="@{/holiday}" class="inline-flex items-center text-body-sm text-fg-subtle mb-4 hover:text-fg-strong">← 목록</a>
+
+      <div th:if="${error}" role="alert" aria-live="polite" class="krds-alert krds-alert-danger">
+        <span class="text-danger-icon font-bold shrink-0" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+
+      <article th:if="${holiday}" class="krds-card p-6">
+        <div class="flex items-center gap-2 mb-3">
+          <span class="text-body-sm text-fg" th:text="${holiday.holidayDate}">2026-01-01</span>
+          <span class="krds-badge bg-surface-subtle text-fg-subtle"
+                th:text="${holiday.holidayType}">PUBLIC</span>
+        </div>
+        <h1 class="text-heading-md font-bold text-fg-strong" th:text="${holiday.holidayName}">제목</h1>
+        <p th:if="${holiday.description}" class="mt-4 text-body-md text-fg whitespace-pre-wrap"
+           th:text="${holiday.description}">설명</p>
+      </article>
+    </div>
+
+  </section>
+</body>
+</html>

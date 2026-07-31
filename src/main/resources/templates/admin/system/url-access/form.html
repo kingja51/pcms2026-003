@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${mode == 'edit'} ? 'URL 규칙 수정' : 'URL 규칙 등록'">URL 규칙</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/url-access}" class="hover:underline">URL 접근 규칙</a>
+      <span class="mx-1">/</span>
+      <span th:text="${mode == 'edit'} ? '수정' : '등록'">등록</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-4"
+        th:text="${mode == 'edit'} ? 'URL 규칙 수정' : 'URL 규칙 등록'">URL 규칙</h1>
+
+    <div th:if="${error}"
+         class="mb-4 rounded bg-danger-surface border border-danger-border px-3 py-2 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <div th:if="${errors != null and !#lists.isEmpty(errors)}"
+         class="mb-4 rounded bg-danger-surface border border-danger-border px-3 py-2 text-sm text-danger-fg">
+      <ul class="list-disc list-inside">
+        <li th:each="e : ${errors}" th:text="${e.defaultMessage}">에러</li>
+      </ul>
+    </div>
+
+    <form method="post"
+          th:action="${mode == 'edit'} ? @{|/admin/system/url-access/${form.roleUrlAccessId}|} : @{/admin/system/url-access}"
+          th:object="${form}"
+          class="bg-surface border border-line rounded-large p-5 space-y-4">
+
+      <input type="hidden" th:if="${mode == 'edit'}" th:field="*{roleUrlAccessId}"/>
+
+      <!-- 매칭 조건 -->
+      <fieldset class="border border-line rounded p-4">
+        <legend class="px-2 text-sm font-semibold text-fg">매칭 조건</legend>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">우선순위 (낮을수록 먼저 매칭)</label>
+            <input type="number" th:field="*{priority}" min="0" max="9999"
+                   class="block w-full rounded border border-line px-2 py-1 text-sm font-mono"/>
+          </div>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">HTTP 메서드</label>
+            <select th:field="*{httpMethod}"
+                    class="block w-full rounded border border-line px-2 py-1 text-sm">
+              <option th:each="m : ${ {'ALL','GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'} }"
+                      th:value="${m}" th:text="${m}">ALL</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-xs text-fg-subtle mb-0.5">URL 패턴 (Ant 스타일)</label>
+            <input type="text" th:field="*{urlPattern}" required maxlength="500"
+                   placeholder="예: /admin/**, /api/v1/members/{id}"
+                   class="block w-full rounded border border-line px-2 py-1 text-sm font-mono"/>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-xs text-fg-subtle mb-0.5">사이트 (NULL = 전역 규칙)</label>
+            <select th:field="*{siteId}"
+                    class="block w-full rounded border border-line px-2 py-1 text-sm">
+              <option value="">— 전역 (모든 사이트) —</option>
+              <option th:each="s : ${sites}"
+                      th:value="${s.siteId}"
+                      th:text="|${s.siteCode} (${s.siteName})|">site</option>
+            </select>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- 접근 유형 -->
+      <fieldset class="border border-line rounded p-4">
+        <legend class="px-2 text-sm font-semibold text-fg">접근 유형</legend>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">access_type</label>
+            <select th:field="*{accessType}" required
+                    class="block w-full rounded border border-line px-2 py-1 text-sm">
+              <option value="">— 선택 —</option>
+              <option value="PERMIT_ALL">PERMIT_ALL — 누구나 접근</option>
+              <option value="AUTHENTICATED">AUTHENTICATED — 로그인 필요</option>
+              <option value="ANONYMOUS">ANONYMOUS — 비로그인 전용</option>
+              <option value="ROLE">ROLE — required_roles 필요</option>
+              <option value="AUTH">AUTH — required_auths 필요</option>
+              <option value="IP_ONLY">IP_ONLY — allowed_ips 필요</option>
+              <option value="DENY">DENY — 차단</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">사용 여부</label>
+            <select th:field="*{useYn}"
+                    class="block w-full rounded border border-line px-2 py-1 text-sm">
+              <option value="Y">Y (사용)</option>
+              <option value="N">N (사용중지)</option>
+            </select>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-xs text-fg-subtle mb-0.5">required_roles (CSV) — ROLE 유형 시 필수</label>
+            <input type="text" th:field="*{requiredRoles}" maxlength="2000"
+                   placeholder="role_id 콤마 구분, 예: 00000000-0000-7000-8000-000000000010,...0011"
+                   class="block w-full rounded border border-line px-2 py-1 text-sm font-mono"/>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-xs text-fg-subtle mb-0.5">required_auths (CSV) — AUTH 유형 시 필수</label>
+            <input type="text" th:field="*{requiredAuths}" maxlength="2000"
+                   placeholder="auth_id 콤마 구분, 예: CONTENT_PUBLISH,MEMBER_DELETE"
+                   class="block w-full rounded border border-line px-2 py-1 text-sm font-mono"/>
+          </div>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">allowed_user_types (CSV)</label>
+            <input type="text" th:field="*{allowedUserTypes}" maxlength="100"
+                   placeholder="MEMBER,EMPLOYEE,STAFF,ADMIN"
+                   class="block w-full rounded border border-line px-2 py-1 text-sm font-mono"/>
+          </div>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">allowed_ips (CIDR CSV) — IP_ONLY 유형 시 필수</label>
+            <input type="text" th:field="*{allowedIps}" maxlength="2000"
+                   placeholder="10.0.0.0/8, 192.168.1.5"
+                   class="block w-full rounded border border-line px-2 py-1 text-sm font-mono"/>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- 추가 옵션 -->
+      <fieldset class="border border-line rounded p-4">
+        <legend class="px-2 text-sm font-semibold text-fg">추가 옵션</legend>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">CSRF 체크</label>
+            <select th:field="*{requireCsrfYn}"
+                    class="block w-full rounded border border-line px-2 py-1 text-sm">
+              <option value="Y">Y (필요)</option>
+              <option value="N">N (예외 — REST API 등)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">2FA 추가 요구</label>
+            <select th:field="*{require2faYn}"
+                    class="block w-full rounded border border-line px-2 py-1 text-sm">
+              <option value="N">N</option>
+              <option value="Y">Y (2FA 필수)</option>
+            </select>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- 메모 -->
+      <fieldset class="border border-line rounded p-4">
+        <legend class="px-2 text-sm font-semibold text-fg">설명 / 메모</legend>
+
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">설명 (description, 500자)</label>
+            <input type="text" th:field="*{description}" maxlength="500"
+                   class="block w-full rounded border border-line px-2 py-1 text-sm"/>
+          </div>
+
+          <div>
+            <label class="block text-xs text-fg-subtle mb-0.5">메모 (remarks, 1000자)</label>
+            <textarea th:field="*{remarks}" rows="3" maxlength="1000"
+                      class="block w-full rounded border border-line px-2 py-1 text-sm"></textarea>
+          </div>
+        </div>
+      </fieldset>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t">
+        <a th:href="${mode == 'edit'}
+                    ? @{|/admin/system/url-access/${form.roleUrlAccessId}|}
+                    : @{/admin/system/url-access}"
+           class="inline-flex items-center px-4 py-2 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">취소</a>
+        <button type="submit"
+                class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm hover:bg-gray-70">
+          <span th:text="${mode == 'edit'} ? '수정' : '등록'">등록</span>
+        </button>
+      </div>
+
+    </form>
+
+  </section>
+</body>
+</html>

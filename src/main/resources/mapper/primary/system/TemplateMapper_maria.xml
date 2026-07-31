@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_template CRUD Mapper — 2026-04-23c 부터 전역 카탈로그 (site_id 제거).
+  resultType 기반. 감사컬럼 자동 주입은 AuditInterceptor.
+-->
+<mapper namespace="com.gonet.primary.system.site.mapper.TemplateMapper">
+
+  <sql id="templateColumnsFull">
+    t.template_id, t.template_code, t.template_name,
+    t.layout_path, t.design_md, t.file_group_id, t.description, t.use_yn, t.delete_yn,
+    t.created_by, t.created_ip, t.created_at,
+    t.updated_by, t.updated_ip, t.updated_at
+  </sql>
+
+  <sql id="searchFilter">
+    WHERE t.delete_yn = 'N'
+    <if test="search.useYn != null and search.useYn != ''">
+      AND t.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (t.template_code LIKE CONCAT('%', #{search.keyword}, '%')
+        OR t.template_name LIKE CONCAT('%', #{search.keyword}, '%')
+        OR t.layout_path   LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.system.site.dto.Template">
+    SELECT <include refid="templateColumnsFull"/>
+      FROM tb_template t
+    <include refid="searchFilter"/>
+    ORDER BY t.template_name ASC
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_template t
+    <include refid="searchFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.system.site.dto.Template">
+    SELECT <include refid="templateColumnsFull"/>
+      FROM tb_template t
+     WHERE t.template_id = #{templateId}
+       AND t.delete_yn   = 'N'
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_template
+     WHERE template_code = #{templateCode}
+       AND delete_yn     = 'N'
+    <if test="excludeTemplateId != null and excludeTemplateId != ''">
+      AND template_id &lt;&gt; #{excludeTemplateId}
+    </if>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.system.site.dto.Template">
+    INSERT INTO tb_template (
+      template_id, template_code, template_name,
+      layout_path, design_md, file_group_id, description, use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{templateId}, #{templateCode}, #{templateName},
+      #{layoutPath}, #{designMd}, #{fileGroupId}, #{description},
+      COALESCE(#{useYn},'Y'), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.system.site.dto.Template">
+    UPDATE tb_template SET
+      <if test="templateCode != null and templateCode != ''">template_code=#{templateCode},</if>
+      <if test="templateName != null and templateName != ''">template_name=#{templateName},</if>
+      <if test="layoutPath != null and layoutPath != ''">layout_path=#{layoutPath},</if>
+      <if test="designMd != null and designMd != ''">design_md=#{designMd},</if>
+      <if test="fileGroupId != null and fileGroupId != ''">file_group_id=#{fileGroupId},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      use_yn=COALESCE(#{useYn}, use_yn),
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE template_id = #{templateId}
+       AND delete_yn   = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_template
+       SET delete_yn  = 'Y',
+           updated_at = CURRENT_TIMESTAMP
+     WHERE template_id = #{templateId}
+       AND delete_yn   = 'N'
+  </update>
+
+  <select id="countReferencingSites" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_site
+     WHERE default_template_id = #{templateId}
+       AND delete_yn           = 'N'
+  </select>
+
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_template
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+</mapper>

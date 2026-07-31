@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>메일 템플릿</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">메일 템플릿</h1>
+        <p class="text-sm text-fg-subtle mt-1">총
+          <strong class="text-fg-strong" th:text="${page.totalElements}">0</strong> 건
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/mail-template/new}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+          + 새 템플릿
+        </a>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <form th:action="@{/admin/system/mail-template}" method="get"
+          class="bg-surface border border-line rounded-large p-4 mb-4">
+      <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_auto] gap-3 items-end">
+        <div>
+          <label for="keyword" class="block text-xs font-medium text-fg-subtle mb-1">검색어</label>
+          <input id="keyword" name="keyword" type="text"
+                 th:value="${search?.keyword}" maxlength="100" placeholder="코드 / 이름 / 제목"
+                 class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none"/>
+        </div>
+        <div>
+          <label for="useYn" class="block text-xs font-medium text-fg-subtle mb-1">사용여부</label>
+          <select id="useYn" name="useYn"
+                  class="block w-full rounded border border-line px-3 py-2 text-sm focus:border-brand-50 focus:ring-2 focus:ring-brand-20 focus:outline-none">
+            <option value="" th:selected="${search?.useYn == null or search?.useYn == ''}">전체</option>
+            <option value="Y" th:selected="${search?.useYn == 'Y'}">사용</option>
+            <option value="N" th:selected="${search?.useYn == 'N'}">미사용</option>
+          </select>
+        </div>
+        <div>
+          <button type="submit"
+                  class="inline-flex items-center px-4 py-2 rounded bg-gray-90 text-fg-on text-sm font-medium hover:bg-gray-70">
+            검색
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+            <th scope="col" class="px-4 py-3">코드</th>
+            <th scope="col" class="px-4 py-3">이름</th>
+            <th scope="col" class="px-4 py-3">제목</th>
+            <th scope="col" class="px-4 py-3">본문</th>
+            <th scope="col" class="px-4 py-3">사용</th>
+            <th scope="col" class="px-4 py-3">최근 수정</th>
+            <th scope="col" class="px-4 py-3 text-right">작업</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="row : ${page.content}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-2.5">
+              <a th:href="@{/admin/system/mail-template/{id}(id=${row.mailTemplateId})}"
+                 class="text-brand-60 hover:underline font-mono text-xs font-medium"
+                 th:text="${row.templateCode}">CODE</a>
+            </td>
+            <td class="px-4 py-2.5 text-fg-strong" th:text="${row.templateName}">이름</td>
+            <td class="px-4 py-2.5 text-fg text-xs truncate max-w-[280px]"
+                th:text="${row.subject}" th:title="${row.subject}">제목</td>
+            <td class="px-4 py-2.5">
+              <span th:if="${row.bodyHtml != null and row.bodyHtml != ''}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-5 text-secondary-70">있음</span>
+              <span th:unless="${row.bodyHtml != null and row.bodyHtml != ''}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-surface text-warning-fg">비어있음</span>
+            </td>
+            <td class="px-4 py-2.5">
+              <span th:if="${row.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용</span>
+              <span th:unless="${row.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">미사용</span>
+            </td>
+            <td class="px-4 py-2.5 text-fg font-mono text-xs" th:text="${@fmt.dt(row.updatedAt)}">-</td>
+            <td class="px-4 py-2.5 whitespace-nowrap text-right">
+              <a th:href="@{/admin/system/mail-template/{id}(id=${row.mailTemplateId})}"
+                 class="inline-flex items-center px-2.5 py-1 rounded border border-line bg-surface text-xs text-fg hover:bg-surface-subtle">
+                편집
+              </a>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(page.content)}">
+            <td colspan="7" class="px-4 py-10 text-center text-fg-subtle">
+              등록된 메일 템플릿이 없습니다.
+              <br/>
+              <span class="text-xs text-fg-disabled">
+                DDL 을 적용하고 앱을 재기동하면 5종 기본 템플릿이 자동 생성됩니다.
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <nav aria-label="페이지" th:if="${page.totalPages > 1}" class="mt-4">
+      <ul class="flex items-center justify-center gap-1 text-sm">
+        <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+          <a th:href="@{/admin/system/mail-template(page=${p}, pageSize=${page.pageSize},
+                                                     keyword=${search.keyword}, useYn=${search.useYn})}"
+             th:text="${p}"
+             th:class="${p == page.page}
+                       ? 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded bg-gray-90 text-fg-on'
+                       : 'inline-flex items-center justify-center min-w-[2rem] px-2 py-1 rounded border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+        </li>
+      </ul>
+    </nav>
+
+  </section>
+</body>
+</html>

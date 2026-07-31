@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|회원 상세 - ${member.loginId}|">회원 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/member}" class="hover:underline">회원</a>
+      <span class="mx-1">/</span>
+      <span class="font-mono" th:text="${member.loginId}">loginId</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong"
+            th:text="${@mask.name(member.memberName)}">이름(마스킹)</h1>
+        <p class="text-xs text-fg-subtle font-mono mt-1" th:text="${member.memberId}">uuid</p>
+      </div>
+      <nav class="flex items-center gap-2">
+        <form th:action="@{/admin/system/member/{id}/reset-password(id=${member.memberId})}"
+              method="post"
+              data-confirm="이 회원의 비밀번호를 초기화하고 임시 비밀번호를 이메일로 발송하시겠습니까?"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-secondary-30 bg-secondary-5 text-secondary-70 text-sm font-medium hover:bg-secondary-10">
+            비밀번호 초기화
+          </button>
+        </form>
+        <!-- 강제 탈퇴 — 사유 textarea(5자 이상) 입력 후 제출.
+             클릭 시 details 열림 → 사유 입력 → 제출 시 confirm. status=ADMIN_FORCE 는 Service 가 고정. -->
+        <details class="inline-block relative">
+          <summary class="list-none inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm font-medium hover:bg-danger-surface cursor-pointer">
+            강제 탈퇴
+          </summary>
+          <form th:action="@{/admin/system/member/{id}(id=${member.memberId})}"
+                method="post"
+                data-confirm="이 회원을 강제 탈퇴 처리하시겠습니까? (해시 정보 5년 보관)"
+                class="absolute right-0 mt-1 p-4 w-96 bg-surface border border-line rounded-large shadow-lg z-20 space-y-2">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="_method" value="delete"/>
+            <label for="force-delete-reason" class="block text-xs font-medium text-fg">
+              탈퇴 사유 <span class="text-danger-fg">*</span> (5자 이상)
+            </label>
+            <textarea id="force-delete-reason" name="reason" required
+                      minlength="5" maxlength="500" rows="3"
+                      placeholder="예: 약관 위반 다회 확인 — 운영자 검토 후 강제 탈퇴 처리"
+                      class="block w-full rounded border border-line px-2 py-1.5 text-sm focus:border-danger-50 focus:ring-2 focus:ring-danger-20 focus:outline-none"></textarea>
+            <p class="text-[11px] text-fg-subtle">사유는 tb_member_withdraw.withdraw_reason 자유 텍스트로 저장 + log_audit 기록</p>
+            <button type="submit"
+                    class="w-full inline-flex items-center justify-center px-3 py-1.5 rounded bg-danger-50 text-fg-on text-sm font-medium hover:bg-danger-60">
+              탈퇴 처리
+            </button>
+          </form>
+        </details>
+        <button type="button"
+                data-history-back
+                th:attr="data-history-back-fallback=@{/admin/system/member}"
+                class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          뒤로가기
+        </button>
+        <a th:href="@{/admin/system/member}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          목록
+        </a>
+      </nav>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      <section class="bg-surface border border-line rounded-large p-6 md:col-span-2">
+        <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">기본 정보</h2>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+          <div><dt class="text-fg-subtle">로그인 ID</dt>
+            <dd class="font-mono text-fg-strong" th:text="${member.loginId}">loginId</dd></div>
+          <div><dt class="text-fg-subtle">사이트</dt>
+            <dd class="text-fg-strong" th:text="|${member.siteCode} (${member.siteName})|">DEFAULT</dd></div>
+          <div><dt class="text-fg-subtle">닉네임</dt>
+            <dd class="text-fg-strong" th:text="${member.nickname} ?: '-'">-</dd></div>
+          <div><dt class="text-fg-subtle">가입 유형</dt>
+            <dd class="text-fg-strong" th:text="${member.joinType}">EMAIL</dd></div>
+          <div><dt class="text-fg-subtle">이름 (마스킹)</dt>
+            <dd class="text-fg-strong" th:text="${@mask.name(member.memberName)}">***</dd></div>
+          <div><dt class="text-fg-subtle">이메일 (마스킹)</dt>
+            <dd class="font-mono text-fg" th:text="${@mask.email(member.email)}">***</dd></div>
+          <div><dt class="text-fg-subtle">전화 (마스킹)</dt>
+            <dd class="font-mono text-fg" th:text="${@mask.phone(member.phone)}">-</dd></div>
+          <div><dt class="text-fg-subtle">이메일 인증</dt>
+            <dd>
+              <span th:if="${member.emailVerifiedYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">인증</span>
+              <span th:unless="${member.emailVerifiedYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">미인증</span>
+            </dd></div>
+          <div><dt class="text-fg-subtle">최종 로그인</dt>
+            <dd class="font-mono text-xs text-fg">
+              <span th:text="${@fmt.dt(member.lastLoginAt)}">-</span>
+              <span class="text-fg-disabled" th:if="${member.lastLoginIp}"
+                    th:text="|(${@mask.ip(member.lastLoginIp)})|"></span>
+            </dd></div>
+          <div><dt class="text-fg-subtle">가입일시</dt>
+            <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(member.createdAt)}">-</dd></div>
+          <div><dt class="text-fg-subtle">최근 수정</dt>
+            <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(member.updatedAt)}">-</dd></div>
+        </dl>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large p-6">
+        <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">계정 잠금</h2>
+        <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm mb-3">
+          <dt class="text-fg-subtle">로그인 실패</dt>
+          <dd class="text-fg-strong" th:text="${member.loginFailCount} ?: 0">0</dd>
+          <dt class="text-fg-subtle">잠금 해제 시각</dt>
+          <dd class="font-mono text-xs text-fg"
+              th:text="${@fmt.dt(member.lockedUntil)}">-</dd>
+        </dl>
+        <div th:with="locked=${member.lockedUntil != null and member.lockedUntil.isAfter(T(java.time.LocalDateTime).now())}">
+          <p th:if="${locked}"
+             class="mb-3 rounded border border-warning-border bg-warning-surface px-3 py-2 text-xs text-warning-fg">
+            현재 잠금 상태 — 회원이 5회 로그인 실패로 자동 잠겼습니다.
+            잠금 해제 시각까지 대기하거나 아래 버튼으로 즉시 해제할 수 있습니다.
+          </p>
+          <form th:action="@{/admin/system/member/{id}/unlock(id=${member.memberId})}"
+                method="post"
+                data-confirm="회원 계정 잠금을 해제합니다. 진행하시겠습니까?"
+                class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <button type="submit"
+                    th:disabled="${!locked and member.loginFailCount == null || member.loginFailCount == 0}"
+                    class="inline-flex items-center px-3 py-1.5 rounded border border-warning-border bg-surface text-warning-fg text-sm font-medium hover:bg-warning-surface disabled:opacity-50 disabled:cursor-not-allowed">
+              잠금 해제 (실패 카운트 0 초기화)
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large p-6">
+        <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">상태 변경</h2>
+        <p class="text-sm text-fg mb-3">
+          현재:
+          <span th:with="st=${member.status}"
+                th:class="${st == 'ACTIVE'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg'
+                         : (${st == 'LOCKED'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-surface text-warning-fg'
+                         : 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle')"
+                th:text="${@code.label('MEMBER_STATUS', st)}">활성</span>
+        </p>
+        <form th:action="@{/admin/system/member/{id}/status(id=${member.memberId})}"
+              method="post" class="flex items-center gap-2">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <select name="status" class="block rounded border border-line px-3 py-1.5 text-sm">
+            <option th:each="o : ${@code.options('MEMBER_STATUS')}"
+                    th:value="${o.code}"
+                    th:text="|${o.codeName} (${o.code})|"
+                    th:selected="${o.code == member.status}">활성 (ACTIVE)</option>
+          </select>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+            변경
+          </button>
+        </form>
+        <p class="text-xs text-fg-subtle mt-3">변경은 감사로그(<code>log_audit</code>) 에 자동 기록됩니다.</p>
+      </section>
+
+      <section class="bg-surface border border-line rounded-large p-6">
+        <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">수신 동의</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex items-center justify-between"><dt>이용약관</dt>
+            <dd th:text="${member.termsAgreeYn == 'Y'} ? '동의' : '미동의'">동의</dd></div>
+          <div class="flex items-center justify-between"><dt>개인정보</dt>
+            <dd th:text="${member.privacyAgreeYn == 'Y'} ? '동의' : '미동의'">동의</dd></div>
+          <div class="flex items-center justify-between"><dt>마케팅</dt>
+            <dd th:text="${member.marketingAgreeYn == 'Y'} ? '동의' : '미동의'">미동의</dd></div>
+          <div class="flex items-center justify-between"><dt>SMS</dt>
+            <dd th:text="${member.smsAgreeYn == 'Y'} ? '동의' : '미동의'">미동의</dd></div>
+          <div class="flex items-center justify-between"><dt>이메일</dt>
+            <dd th:text="${member.emailAgreeYn == 'Y'} ? '동의' : '미동의'">미동의</dd></div>
+        </dl>
+        <p class="text-xs text-fg-subtle mt-3">
+          총 동의 이력 <strong th:text="${#lists.size(consents)}">0</strong>건
+        </p>
+      </section>
+
+    </div>
+  </section>
+</body>
+</html>

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|허용 IP - ${admin.loginId}|">허용 IP</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-5xl mx-auto">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/admin}" class="hover:underline">관리자</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/admin/{id}(id=${admin.adminId})}"
+         class="hover:underline font-mono" th:text="${admin.loginId}">loginId</a>
+      <span class="mx-1">/</span>
+      <span>허용 IP</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong">접속 허용 IP</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          관리자 <strong class="text-fg-strong font-mono" th:text="${admin.loginId}">loginId</strong>
+          가 로그인할 수 있는 IP 화이트리스트.
+          <span class="text-fg-disabled">활성 행이 0건이면 폴백 정책(application.yml: <code>gopcms.security.admin.ip-fallback-allow</code>)이 적용됩니다.</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/admin/{id}/allow-ip/new(id=${admin.adminId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+          + IP 등록
+        </a>
+        <a th:href="@{/admin/system/admin/{id}(id=${admin.adminId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          관리자 상세로
+        </a>
+      </div>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <div class="bg-surface border border-line rounded-large overflow-hidden">
+      <table class="min-w-full divide-y divide-line text-sm">
+        <caption class="sr-only">허용 IP 목록</caption>
+        <thead class="bg-surface-subtle">
+          <tr class="text-left text-xs font-semibold text-fg-subtle uppercase tracking-wide">
+            <th scope="col" class="px-4 py-3">유형</th>
+            <th scope="col" class="px-4 py-3">IP / 범위</th>
+            <th scope="col" class="px-4 py-3">설명</th>
+            <th scope="col" class="px-4 py-3 text-right">접근 횟수</th>
+            <th scope="col" class="px-4 py-3">최근 접근</th>
+            <th scope="col" class="px-4 py-3">만료</th>
+            <th scope="col" class="px-4 py-3">상태</th>
+            <th scope="col" class="px-4 py-3 text-right">작업</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-divider">
+          <tr th:each="r : ${rows}" class="hover:bg-surface-subtle">
+            <td class="px-4 py-2.5">
+              <span th:with="t=${r.ipType}"
+                    th:class="${t == 'CIDR'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary-5 text-secondary-70'
+                              : (${t == 'RANGE'} ? 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-warning-surface text-warning-fg'
+                              : 'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg')"
+                    th:text="${r.ipType}">SINGLE</span>
+            </td>
+            <td class="px-4 py-2.5 font-mono text-xs text-fg-strong">
+              <span th:if="${r.ipType == 'RANGE'}"
+                    th:text="|${r.ipStart} ~ ${r.ipEnd}|">10.0.0.1 ~ 10.0.0.10</span>
+              <span th:unless="${r.ipType == 'RANGE'}" th:text="${r.ipAddress}">192.168.0.1</span>
+            </td>
+            <td class="px-4 py-2.5 text-fg text-xs"
+                th:text="${r.description} ?: '-'">-</td>
+            <td class="px-4 py-2.5 text-right font-mono"
+                th:text="${r.accessCount} ?: 0">0</td>
+            <td class="px-4 py-2.5 text-fg-subtle font-mono text-xs"
+                th:text="${@fmt.dt(r.lastAccessAt)}">-</td>
+            <td class="px-4 py-2.5 text-fg-subtle font-mono text-xs"
+                th:text="${@fmt.dt(r.expiresAt)} ?: '영구'">영구</td>
+            <td class="px-4 py-2.5">
+              <span th:if="${r.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용</span>
+              <span th:unless="${r.useYn == 'Y'}"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">미사용</span>
+            </td>
+            <td class="px-4 py-2.5 whitespace-nowrap text-right">
+              <a th:href="@{/admin/system/admin/{aid}/allow-ip/{id}/edit(aid=${admin.adminId}, id=${r.ipId})}"
+                 class="inline-flex items-center px-2 py-1 rounded border border-line bg-surface text-xs text-fg hover:bg-surface-subtle">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="align-middle" aria-hidden="true"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+<span class="sr-only">수정</span>
+              </a>
+              <form th:action="@{/admin/system/admin/{aid}/allow-ip/{id}(aid=${admin.adminId}, id=${r.ipId})}"
+                    method="post" class="inline ml-1"
+                    data-confirm="이 화이트리스트 항목을 삭제하시겠습니까?">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="_method" value="delete"/>
+                <button type="submit"
+                        class="inline-flex items-center px-2 py-1 rounded border border-danger-border bg-surface text-xs text-danger-fg hover:bg-danger-surface">
+                  삭제
+                </button>
+              </form>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(rows)}">
+            <td colspan="8" class="px-4 py-10 text-center text-fg-subtle">
+              등록된 허용 IP 가 없습니다. 첫 IP 를 등록하면 이 관리자는 해당 IP 에서만 로그인할 수 있게 됩니다.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+</body>
+</html>

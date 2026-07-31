@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title>설문 응답 통계</title>
+  <!-- Chart.js v4 — strict-dynamic 정책 하에서 nonce 붙은 script 가 로드 -->
+  <script th:src="@{/js/vendor/chart.umd.min.js}"
+          th:attr="nonce=${cspNonce}"></script>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/survey}" class="hover:underline">설문조사</a> /
+      <a th:href="@{/admin/system/survey/{id}(id=${survey.surveyId})}" class="hover:underline" th:text="${survey.surveyTitle}">제목</a> /
+      <span>응답 통계</span>
+    </nav>
+
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="'응답 통계 — ' + ${survey.surveyTitle}">응답 통계</h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          기간 <span class="font-mono text-xs" th:text="${@fmt.dt(survey.startAt)}">-</span> ~
+          <span class="font-mono text-xs" th:text="${@fmt.dt(survey.endAt)}">-</span> ·
+          상태 <span class="font-mono text-xs" th:text="${survey.status}">-</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <a th:href="@{/admin/system/survey/{id}(id=${survey.surveyId})}"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm">설문 상세</a>
+        <a th:href="@{/admin/system/survey/{id}/responses(id=${survey.surveyId})}"
+           class="px-3 py-1.5 rounded border border-line bg-surface text-sm">응답 목록</a>
+      </div>
+    </div>
+
+    <!-- ══════ 요약 카드 ══════ -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">총 응답 수</div>
+        <div class="mt-1 text-heading-lg font-bold text-fg-strong" th:text="${responseCount}">0</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">문항 수</div>
+        <div class="mt-1 text-heading-lg font-bold text-fg-strong"
+             th:text="${survey.questions != null ? #lists.size(survey.questions) : 0}">0</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">응답자 식별</div>
+        <div class="mt-1 text-sm font-semibold"
+             th:text="${survey.anonymousYn == 'Y' ? '익명' : '실명'}">실명</div>
+      </div>
+      <div class="bg-surface border border-line rounded-large p-4">
+        <div class="text-xs text-fg-subtle">중복 응답</div>
+        <div class="mt-1 text-sm font-semibold"
+             th:text="${survey.oneResponseYn == 'Y' ? '1인 1회' : '중복 가능'}">1인 1회</div>
+      </div>
+    </div>
+
+    <div th:if="${responseCount == 0}"
+         class="bg-warning-surface border border-warning-border rounded-large px-4 py-3 text-sm text-warning-fg mb-6">
+      아직 응답이 없습니다. 응답이 누적되면 차트가 표시됩니다.
+    </div>
+
+    <!-- ══════ 문항별 차트 컨테이너 ══════ -->
+    <div id="statsContainer" class="space-y-4">
+      <div th:each="q, iter : ${survey.questions}"
+           th:with="s=${stats.get(q.questionId)}"
+           class="bg-surface border border-line rounded-large p-5">
+
+        <div class="flex items-start gap-3 mb-3 flex-wrap">
+          <span class="inline-flex px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg"
+                th:text="${q.questionType}">TEXT</span>
+          <span th:if="${q.requiredYn == 'Y'}"
+                class="inline-flex px-2 py-0.5 rounded text-xs bg-danger-surface text-danger-fg">필수</span>
+          <h3 class="font-semibold text-fg-strong flex-1">
+            <span class="text-fg-subtle mr-1">Q<span th:text="${iter.count}">1</span>.</span>
+            <span th:text="${q.questionText}">문항</span>
+          </h3>
+        </div>
+
+        <!-- 객관식 (RADIO/CHECKBOX/SELECT) — 차트 + 표 -->
+        <div th:if="${s != null and s['options'] != null and !#lists.isEmpty(s['options'])}"
+             class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 items-start">
+          <div class="relative" style="height: 240px;">
+            <canvas th:id="'chart-' + ${q.questionId}"
+                    th:attr="data-qid=${q.questionId}, data-qtype=${q.questionType}"></canvas>
+          </div>
+          <table class="min-w-full text-sm">
+            <thead>
+              <tr class="text-left text-xs font-semibold text-fg-subtle uppercase border-b border-line">
+                <th class="px-2 py-1.5">선택지</th>
+                <th class="px-2 py-1.5 text-right">응답수</th>
+                <th class="px-2 py-1.5 text-right">비율</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-divider">
+              <tr th:each="o : ${s['options']}">
+                <td class="px-2 py-1.5 text-fg" th:text="${o['optionText']}">선택지</td>
+                <td class="px-2 py-1.5 text-right font-mono text-xs" th:text="${o['count']}">0</td>
+                <td class="px-2 py-1.5 text-right font-mono text-xs"
+                    th:text="${#numbers.formatDecimal(o['percentage'], 1, 1)} + '%'">0.0%</td>
+              </tr>
+              <tr class="bg-surface-subtle">
+                <td class="px-2 py-1.5 text-xs text-fg-subtle">총 응답</td>
+                <td class="px-2 py-1.5 text-right font-mono text-xs font-semibold" th:text="${s['total']}">0</td>
+                <td class="px-2 py-1.5 text-right font-mono text-xs">—</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 객관식인데 선택지 없음 -->
+        <div th:if="${(q.questionType == 'RADIO' or q.questionType == 'CHECKBOX' or q.questionType == 'SELECT')
+                       and (s == null or s['options'] == null or #lists.isEmpty(s['options']))}"
+             class="text-sm text-fg-subtle italic">선택지가 등록되지 않았거나 응답이 없습니다.</div>
+
+        <!-- SCALE — 평균/분포 + 카드 -->
+        <div th:with="scale=${s != null ? s['scale'] : null}"
+             th:if="${q.questionType == 'SCALE'}"
+             class="grid grid-cols-1 md:grid-cols-[280px_1fr] gap-4 items-start">
+          <div class="relative" style="height: 200px;">
+            <canvas th:id="'chart-' + ${q.questionId}"
+                    th:attr="data-qid=${q.questionId}, data-qtype=SCALE"></canvas>
+          </div>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-surface-subtle border border-line rounded p-3">
+              <div class="text-xs text-fg-subtle">평균</div>
+              <div class="mt-1 text-xl font-bold text-fg-strong"
+                   th:text="${scale != null and scale['avgVal'] != null ? #numbers.formatDecimal(scale['avgVal'], 1, 2) : '-'}">-</div>
+            </div>
+            <div class="bg-surface-subtle border border-line rounded p-3">
+              <div class="text-xs text-fg-subtle">응답수</div>
+              <div class="mt-1 text-xl font-bold text-fg-strong"
+                   th:text="${scale != null and scale['cnt'] != null ? scale['cnt'] : 0}">0</div>
+            </div>
+            <div class="bg-surface-subtle border border-line rounded p-3">
+              <div class="text-xs text-fg-subtle">최소</div>
+              <div class="mt-1 text-xl font-bold text-fg-strong"
+                   th:text="${scale != null and scale['minVal'] != null ? scale['minVal'] : '-'}">-</div>
+            </div>
+            <div class="bg-surface-subtle border border-line rounded p-3">
+              <div class="text-xs text-fg-subtle">최대</div>
+              <div class="mt-1 text-xl font-bold text-fg-strong"
+                   th:text="${scale != null and scale['maxVal'] != null ? scale['maxVal'] : '-'}">-</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 주관식 (TEXT/TEXTAREA) — 응답수만 -->
+        <div th:if="${q.questionType == 'TEXT' or q.questionType == 'TEXTAREA'}"
+             class="text-sm text-fg">
+          주관식 응답
+          <strong class="font-mono"
+                  th:text="${s != null and s['textCount'] != null ? s['textCount'] : 0}">0</strong>건
+          —
+          <a th:href="@{/admin/system/survey/{id}/responses(id=${survey.surveyId})}"
+             class="text-brand-60 hover:underline">응답 목록에서 확인 →</a>
+        </div>
+      </div>
+
+      <div th:if="${#lists.isEmpty(survey.questions)}"
+           class="bg-surface border border-dashed border-line rounded-large p-8 text-center text-sm text-fg-subtle">
+        등록된 문항이 없습니다.
+      </div>
+    </div>
+
+    <!-- ══════ Chart.js 페이로드 ══════ -->
+    <script id="statsPayload" type="application/json"
+            th:utext="${statsJson}">[]</script>
+
+    <script th:nonce="${cspNonce}" th:inline="none">
+      (function () {
+        if (typeof Chart === 'undefined') {
+          console.warn('Chart.js 가 로드되지 않았습니다.');
+          return;
+        }
+        Chart.defaults.font.family = "'Pretendard', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif";
+        Chart.defaults.font.size = 12;
+
+        // 색상 팔레트 (Tailwind slate/blue/emerald/amber/rose)
+        var PALETTE = [
+          '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
+          '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#6366f1',
+          '#14b8a6', '#f43f5e'
+        ];
+        function color(i) { return PALETTE[i % PALETTE.length]; }
+
+        var raw = document.getElementById('statsPayload').textContent.trim();
+        var data;
+        try { data = JSON.parse(raw); } catch (e) {
+          console.error('stats payload parse error', e);
+          return;
+        }
+
+        data.forEach(function (q) {
+          var canvas = document.getElementById('chart-' + q.questionId);
+          if (!canvas) return;
+          var ctx = canvas.getContext('2d');
+
+          // 객관식 — RADIO/SELECT 는 도넛, CHECKBOX 는 가로 막대
+          if (q.options && q.options.length > 0) {
+            var labels = q.options.map(function (o) { return o.text; });
+            var counts = q.options.map(function (o) { return o.count || 0; });
+            var colors = q.options.map(function (_, i) { return color(i); });
+
+            if (q.questionType === 'CHECKBOX') {
+              new Chart(ctx, {
+                type: 'bar',
+                data: {
+                  labels: labels,
+                  datasets: [{
+                    label: '응답수',
+                    data: counts,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                  }]
+                },
+                options: {
+                  indexAxis: 'y',
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: { legend: { display: false } },
+                  scales: {
+                    x: { beginAtZero: true, ticks: { precision: 0 } }
+                  }
+                }
+              });
+            } else {
+              // RADIO / SELECT
+              new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                  labels: labels,
+                  datasets: [{
+                    data: counts,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  cutout: '55%',
+                  plugins: {
+                    legend: {
+                      position: 'right',
+                      labels: { boxWidth: 12, padding: 8 }
+                    }
+                  }
+                }
+              });
+            }
+            return;
+          }
+
+          // SCALE — min~max 범위 막대 + 평균 점선
+          if (q.questionType === 'SCALE' && q.scale) {
+            var minV = q.scale.minVal != null ? q.scale.minVal : 0;
+            var maxV = q.scale.maxVal != null ? q.scale.maxVal : 0;
+            var avgV = q.scale.avgVal != null ? Number(q.scale.avgVal) : 0;
+            new Chart(ctx, {
+              type: 'bar',
+              data: {
+                labels: ['최소', '평균', '최대'],
+                datasets: [{
+                  label: '값',
+                  data: [minV, Number(avgV.toFixed(2)), maxV],
+                  backgroundColor: ['#94a3b8', '#2563eb', '#10b981'],
+                  borderWidth: 0
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                  y: { beginAtZero: true }
+                }
+              }
+            });
+          }
+        });
+      })();
+    </script>
+
+  </section>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_bbs_report — 게시판 신고 (article + comment 통합).
+
+  설계:
+  - 목록은 LEFT JOIN tb_bbs_article + tb_bbs_comment 로 신고된 콘텐츠 미리보기 동시 조회.
+  - target_type 별로 한쪽만 NOT NULL 이므로 COALESCE 로 단일 컬럼 노출.
+  - reporter_login_id 는 v_user_login VIEW JOIN — 회원/직원/관리자 통합 식별.
+-->
+<mapper namespace="com.gonet.primary.board.report.mapper.BbsReportMapper">
+
+  <sql id="reportColumns">
+    r.report_id, r.target_type, r.target_id,
+    r.reporter_user_id, r.reporter_user_type, r.source_url,
+    r.reason_code, r.reason_text,
+    r.status, r.reviewed_by, r.reviewed_at, r.review_note,
+    r.delete_yn,
+    r.created_by, r.created_ip, r.created_at,
+    r.updated_by, r.updated_ip, r.updated_at,
+    COALESCE(a.title, LEFT(c.content, 100), ct.title) AS target_title,
+    u.login_id AS reporter_login_id
+  </sql>
+
+  <sql id="reportFrom">
+      FROM tb_bbs_report r
+      LEFT JOIN tb_bbs_article a ON r.target_type = 'ARTICLE' AND a.article_id = r.target_id
+      LEFT JOIN tb_bbs_comment c ON r.target_type = 'COMMENT' AND c.comment_id = r.target_id
+      LEFT JOIN tb_content     ct ON r.target_type = 'CONTENT' AND ct.content_id = r.target_id
+      LEFT JOIN v_user_login   u  ON u.user_id = r.reporter_user_id
+  </sql>
+
+  <select id="findByTargetAndReporter" resultType="com.gonet.primary.board.report.dto.BbsReport">
+    SELECT <include refid="reportColumns"/>
+    <include refid="reportFrom"/>
+     WHERE r.target_type     = #{targetType}
+       AND r.target_id       = #{targetId}
+       AND r.reporter_user_id = #{reporterUserId}
+       AND r.delete_yn       = 'N'
+     LIMIT 1
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.board.report.dto.BbsReport">
+    INSERT INTO tb_bbs_report (
+      report_id, target_type, target_id,
+      reporter_user_id, reporter_user_type, source_url,
+      reason_code, reason_text,
+      status, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{reportId}, #{targetType}, #{targetId},
+      #{reporterUserId}, #{reporterUserType}, #{sourceUrl},
+      #{reasonCode}, #{reasonText},
+      'PENDING', 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <select id="findById" resultType="com.gonet.primary.board.report.dto.BbsReport">
+    SELECT <include refid="reportColumns"/>
+    <include refid="reportFrom"/>
+     WHERE r.report_id = #{reportId}
+  </select>
+
+  <sql id="listFilter">
+    WHERE r.delete_yn = 'N'
+    <if test="search.status != null and search.status != '' and search.status != 'ALL'">
+      AND r.status = #{search.status}
+    </if>
+    <if test="search.targetType != null and search.targetType != '' and search.targetType != 'ALL'">
+      AND r.target_type = #{search.targetType}
+    </if>
+    <if test="search.reasonCode != null and search.reasonCode != '' and search.reasonCode != 'ALL'">
+      AND r.reason_code = #{search.reasonCode}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (
+            r.reason_text LIKE CONCAT('%', #{search.keyword}, '%')
+         OR u.login_id    LIKE CONCAT('%', #{search.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.board.report.dto.BbsReport">
+    SELECT <include refid="reportColumns"/>
+    <include refid="reportFrom"/>
+    <include refid="listFilter"/>
+     ORDER BY r.created_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_bbs_report r
+      LEFT JOIN v_user_login u ON u.user_id = r.reporter_user_id
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="countActiveByTarget" resultType="long">
+    SELECT COUNT(1)
+      FROM tb_bbs_report
+     WHERE target_type = #{targetType}
+       AND target_id   = #{targetId}
+       AND delete_yn   = 'N'
+       AND status      = 'PENDING'
+  </select>
+
+  <update id="updateReview">
+    UPDATE tb_bbs_report
+       SET status      = #{status},
+           reviewed_by = #{reviewedBy},
+           reviewed_at = CURRENT_TIMESTAMP,
+           review_note = #{reviewNote},
+           updated_by  = #{reviewedBy},
+           updated_at  = CURRENT_TIMESTAMP
+     WHERE report_id = #{reportId}
+       AND delete_yn = 'N'
+  </update>
+
+  <!--
+    자동 REPORTED 임계 도달 직후 / 관리자 REPORTED→PUBLISHED 복귀 직후 호출.
+    대상의 PENDING 신고를 일괄 REVIEWED 로 전이하여 countActiveByTarget 가 0 으로 떨어지게 함.
+    무한 REPORTED 재전환 회귀(C-2) 방지.
+  -->
+  <update id="resolvePendingByTarget">
+    UPDATE tb_bbs_report
+       SET status      = 'REVIEWED',
+           reviewed_by = #{reviewedBy},
+           reviewed_at = CURRENT_TIMESTAMP,
+           review_note = #{reviewNote},
+           updated_by  = #{reviewedBy},
+           updated_at  = CURRENT_TIMESTAMP
+     WHERE target_type = #{targetType}
+       AND target_id   = #{targetId}
+       AND status      = 'PENDING'
+       AND delete_yn   = 'N'
+  </update>
+
+  <!-- 회원 대시보드 — 본인이 신고한 최신 N건 (reporter_user_id = userId) -->
+  <select id="findRecentByReporter" resultType="com.gonet.primary.board.report.dto.BbsReport">
+    SELECT <include refid="reportColumns"/>
+    <include refid="reportFrom"/>
+     WHERE r.delete_yn        = 'N'
+       AND r.reporter_user_id = #{reporterUserId}
+     ORDER BY r.created_at DESC
+     LIMIT #{limit}
+  </select>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_bbs_report
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_bbs_report
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_bbs_report
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

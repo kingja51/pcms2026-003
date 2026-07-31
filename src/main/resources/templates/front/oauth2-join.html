@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<!--
+  OAuth2 회원가입 — /member/oauth2/join
+    · provider 인증을 통과한 외부 프로필이 세션에 보관된 상태에서 진입
+    · 이메일/이름/닉네임은 prefill 되며 본인이 수정 가능
+    · 약관 5종은 사용자가 직접 동의 (NICE 본인인증은 OAuth2 흐름에서 생략)
+    · POST 시 가입 + 매핑 INSERT + 자동 로그인 → /member/mypage 로 이동
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>소셜 계정으로 회원가입</title>
+</head>
+<body>
+  <section layout:fragment="content" class="max-w-xl mx-auto">
+
+    <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6 md:p-8">
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-slate-900">소셜 계정으로 회원가입</h1>
+        <p class="text-sm text-slate-500 mt-1">
+          <strong th:text="${profile?.provider?.label()} ?: '소셜'">소셜</strong>
+          계정 인증이 완료되었습니다. 회원 정보를 확인하고 가입을 완료해 주세요.
+        </p>
+      </div>
+
+      <div th:if="${error}" role="alert" aria-live="polite"
+           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <p th:text="${error}">에러</p>
+      </div>
+      <div th:if="${errors}" role="alert" aria-live="polite"
+           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <ul class="list-disc pl-5">
+          <li th:each="e : ${errors}" th:text="${e.defaultMessage}">error</li>
+        </ul>
+      </div>
+
+      <!-- 외부 프로필 요약 -->
+      <div th:if="${profile != null}"
+           class="mb-5 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+        <p>
+          <strong th:text="${profile.provider.label()}">provider</strong> 에서
+          <strong th:text="${profile.email} ?: '(이메일 미제공)'">email</strong>
+          (<span th:text="${profile.name} ?: '(이름 미제공)'">name</span>) 으로 인증되었습니다.
+        </p>
+      </div>
+
+      <!-- siteContext 미해석 안내 — siteCode 없으면 가입/중복확인 모두 실패 -->
+      <div th:if="${siteContext == null or siteContext.site == null}"
+           role="alert"
+           class="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <p>
+          <strong>사이트 정보가 확인되지 않습니다.</strong>
+          로그인 화면을 다음 형식으로 다시 열어 주세요:
+          <code class="px-1.5 py-0.5 rounded bg-white border border-amber-300 text-xs">/member/login?siteCode=<em>airbnb</em></code>
+          (예: <code class="text-xs">airbnb</code>, <code class="text-xs">clay</code> 등)
+        </p>
+      </div>
+
+      <form th:action="@{/member/oauth2/join}" method="post" autocomplete="off"
+            class="space-y-4" novalidate>
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+        <th:block th:replace="~{fragments/site-context :: hiddenSiteCode}"/>
+
+        <input type="hidden" name="userType" value="ADULT"/>
+
+        <div>
+          <label for="loginId" class="block text-sm font-medium text-slate-700 mb-1">아이디</label>
+          <div class="flex gap-2">
+            <input id="loginId" name="loginId" type="text" required minlength="8" maxlength="50"
+                   pattern="^[a-z][a-z0-9_]+$"
+                   th:value="${form?.loginId}" autocomplete="username"
+                   placeholder="영소문자/숫자/_ 8자 이상"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+            <button type="button"
+                    hx-get="/member/join/check-login-id"
+                    hx-include="#loginId, [name='siteCode']"
+                    hx-target="#loginIdCheckResult"
+                    hx-swap="innerHTML"
+                    class="shrink-0 whitespace-nowrap inline-flex items-center px-3 py-2 rounded border border-slate-300 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-200">
+              중복확인
+            </button>
+          </div>
+          <div id="loginIdCheckResult" aria-live="polite"></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="password" class="block text-sm font-medium text-slate-700 mb-1">비밀번호</label>
+            <input id="password" name="password" type="password" required minlength="8" maxlength="100"
+                   autocomplete="new-password"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+            <p class="mt-1 text-xs text-slate-500">8자 이상 3종 또는 10자 이상 2종 조합</p>
+          </div>
+          <div>
+            <label for="passwordConfirm" class="block text-sm font-medium text-slate-700 mb-1">비밀번호 확인</label>
+            <input id="passwordConfirm" name="passwordConfirm" type="password" required minlength="8" maxlength="100"
+                   autocomplete="new-password"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label for="memberName" class="block text-sm font-medium text-slate-700 mb-1">이름</label>
+            <input id="memberName" name="memberName" type="text" required maxlength="100"
+                   th:value="${form?.memberName}"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+          </div>
+          <div>
+            <label for="nickname" class="block text-sm font-medium text-slate-700 mb-1">닉네임 (선택)</label>
+            <input id="nickname" name="nickname" type="text" maxlength="100"
+                   th:value="${form?.nickname}"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+          </div>
+        </div>
+
+        <div>
+          <label for="email" class="block text-sm font-medium text-slate-700 mb-1">이메일</label>
+          <input id="email" name="email" type="email" required maxlength="255"
+                 th:value="${form?.email}" autocomplete="email"
+                 class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                        focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label for="phone" class="block text-sm font-medium text-slate-700 mb-1">전화번호 (선택)</label>
+            <input id="phone" name="phone" type="text" maxlength="20" placeholder="010-1234-5678"
+                   th:value="${form?.phone}"
+                   class="block w-full rounded border border-slate-300 px-3 py-2 text-sm
+                          focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              생년월일 <span class="text-red-600">*</span>
+            </label>
+            <div class="flex gap-2">
+              <select id="birthYearSelect" required
+                      class="flex-1 rounded border border-slate-300 px-2 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none">
+                <option value="">년</option>
+              </select>
+              <select id="birthMonthSelect" required
+                      class="flex-1 rounded border border-slate-300 px-2 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none">
+                <option value="">월</option>
+              </select>
+              <select id="birthDaySelect" required
+                      class="flex-1 rounded border border-slate-300 px-2 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none">
+                <option value="">일</option>
+              </select>
+            </div>
+            <input id="birthDate" type="hidden" name="birthDate" th:value="${form?.birthDate}"/>
+          </div>
+
+          <div class="md:col-span-2">
+            <label class="block text-sm font-medium text-slate-700 mb-1">
+              성별 <span class="text-red-600">*</span>
+            </label>
+            <div class="flex gap-4 text-sm">
+              <label class="inline-flex items-center gap-1">
+                <input type="radio" name="gender" value="M" required class="accent-blue-600"
+                       th:checked="${form?.gender == 'M'}"/> 남성
+              </label>
+              <label class="inline-flex items-center gap-1">
+                <input type="radio" name="gender" value="F" required class="accent-blue-600"
+                       th:checked="${form?.gender == 'F'}"/> 여성
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- 약관 동의 -->
+        <fieldset class="mt-2 rounded border border-slate-200 p-4">
+          <legend class="text-sm font-medium text-slate-700 px-1">약관 동의</legend>
+          <label class="flex items-start gap-2 text-sm py-1">
+            <input type="checkbox" name="termsAgreeYn" value="Y" required class="mt-1"/>
+            <span><strong>(필수)</strong> 이용약관에 동의합니다.</span>
+          </label>
+          <label class="flex items-start gap-2 text-sm py-1">
+            <input type="checkbox" name="privacyAgreeYn" value="Y" required class="mt-1"/>
+            <span><strong>(필수)</strong> 개인정보 수집·이용에 동의합니다.</span>
+          </label>
+          <label class="flex items-start gap-2 text-sm py-1">
+            <input type="checkbox" name="marketingAgreeYn" value="Y" class="mt-1"/>
+            <span>(선택) 마케팅 정보 수신에 동의합니다.</span>
+          </label>
+          <label class="flex items-start gap-2 text-sm py-1">
+            <input type="checkbox" name="smsAgreeYn" value="Y" class="mt-1"/>
+            <span>(선택) SMS 수신에 동의합니다.</span>
+          </label>
+          <label class="flex items-start gap-2 text-sm py-1">
+            <input type="checkbox" name="emailAgreeYn" value="Y" class="mt-1"/>
+            <span>(선택) 이메일 수신에 동의합니다.</span>
+          </label>
+        </fieldset>
+
+        <button type="submit"
+                class="w-full rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white
+                       hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors">
+          가입 완료
+        </button>
+      </form>
+
+      <p class="mt-6 text-center text-sm text-slate-500">
+        취소하고 <a th:href="@{/member/login}" class="text-blue-600 hover:underline">로그인 화면</a>으로 돌아가기
+      </p>
+    </div>
+
+    <!-- 년/월/일 3 select → hidden birthDate(yyyyMMdd) 합성 -->
+    <script th:attr="nonce=${cspNonce}">
+      (function () {
+        'use strict';
+        var ySel  = document.getElementById('birthYearSelect');
+        var mSel  = document.getElementById('birthMonthSelect');
+        var dSel  = document.getElementById('birthDaySelect');
+        var hidden = document.getElementById('birthDate');
+        if (!ySel || !mSel || !dSel || !hidden) return;
+
+        function pad2(n) { return (n < 10 ? '0' : '') + n; }
+        function makeOption(value, label) {
+          var o = document.createElement('option');
+          o.value = value; o.textContent = label;
+          return o;
+        }
+
+        var now = new Date();
+        for (var y = now.getFullYear(); y >= 1900; y--) {
+          ySel.appendChild(makeOption(String(y), y + '년'));
+        }
+        for (var m = 1; m <= 12; m++) {
+          mSel.appendChild(makeOption(pad2(m), m + '월'));
+        }
+
+        function rebuildDays() {
+          var yv = parseInt(ySel.value, 10);
+          var mv = parseInt(mSel.value, 10);
+          var maxDay = 31;
+          if (!isNaN(yv) && !isNaN(mv)) {
+            maxDay = new Date(yv, mv, 0).getDate();
+          }
+          var keep = dSel.value;
+          while (dSel.options.length > 1) dSel.remove(1);
+          for (var d = 1; d <= maxDay; d++) {
+            dSel.appendChild(makeOption(pad2(d), d + '일'));
+          }
+          if (keep && parseInt(keep, 10) <= maxDay) dSel.value = keep; else dSel.value = '';
+          sync();
+        }
+        function sync() {
+          hidden.value = (ySel.value && mSel.value && dSel.value)
+            ? (ySel.value + mSel.value + dSel.value) : '';
+        }
+        ySel.addEventListener('change', rebuildDays);
+        mSel.addEventListener('change', rebuildDays);
+        dSel.addEventListener('change', sync);
+
+        if (hidden.value && /^\d{8}$/.test(hidden.value)) {
+          ySel.value = hidden.value.substring(0, 4);
+          mSel.value = hidden.value.substring(4, 6);
+          rebuildDays();
+          dSel.value = hidden.value.substring(6, 8);
+          sync();
+        } else {
+          rebuildDays();
+        }
+      })();
+    </script>
+
+    <!--
+      에러 alert — 서버 측 BindingResult/flash error 를 페이지 로드 시 alert() 로 노출.
+      JSON.parse 로 안전하게 직렬화된 메시지 배열을 받아 한 번에 출력.
+    -->
+    <script th:inline="javascript" th:attr="nonce=${cspNonce}">
+      (function () {
+        var msgs = [];
+        /*[# th:if="${error}"]*/ msgs.push(/*[[${error}]]*/ ''); /*[/]*/
+        /*[# th:if="${errors}"]*/
+          /*[# th:each="e : ${errors}"]*/ msgs.push(/*[[${e.defaultMessage}]]*/ ''); /*[/]*/
+        /*[/]*/
+        msgs = msgs.filter(function (m) { return m && m.length > 0; });
+        if (msgs.length > 0) {
+          alert('가입 처리 중 다음 오류가 발생했습니다:\n\n  • ' + msgs.join('\n  • '));
+        }
+      })();
+    </script>
+
+  </section>
+</body>
+</html>

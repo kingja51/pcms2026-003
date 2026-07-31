@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>응답 상세</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <nav class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> /
+      <a th:href="@{/admin/system/survey}" class="hover:underline">설문조사</a> /
+      <a th:href="@{/admin/system/survey/{id}(id=${survey.surveyId})}" class="hover:underline" th:text="${survey.surveyTitle}">제목</a> /
+      <a th:href="@{/admin/system/survey/{id}/responses(id=${survey.surveyId})}" class="hover:underline">응답</a> /
+      <span>상세</span>
+    </nav>
+
+    <h1 class="text-heading-lg font-bold text-fg-strong mb-2">응답 상세</h1>
+    <p class="text-sm text-fg-subtle mb-6 font-mono">
+      <span th:text="${@fmt.dt(response.submittedAt)}">-</span> ·
+      <span th:if="${survey.anonymousYn == 'Y' or response.memberId == null}" class="italic">(익명)</span>
+      <span th:unless="${survey.anonymousYn == 'Y' or response.memberId == null}"
+            th:text="${response.memberLoginId ?: response.memberId}">login</span> ·
+      IP <span th:text="${response.clientIp ?: '-'}">-</span>
+    </p>
+
+    <div class="bg-surface border border-line rounded-large p-5 space-y-4">
+      <div th:each="g : ${groupedAnswers}" class="border-b border-divider pb-3 last:border-0 last:pb-0">
+        <p class="text-sm font-semibold text-fg">
+          <span class="inline-block min-w-[2.5rem] text-secondary-60 font-mono"
+                th:text="'Q' + ${g.order} + '.'">Q1.</span>
+          <span th:text="${g.questionText}">문항</span>
+        </p>
+        <p class="mt-1 text-sm text-fg-strong pl-10 whitespace-pre-wrap" th:text="${g.joined}">응답</p>
+      </div>
+      <div th:if="${#lists.isEmpty(groupedAnswers)}" class="text-sm text-fg-subtle">응답 내용이 없습니다.</div>
+    </div>
+
+  </section>
+</body>
+</html>

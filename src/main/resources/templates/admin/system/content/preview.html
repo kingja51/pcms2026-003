@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|미리보기 - ${content.title}|">미리보기</title>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/content}" class="hover:underline">콘텐츠</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/content/{cid}(cid=${content.contentId})}" class="hover:underline" th:text="${content.title}">제목</a>
+    <span class="mx-1">/</span>
+    <span>미리보기</span>
+  </nav>
+
+  <div class="flex items-start justify-between gap-4 flex-wrap mb-4">
+    <div>
+      <h1 class="text-heading-lg font-bold text-fg-strong" th:text="|미리보기 — ${content.title}|">미리보기</h1>
+      <div class="mt-2 flex items-center gap-2 text-xs text-fg-subtle">
+        <span>사이트: <span class="font-mono text-fg" th:text="${content.siteCode}">-</span></span>
+        <span>·</span>
+        <span>slug: <span class="font-mono text-fg" th:text="${content.slug} ?: '—'">-</span></span>
+        <span>·</span>
+        <span>상태: <span class="font-mono text-fg" th:text="${content.status}">-</span></span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <a th:href="@{/admin/system/content/{cid}(cid=${content.contentId})}"
+         class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">상세로</a>
+      <!-- 큰 화면 미리보기 — 사이트 프런트 URL 새 탭 -->
+      <a th:if="${content.siteCode != null and !content.siteCode.isEmpty()
+                 and content.slug != null and !content.slug.isEmpty()}"
+         th:href="@{|/${content.siteCode}/${content.slug}|}" target="_blank" rel="noopener"
+         class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">미리보기 ↗</a>
+      <span th:unless="${content.siteCode != null and !content.siteCode.isEmpty()
+                         and content.slug != null and !content.slug.isEmpty()}"
+            title="siteCode 와 slug 가 모두 채워져 있어야 사이트 프런트 미리보기가 가능합니다."
+            class="inline-flex items-center px-3 py-1.5 rounded bg-surface-subtler text-fg-subtle text-sm font-medium cursor-not-allowed">미리보기 ↗</span>
+      <button type="button" id="topSaveBtn"
+              class="inline-flex items-center px-3 py-1.5 rounded bg-success-50 text-fg-on text-sm font-medium hover:bg-success-60">수정</button>
+      <a th:href="@{/admin/system/content/{cid}/edit(cid=${content.contentId})}"
+         class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">전체편집</a>
+    </div>
+  </div>
+
+  <div th:if="${message}" role="status"
+       class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+  <div th:if="${error}" role="alert"
+       class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+  <div class="bg-warning-surface border border-warning-border text-warning-fg text-xs px-3 py-2 rounded mb-4" role="status">
+    [수정] 은 BODY 만 저장합니다 (이력 자동 기록). 제목·slug·SEO 메타 등은 [전체편집] 에서 변경하세요.
+  </div>
+
+  <!-- BODY 저장 폼 — 상단 [수정] 버튼 + 하단 fieldset 가 같이 사용. -->
+  <form th:action="@{/admin/system/content/{cid}/body(cid=${content.contentId})}"
+        method="post" id="bodySaveForm" class="hidden">
+    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+    <input type="hidden" name="body" id="bodySaveInput"/>
+    <input type="hidden" name="changeNote" id="bodySaveChangeNote" value=""/>
+  </form>
+
+  <div class="bg-surface border border-line rounded-large p-4">
+    <div class="flex items-center justify-between mb-3 gap-2">
+      <div class="text-sm font-semibold text-fg">렌더 HTML (body)</div>
+      <div class="flex items-center gap-2">
+        <label class="inline-flex items-center gap-1 text-xs text-fg-subtle">
+          <input type="checkbox" id="livePreviewToggle" checked class="rounded border-line"/>
+          자동 미리보기
+        </label>
+        <button type="button" id="previewRefreshBtn"
+                class="inline-flex items-center px-2 py-1 rounded border border-line bg-surface text-xs text-fg hover:bg-surface-subtle">
+          미리보기 새로고침
+        </button>
+        <button type="button" id="resetBodyBtn"
+                class="inline-flex items-center px-2 py-1 rounded border border-line bg-surface text-xs text-fg hover:bg-surface-subtle"
+                title="저장된 원본 body 로 되돌리기">초기화</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      <textarea id="bodyEditor" rows="22"
+                class="block w-full rounded border border-line px-3 py-2 text-sm font-mono"
+                th:text="${body}"></textarea>
+      <div class="border border-line rounded bg-surface-subtle overflow-hidden flex flex-col">
+        <div class="px-3 py-1.5 bg-surface-subtler border-b border-line text-xs text-fg-subtle flex items-center justify-between">
+          <span>미리보기</span>
+          <span id="previewStatus" class="text-fg-disabled">대기</span>
+        </div>
+        <iframe id="previewFrame" name="previewFrame" title="미리보기"
+                class="w-full bg-surface flex-1" style="min-height: 520px; border: 0;"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <th:block th:with="csrfParam=${_csrf.parameterName},
+                     csrfToken=${_csrf.token},
+                     siteIdJs=${content.siteId} ?: '',
+                     titleJs=${content.title} ?: '',
+                     bodyOrigJs=${body} ?: ''">
+    <script th:inline="javascript" th:attr="nonce=${cspNonce}">
+      /*<![CDATA[*/
+      (function () {
+        const previewUrl = /*[[@{/admin/system/content/preview-live}]]*/ '/admin/system/content/preview-live';
+        const csrfParam  = /*[[${csrfParam}]]*/ '_csrf';
+        const csrfToken  = /*[[${csrfToken}]]*/ '';
+        const siteId     = /*[[${siteIdJs}]]*/ '';
+        const titleStr   = /*[[${titleJs}]]*/ '';
+        const bodyOrig   = /*[[${bodyOrigJs}]]*/ '';
+
+        const editor     = document.getElementById('bodyEditor');
+        const frame      = document.getElementById('previewFrame');
+        const statusEl   = document.getElementById('previewStatus');
+        const refreshBtn = document.getElementById('previewRefreshBtn');
+        const resetBtn   = document.getElementById('resetBodyBtn');
+        const liveToggle = document.getElementById('livePreviewToggle');
+        const topSaveBtn    = document.getElementById('topSaveBtn');
+        const saveForm      = document.getElementById('bodySaveForm');
+        const saveInput     = document.getElementById('bodySaveInput');
+        const saveNote      = document.getElementById('bodySaveChangeNote');
+
+        function refreshPreview() {
+          statusEl.textContent = '갱신 중…';
+          const f = document.createElement('form');
+          f.method = 'POST';
+          f.action = previewUrl;
+          f.target = 'previewFrame';
+          f.style.display = 'none';
+          const fields = {
+            [csrfParam]: csrfToken,
+            siteId: siteId,
+            title:  titleStr,
+            body:   editor.value
+          };
+          Object.entries(fields).forEach(([k, v]) => {
+            const i = document.createElement('input');
+            i.type = 'hidden';
+            i.name = k;
+            i.value = v == null ? '' : v;
+            f.appendChild(i);
+          });
+          document.body.appendChild(f);
+          f.submit();
+          setTimeout(() => f.remove(), 1000);
+          setTimeout(() => { statusEl.textContent = '갱신됨 · ' + new Date().toLocaleTimeString(); }, 600);
+        }
+
+        refreshBtn.addEventListener('click', refreshPreview);
+
+        resetBtn.addEventListener('click', () => {
+          if (editor.value !== bodyOrig &&
+              !confirm('저장된 원본 body 로 되돌립니다. 현재 편집 내용은 사라집니다.')) return;
+          editor.value = bodyOrig;
+          refreshPreview();
+        });
+
+        if (topSaveBtn) topSaveBtn.addEventListener('click', () => {
+          if (editor.value === bodyOrig) {
+            alert('변경된 내용이 없습니다.');
+            return;
+          }
+          const note = prompt('변경 노트(선택) — 버전 이력에 기록됩니다:', '');
+          if (note === null) return; // 취소
+          if (!confirm('현재 BODY 를 저장하시겠습니까?\n이력이 자동으로 기록되며 version_no 가 증가합니다.')) return;
+          saveInput.value = editor.value;
+          saveNote.value  = note || '';
+          saveForm.submit();
+        });
+
+        let timer = null;
+        editor.addEventListener('input', () => {
+          if (!liveToggle.checked) return;
+          clearTimeout(timer);
+          timer = setTimeout(refreshPreview, 800);
+        });
+        liveToggle.addEventListener('change', () => { if (liveToggle.checked) refreshPreview(); });
+
+        // 진입 직후 1회 — 저장된 body 로 초기 렌더
+        refreshPreview();
+      })();
+      /*]]>*/
+    </script>
+  </th:block>
+
+</section>
+</body>
+</html>

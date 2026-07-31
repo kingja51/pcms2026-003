@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>결산서 안내</title></head>
+<body>
+<section layout:fragment="content">
+
+  <header class="mb-4">
+    <h1 class="text-2xl font-bold text-slate-900 mb-1">결산서 안내</h1>
+    <p class="text-sm text-slate-500">기준일 <strong th:text="${ymd}">-</strong></p>
+  </header>
+
+  <div class="bg-white border border-slate-200 rounded p-6 text-sm text-slate-700 leading-relaxed">
+    <p class="mb-3">
+      재정정보공개 결산현황은 회계연도별 세입·세출 결산 결과를 제공합니다.
+    </p>
+    <ul class="list-disc pl-5 space-y-1 text-slate-600">
+      <li><a th:href="@{|/lfios/${siteCode}/settlement/status|}" class="text-indigo-700 hover:underline">결산현황</a> — 회계별 세입·세출 결산 총계</li>
+      <li><a th:href="@{|/lfios/${siteCode}/settlement/summary|}" class="text-indigo-700 hover:underline">결산 요약</a> — 회계구분별 세입·세출 요약</li>
+    </ul>
+    <p class="mt-4 text-xs text-slate-500">
+      세부 결산서 원문은 관할 기관 정보공개 포털에서 확인하실 수 있습니다.
+    </p>
+  </div>
+</section>
+</body>
+</html>

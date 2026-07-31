@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="|코드그룹 - ${group.groupCode}|">코드그룹 상세</title>
+</head>
+<body>
+  <section layout:fragment="content">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin/system/code}" class="hover:underline">공통코드</a>
+      <span class="mx-1">/</span>
+      <span class="font-mono" th:text="${group.groupCode}">CODE</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${group.groupName}">이름</h1>
+        <p class="text-xs text-fg-subtle font-mono mt-1" th:text="${group.codeGroupId}">uuid</p>
+      </div>
+      <nav class="flex items-center gap-2">
+        <a th:href="@{/admin/system/code/{id}/items(id=${group.codeGroupId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-secondary-30 bg-secondary-5 text-secondary-70 text-sm font-medium hover:bg-secondary-10"
+           th:text="|코드 관리 (${group.itemCount})|">코드 관리</a>
+        <a th:href="@{/admin/system/code/{id}/edit(id=${group.codeGroupId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">
+          수정
+        </a>
+        <form th:action="@{/admin/system/code/{id}(id=${group.codeGroupId})}"
+              method="post"
+              data-confirm="이 그룹을 삭제하시겠습니까? (하위 코드가 있으면 차단됩니다)"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="_method" value="delete"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm font-medium hover:bg-danger-surface">
+            삭제
+          </button>
+        </form>
+        <button type="button"
+                data-history-back
+                th:attr="data-history-back-fallback=@{/admin/system/code}"
+                class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          뒤로가기
+        </button>
+        <a th:href="@{/admin/system/code}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">
+          목록
+        </a>
+      </nav>
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg"
+         th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg"
+         th:text="${error}"></div>
+
+    <section class="bg-surface border border-line rounded-large p-6">
+      <h2 class="text-xs font-semibold text-fg-subtle uppercase tracking-wide mb-4">기본 정보</h2>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+        <div>
+          <dt class="text-fg-subtle">그룹 코드</dt>
+          <dd class="font-mono text-fg-strong" th:text="${group.groupCode}">CODE</dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">그룹명</dt>
+          <dd class="font-medium text-fg-strong" th:text="${group.groupName}">이름</dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">항목 수</dt>
+          <dd class="text-fg-strong" th:text="${group.itemCount} + '개'">0개</dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">사용 여부</dt>
+          <dd>
+            <span th:if="${group.useYn == 'Y'}"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-surface text-success-fg">사용</span>
+            <span th:unless="${group.useYn == 'Y'}"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-surface-subtler text-fg-subtle">미사용</span>
+          </dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-fg-subtle mb-1">설명</dt>
+          <dd class="text-fg whitespace-pre-wrap" th:text="${group.description} ?: '-'">-</dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">등록자 / 일시</dt>
+          <dd class="text-fg">
+            <span class="font-mono" th:text="${group.createdBy}">SYSTEM</span>
+            <span class="text-gray-40 mx-1">/</span>
+            <span class="font-mono text-xs" th:text="${@fmt.dt(group.createdAt)}">-</span>
+          </dd>
+        </div>
+        <div>
+          <dt class="text-fg-subtle">수정자 / 일시</dt>
+          <dd class="text-fg">
+            <span class="font-mono" th:text="${group.updatedBy} ?: '-'">-</span>
+            <span class="text-gray-40 mx-1">/</span>
+            <span class="font-mono text-xs" th:text="${@fmt.dt(group.updatedAt)}">-</span>
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+  </section>
+</body>
+</html>

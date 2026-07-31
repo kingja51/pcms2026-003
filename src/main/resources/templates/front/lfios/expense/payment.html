@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>지출내역</title></head>
+<body>
+<section layout:fragment="content" 
+         th:with="thisYear=${T(java.time.Year).now().value}">
+
+  <header class="mb-4">
+    <h1 class="text-2xl font-bold text-slate-900 mb-1">지출내역</h1>
+    <p class="text-sm text-slate-500">기준일 <strong th:text="${ymd}">-</strong></p>
+  </header>
+
+  <form method="get" th:action="@{|/lfios/${siteCode}/expense/payment|}"
+        class="bg-white border border-slate-200 rounded p-3 mb-4 grid grid-cols-2 md:grid-cols-6 gap-2 text-sm">
+    <select name="fisYear" class="border rounded px-2 py-1" title="회계년도">
+      <option th:each="y : ${#numbers.sequence(2018, thisYear)}" th:value="${y}"
+              th:text="${y} + '년'" th:selected="${#strings.toString(y) == search.fisYear}"></option>
+    </select>
+    <select name="fisFgCd" class="border rounded px-2 py-1" title="회계구분">
+      <option value="">회계구분(전체)</option>
+      <option value="1" th:selected="${search.fisFgCd == '1'}">일반회계</option>
+      <option value="2" th:selected="${search.fisFgCd == '2'}">특별회계</option>
+      <option value="4" th:selected="${search.fisFgCd == '4'}">기금회계</option>
+    </select>
+    <select name="teMngMokCd" class="border rounded px-2 py-1" title="통계목">
+      <option value="">통계목(전체)</option>
+      <option th:each="t : ${temngmoks}" th:value="${t.teMngMokCd}" th:text="${t.teMngMokNm}"
+              th:selected="${t.teMngMokCd == search.teMngMokCd}"></option>
+    </select>
+    <input type="text" name="dbizNm"  th:value="${search.dbizNm}"  placeholder="세부사업명" class="border rounded px-2 py-1"/>
+    <input type="text" name="outline" th:value="${search.outline}" placeholder="지출개요"   class="border rounded px-2 py-1"/>
+    <button class="bg-slate-900 text-white rounded px-3 py-1 font-semibold">검색</button>
+  </form>
+
+  <div class="flex items-center justify-between mb-2">
+    <span class="text-xs text-slate-500">총 <strong th:text="${page.totalElements}">0</strong>건 (단위 : 원)</span>
+    <a th:href="@{|/lfios/${siteCode}/expense/payment/excel|(fisYear=${search.fisYear}, fisFgCd=${search.fisFgCd},
+                  teMngMokCd=${search.teMngMokCd}, dbizNm=${search.dbizNm}, outline=${search.outline})}"
+       class="inline-flex items-center gap-1 px-3 py-1 rounded border border-emerald-600 bg-white text-emerald-700 text-sm font-semibold hover:bg-emerald-50">
+      ⬇ 엑셀 다운로드
+    </a>
+  </div>
+
+  <div class="overflow-x-auto bg-white rounded border border-slate-200">
+    <table class="min-w-full text-sm">
+      <thead class="bg-slate-50">
+        <tr class="text-slate-600">
+          <th class="px-3 py-2">회계구분</th>
+          <th class="px-3 py-2 text-left">부서명</th>
+          <th class="px-3 py-2 text-left">세부사업</th>
+          <th class="px-3 py-2 text-left">통계목</th>
+          <th class="px-3 py-2 text-left">지출개요</th>
+          <th class="px-3 py-2 text-right">지출액</th>
+          <th class="px-3 py-2">지급일자</th>
+          <th class="px-3 py-2 text-left">지급대상자</th>
+          <th class="px-3 py-2">계약방법</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="e : ${page.content}" class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="px-3 py-2 text-center" th:text="${e.fisFgNm}"></td>
+          <td class="px-3 py-2" th:text="${e.deptNm}"></td>
+          <td class="px-3 py-2" th:text="${e.dbizNm}"></td>
+          <td class="px-3 py-2" th:text="${e.teMngMokNm}"></td>
+          <td class="px-3 py-2" th:text="${e.outline}"></td>
+          <td class="px-3 py-2 text-right" th:insert="~{front/lfios/fragments :: num(${e.expdResolAmt})}">0</td>
+          <td class="px-3 py-2 text-center text-xs text-slate-500" th:text="${e.payCmdYmd}"></td>
+          <td class="px-3 py-2" th:text="${e.custNm}"></td>
+          <td class="px-3 py-2 text-center" th:text="${e.ctrtMethNm}"></td>
+        </tr>
+        <tr th:if="${page.content.isEmpty()}">
+          <td colspan="9" class="px-3 py-12 text-center text-slate-400">데이터가 없습니다.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <nav th:replace="~{front/lfios/fragments :: pager(|/lfios/${siteCode}/expense/payment|, ${page}, ${search})}"></nav>
+</section>
+</body>
+</html>

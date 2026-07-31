@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head><title>발주계획 상세</title></head>
+<body>
+<section layout:fragment="content">
+  <nav class="text-sm text-fg-subtle mb-2">
+    <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+    <span class="mx-1">/</span>
+    <a th:href="@{/admin/system/g2b/order-plan}" class="hover:underline">발주계획</a>
+    <span class="mx-1">/</span>
+    <span th:text="${row.orderPlanNo}">상세</span>
+  </nav>
+
+  <h1 class="text-heading-lg font-bold text-fg-strong mb-4">발주계획 상세</h1>
+
+  <div class="bg-surface border border-line rounded p-4 mb-4">
+    <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+      <div><dt class="text-fg-subtle">업종</dt><dd class="font-medium" th:text="${@bsns.label(row.bsnsDiv)}"></dd></div>
+      <div><dt class="text-fg-subtle">발주계획번호</dt><dd class="font-medium" th:text="${row.orderPlanNo}"></dd></div>
+      <div><dt class="text-fg-subtle">차수</dt><dd th:text="${row.orderPlanOrd}"></dd></div>
+      <div><dt class="text-fg-subtle">접수일시</dt><dd th:text="${row.rcptDt != null ? #temporals.format(row.rcptDt, 'yyyy-MM-dd HH:mm') : ''}"></dd></div>
+      <div><dt class="text-fg-subtle">발주예정월</dt><dd th:text="${row.orderPrearngeMt}"></dd></div>
+      <div><dt class="text-fg-subtle">배정예산</dt><dd th:text="${row.asignBdgtAmt != null ? #numbers.formatInteger(row.asignBdgtAmt, 0, 'COMMA') + ' 원' : '-'}"></dd></div>
+      <div><dt class="text-fg-subtle">품목분류</dt><dd th:text="${row.prdctClsfcNo + ' ' + row.prdctClsfcNoNm}"></dd></div>
+      <div><dt class="text-fg-subtle">물품식별</dt><dd th:text="${row.prdctIdentNo + ' ' + row.prdctIdentNoNm}"></dd></div>
+      <div><dt class="text-fg-subtle">발주기관</dt><dd th:text="${row.orderInsttCd + ' ' + row.orderInsttNm}"></dd></div>
+      <div><dt class="text-fg-subtle">수요기관</dt><dd th:text="${row.dminsttCd + ' ' + row.dminsttNm}"></dd></div>
+      <div><dt class="text-fg-subtle">계약방법</dt><dd th:text="${row.cntrctMthdNm}"></dd></div>
+      <div><dt class="text-fg-subtle">입찰방식</dt><dd th:text="${row.bidMthdNm}"></dd></div>
+    </dl>
+  </div>
+
+  <details class="bg-surface border border-line rounded p-4">
+    <summary class="cursor-pointer text-sm font-semibold text-fg">원본 JSON</summary>
+    <pre class="mt-2 text-xs bg-surface-subtle p-3 rounded overflow-x-auto" th:text="${row.rawJson}"></pre>
+  </details>
+
+  <div class="mt-4 text-xs text-fg-subtle">
+    수집 일시: <span th:text="${#temporals.format(row.createdAt, 'yyyy-MM-dd HH:mm:ss')}"></span>
+  </div>
+</section>
+</body>
+</html>

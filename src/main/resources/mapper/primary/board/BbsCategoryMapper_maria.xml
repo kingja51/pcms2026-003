@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_bbs_category CRUD.
+  AuditInterceptor 가 INSERT/UPDATE 시 6감사컬럼 자동 주입.
+-->
+<mapper namespace="com.gonet.primary.board.category.mapper.BbsCategoryMapper">
+
+  <sql id="columns">
+    c.category_id, c.bbs_master_id, c.category_code, c.category_name,
+    c.sort_order, c.use_yn, c.delete_yn,
+    c.created_by, c.created_ip, c.created_at,
+    c.updated_by, c.updated_ip, c.updated_at,
+    m.bbs_code  AS bbs_code,
+    m.bbs_name  AS bbs_name,
+    m.site_id   AS site_id,
+    s.site_code AS site_code
+  </sql>
+
+  <select id="findActiveByBbs" resultType="com.gonet.primary.board.category.dto.BbsCategory">
+    SELECT <include refid="columns"/>
+      FROM tb_bbs_category c
+      JOIN tb_bbs_master   m ON m.bbs_master_id = c.bbs_master_id
+      LEFT JOIN tb_site    s ON s.site_id       = m.site_id
+     WHERE c.bbs_master_id = #{bbsMasterId}
+       AND c.use_yn        = 'Y'
+       AND c.delete_yn     = 'N'
+     ORDER BY c.sort_order ASC, c.category_name ASC
+  </select>
+
+  <select id="findListByBbs" resultType="com.gonet.primary.board.category.dto.BbsCategory">
+    SELECT <include refid="columns"/>,
+           (SELECT COUNT(1) FROM tb_bbs_article a
+             WHERE a.category_id = c.category_id
+               AND a.delete_yn   = 'N'
+               AND a.status      = 'PUBLISHED') AS article_count
+      FROM tb_bbs_category c
+      JOIN tb_bbs_master   m ON m.bbs_master_id = c.bbs_master_id
+      LEFT JOIN tb_site    s ON s.site_id       = m.site_id
+     WHERE c.bbs_master_id = #{bbsMasterId}
+       AND c.delete_yn     = 'N'
+     ORDER BY c.sort_order ASC, c.category_name ASC
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.board.category.dto.BbsCategory">
+    SELECT <include refid="columns"/>
+      FROM tb_bbs_category c
+      JOIN tb_bbs_master   m ON m.bbs_master_id = c.bbs_master_id
+      LEFT JOIN tb_site    s ON s.site_id       = m.site_id
+     WHERE c.category_id = #{categoryId}
+       AND c.delete_yn   = 'N'
+  </select>
+
+  <select id="existsByCode" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_bbs_category
+     WHERE bbs_master_id = #{bbsMasterId}
+       AND category_code = #{categoryCode}
+       AND delete_yn     = 'N'
+    <if test="excludeCategoryId != null and excludeCategoryId != ''">
+       AND category_id  &lt;&gt; #{excludeCategoryId}
+    </if>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.board.category.dto.BbsCategory">
+    INSERT INTO tb_bbs_category (
+      category_id, bbs_master_id, category_code, category_name,
+      sort_order, use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{categoryId}, #{bbsMasterId}, #{categoryCode}, #{categoryName},
+      #{sortOrder}, #{useYn}, 'N',
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.board.category.dto.BbsCategory">
+    UPDATE tb_bbs_category SET
+      <if test="categoryCode != null and categoryCode != ''">category_code=#{categoryCode},</if>
+      <if test="categoryName != null and categoryName != ''">category_name=#{categoryName},</if>
+      <if test="sortOrder != null">sort_order=#{sortOrder},</if>
+      <if test="useYn != null and useYn != ''">use_yn=#{useYn},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE category_id = #{categoryId}
+       AND delete_yn   = 'N'
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_bbs_category
+       SET use_yn     = #{useYn},
+           updated_at = NOW()
+     WHERE category_id = #{categoryId}
+       AND delete_yn   = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_bbs_category
+       SET delete_yn  = 'Y',
+           updated_at = NOW()
+     WHERE category_id = #{categoryId}
+       AND delete_yn   = 'N'
+  </update>
+
+  <select id="countActiveArticles" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_bbs_article
+     WHERE category_id = #{categoryId}
+       AND delete_yn   = 'N'
+       AND status      = 'PUBLISHED'
+  </select>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_bbs_category
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_bbs_category
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_bbs_category
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

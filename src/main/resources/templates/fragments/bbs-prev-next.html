@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- ══════════════════════════════════════════════════════════════════════
+     게시글 이전글/다음글 내비 — 전 게시판 타입 상세 공용 (첨부 다운로드 아래 배치)
+     · 이전글 = 더 과거(작성 순), 다음글 = 더 최신. 컨트롤러가 prevArticle/nextArticle 주입
+       (BoardUsrController.detail — 원본 게시판 스코프, PUBLISHED 만).
+     · 둘 다 null 이면 렌더 생략. siteCode/bbsCode 는 상세 모델 컨텍스트 참조.
+     · 사용: <th:block th:replace="~{fragments/bbs-prev-next :: nav(prev=${prevArticle}, next=${nextArticle})}"/>
+     ══════════════════════════════════════════════════════════════════════ -->
+<th:block th:fragment="nav(prev, next)">
+  <nav th:if="${prev != null or next != null}" aria-label="이전글 다음글"
+       class="mt-6 rounded-large border border-line bg-surface-subtle">
+    <div class="flex items-stretch divide-x divide-line">
+      <!-- 이전글 (더 과거) -->
+      <a th:if="${prev != null}"
+         th:href="@{/bbs/{sc}/{bc}/{aid}(sc=${siteCode}, bc=${bbsCode}, aid=${prev.articleId})}"
+         class="flex flex-1 items-center gap-3 min-w-0 px-4 py-3 hover:bg-surface transition-colors">
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-max border border-line bg-surface text-fg" aria-hidden="true">‹</span>
+        <span class="min-w-0">
+          <span class="block text-body-xs font-bold text-fg-strong">이전글</span>
+          <span class="block truncate text-body-sm text-fg-subtle" th:text="${prev.title}">이전 글 제목</span>
+        </span>
+      </a>
+      <div th:if="${prev == null}" class="flex flex-1 items-center gap-3 min-w-0 px-4 py-3 opacity-50">
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-max border border-line bg-surface text-fg-disabled" aria-hidden="true">‹</span>
+        <span class="text-body-sm text-fg-disabled">이전글이 없습니다</span>
+      </div>
+      <!-- 다음글 (더 최신) -->
+      <a th:if="${next != null}"
+         th:href="@{/bbs/{sc}/{bc}/{aid}(sc=${siteCode}, bc=${bbsCode}, aid=${next.articleId})}"
+         class="flex flex-1 items-center justify-end gap-3 min-w-0 px-4 py-3 text-right hover:bg-surface transition-colors">
+        <span class="min-w-0">
+          <span class="block text-body-xs font-bold text-fg-strong">다음글</span>
+          <span class="block truncate text-body-sm text-fg-subtle" th:text="${next.title}">다음 글 제목</span>
+        </span>
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-max border border-line bg-surface text-fg" aria-hidden="true">›</span>
+      </a>
+      <div th:if="${next == null}" class="flex flex-1 items-center justify-end gap-3 min-w-0 px-4 py-3 text-right opacity-50">
+        <span class="text-body-sm text-fg-disabled">다음글이 없습니다</span>
+        <span class="flex size-9 shrink-0 items-center justify-center rounded-max border border-line bg-surface text-fg-disabled" aria-hidden="true">›</span>
+      </div>
+    </div>
+  </nav>
+</th:block>
+</body>
+</html>

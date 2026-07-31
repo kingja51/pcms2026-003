@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.file.mapper.FileMapper">
+
+  <sql id="columnsFull">
+    f.file_id, f.file_group_id, f.original_name, f.stored_name, f.stored_path,
+    f.thumbnail_path,
+    f.extension, f.mime_detected, f.mime_client, f.size_bytes, f.file_hash,
+    f.is_image_yn, f.reencoded_yn, f.virus_scan_status,
+    f.download_count, f.sort_order, f.delete_yn,
+    f.created_by, f.created_ip, f.created_at,
+    f.updated_by, f.updated_ip, f.updated_at,
+    g.entity_type AS entity_type,
+    g.entity_id   AS entity_id,
+    s.site_code   AS site_code
+  </sql>
+
+  <sql id="listFilter">
+    WHERE f.delete_yn = 'N'
+    <if test="search.entityType != null and search.entityType != '' and search.entityType != 'ALL'">
+      AND g.entity_type = #{search.entityType}
+    </if>
+    <if test="search.siteId != null and search.siteId != ''">
+      AND g.site_id = #{search.siteId}
+    </if>
+    <if test="search.virusScanStatus != null and search.virusScanStatus != '' and search.virusScanStatus != 'ALL'">
+      AND f.virus_scan_status = #{search.virusScanStatus}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND f.original_name LIKE CONCAT('%', #{search.keyword}, '%')
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.file.dto.FileItem">
+    SELECT <include refid="columnsFull"/>
+      FROM tb_file f
+      JOIN tb_file_group g ON g.file_group_id = f.file_group_id AND g.delete_yn = 'N'
+      LEFT JOIN tb_site s ON s.site_id = g.site_id
+    <include refid="listFilter"/>
+    ORDER BY f.created_at DESC, f.original_name ASC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_file f
+      JOIN tb_file_group g ON g.file_group_id = f.file_group_id AND g.delete_yn = 'N'
+    <include refid="listFilter"/>
+  </select>
+
+  <!--
+    단일 조회 — 파일과 소속 그룹 둘 다 delete_yn='N' 인 경우만.
+    그룹이 soft-deleted 면 파일도 조회 안 되어 다운로드/상세가 404.
+  -->
+  <select id="findById" resultType="com.gonet.primary.file.dto.FileItem">
+    SELECT <include refid="columnsFull"/>
+      FROM tb_file f
+      JOIN tb_file_group g ON g.file_group_id = f.file_group_id AND g.delete_yn = 'N'
+      LEFT JOIN tb_site s ON s.site_id = g.site_id
+     WHERE f.file_id   = #{fileId}
+       AND f.delete_yn = 'N'
+  </select>
+
+  <!-- 그룹 zip 다운로드 대상 — INFECTED / ERROR 차단, CLEAN/PENDING 만 허용 -->
+  <select id="findDownloadableByGroupId" resultType="com.gonet.primary.file.dto.FileItem">
+    SELECT <include refid="columnsFull"/>
+      FROM tb_file f
+      JOIN tb_file_group g ON g.file_group_id = f.file_group_id AND g.delete_yn = 'N'
+      LEFT JOIN tb_site s ON s.site_id = g.site_id
+     WHERE f.file_group_id     = #{fileGroupId}
+       AND f.delete_yn         = 'N'
+       AND f.virus_scan_status IN ('CLEAN','PENDING')
+     ORDER BY f.sort_order ASC, f.created_at ASC
+  </select>
+
+  <!-- 게시글 작성/수정 화면용 — virus_scan_status 무관, soft-delete 만 제외 -->
+  <select id="findAllByGroupId" resultType="com.gonet.primary.file.dto.FileItem">
+    SELECT <include refid="columnsFull"/>
+      FROM tb_file f
+      JOIN tb_file_group g ON g.file_group_id = f.file_group_id AND g.delete_yn = 'N'
+      LEFT JOIN tb_site s ON s.site_id = g.site_id
+     WHERE f.file_group_id = #{fileGroupId}
+       AND f.delete_yn     = 'N'
+     ORDER BY f.sort_order ASC, f.created_at ASC
+  </select>
+
+  <select id="countByHash" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_file
+     WHERE file_group_id = #{fileGroupId}
+       AND file_hash     = #{fileHash}
+       AND delete_yn     = 'N'
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.file.dto.FileItem">
+    INSERT INTO tb_file (
+      file_id, file_group_id, original_name, stored_name, stored_path, thumbnail_path,
+      extension, mime_detected, mime_client, size_bytes, file_hash,
+      is_image_yn, reencoded_yn, virus_scan_status,
+      download_count, sort_order, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{fileId}, #{fileGroupId}, #{originalName}, #{storedName}, #{storedPath},
+      #{thumbnailPath},
+      #{extension}, #{mimeDetected}, #{mimeClient}, #{sizeBytes}, #{fileHash},
+      COALESCE(#{isImageYn}, 'N'),
+      COALESCE(#{reencodedYn}, 'N'),
+      COALESCE(#{virusScanStatus}, 'PENDING'),
+      0, COALESCE(#{sortOrder}, 0), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="softDelete">
+    UPDATE tb_file
+       SET delete_yn  = 'Y',
+           updated_by = #{updatedBy},
+           updated_ip = #{updatedIp},
+           updated_at = CURRENT_TIMESTAMP
+     WHERE file_id   = #{fileId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updateVirusScanStatus">
+    UPDATE tb_file
+       SET virus_scan_status = #{status},
+           updated_at        = CURRENT_TIMESTAMP
+     WHERE file_id   = #{fileId}
+       AND delete_yn = 'N'
+  </update>
+
+  <!--
+    PENDING 재스캔 대상 — 서버 재시작/큐 유실 복구용.
+    cutoff 보다 오래된 PENDING 만 (방금 업로드된 파일은 executor 에 있을 가능성 높음).
+  -->
+  <select id="findPendingForRescan" resultType="com.gonet.primary.file.dto.FileItem">
+    <![CDATA[
+    SELECT f.file_id, f.file_group_id, f.original_name, f.stored_name, f.stored_path,
+           f.thumbnail_path,
+           f.extension, f.mime_detected, f.mime_client, f.size_bytes, f.file_hash,
+           f.is_image_yn, f.reencoded_yn, f.virus_scan_status,
+           f.download_count, f.sort_order, f.delete_yn,
+           f.created_by, f.created_ip, f.created_at,
+           f.updated_by, f.updated_ip, f.updated_at
+      FROM tb_file f
+     WHERE f.delete_yn         = 'N'
+       AND f.virus_scan_status = 'PENDING'
+       AND f.updated_at        < #{cutoff}
+     ORDER BY f.updated_at ASC
+     LIMIT #{limit}
+    ]]>
+  </select>
+
+  <update id="updateThumbnailPath">
+    UPDATE tb_file
+       SET thumbnail_path = #{thumbnailPath},
+           updated_at     = CURRENT_TIMESTAMP
+     WHERE file_id   = #{fileId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="incrementDownloadCount">
+    UPDATE tb_file
+       SET download_count = download_count + 1
+     WHERE file_id   = #{fileId}
+       AND delete_yn = 'N'
+  </update>
+
+  <!-- ================================================================ -->
+  <!-- Purge batch                                                      -->
+  <!-- ================================================================ -->
+
+  <select id="findPurgeCandidates" resultType="com.gonet.primary.file.dto.FileItem">
+    <![CDATA[
+    SELECT f.file_id, f.file_group_id, f.original_name, f.stored_name, f.stored_path,
+           f.thumbnail_path,
+           f.extension, f.mime_detected, f.mime_client, f.size_bytes, f.file_hash,
+           f.is_image_yn, f.reencoded_yn, f.virus_scan_status,
+           f.download_count, f.sort_order, f.delete_yn,
+           f.created_by, f.created_ip, f.created_at,
+           f.updated_by, f.updated_ip, f.updated_at
+      FROM tb_file f
+     WHERE f.delete_yn  = 'Y'
+       AND f.updated_at < #{cutoff}
+     ORDER BY f.updated_at ASC
+     LIMIT #{limit}
+    ]]>
+  </select>
+
+  <delete id="hardDelete">
+    DELETE FROM tb_file WHERE file_id = #{fileId} AND delete_yn = 'Y'
+  </delete>
+
+  <!-- 색인 재구축용 — 활성 파일 전체. group/site JOIN 으로 entity_type/site_code 노출. -->
+  <select id="findAllForReindex" resultType="com.gonet.primary.file.dto.FileItem">
+    SELECT <include refid="columnsFull"/>
+      FROM tb_file f
+      JOIN tb_file_group g ON g.file_group_id = f.file_group_id AND g.delete_yn = 'N'
+      LEFT JOIN tb_site s ON s.site_id = g.site_id
+     WHERE f.delete_yn = 'N'
+     ORDER BY f.created_at ASC
+  </select>
+
+    <!-- Soft-delete retention — RetentionScheduler 가 cutoff 를 계산해 전달 (bucket 별 30/90/180일) -->
+    <delete id="purgeSoftDeletedOlderThan">
+        DELETE FROM tb_file
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </delete>
+
+    <select id="countSoftDeletedOlderThan" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_file
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </select>
+
+</mapper>

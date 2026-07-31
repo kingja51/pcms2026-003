@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title>설문조사</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div>
+      <h1 class="text-heading-lg font-bold text-fg-strong mb-6">설문조사</h1>
+
+      <ul class="bg-surface border border-line rounded-large divide-y divide-divider">
+        <li th:each="r : ${rowsAnnotated}"
+            th:with="row=${r.survey}, closed=${r.closed}"
+            class="p-4">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="krds-badge"
+                  th:classappend="${closed} ? 'bg-surface-subtle text-fg-subtle' : 'bg-success-surface text-success-fg'"
+                  th:text="${closed ? '설문 종료' : '진행중'}">진행중</span>
+            <span class="text-body-xs text-fg-subtle">
+              <span th:text="${@fmt.dtm(row.startAt)}">-</span> ~ <span th:text="${@fmt.dtm(row.endAt)}">-</span>
+            </span>
+          </div>
+          <a th:href="@{/survey/{sc}/{id}(sc=${siteCode}, id=${row.surveyId})}"
+             class="text-body-md text-fg-strong hover:text-primary-60 font-bold"
+             th:classappend="${closed} ? 'opacity-70' : ''"
+             th:text="${row.surveyTitle}">제목</a>
+        </li>
+        <li th:if="${#lists.isEmpty(rowsAnnotated)}" class="p-6 text-center text-body-sm text-fg-subtle">
+          진행 중인 설문이 없습니다.
+        </li>
+      </ul>
+
+      <nav th:if="${page.totalPages > 1}" aria-label="페이지" class="mt-8">
+        <ul class="flex items-center justify-center gap-1 text-body-sm">
+          <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+            <a th:href="@{/survey/{sc}(sc=${siteCode}, page=${p}, pageSize=${page.pageSize}, keyword=${search.keyword})}"
+               th:text="${p}"
+               th:class="${p == page.page} ? 'inline-flex items-center justify-center size-10 rounded-medium bg-primary-50 text-white' : 'inline-flex items-center justify-center size-10 rounded-medium border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+
+  </section>
+</body>
+</html>

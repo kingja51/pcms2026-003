@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}"
+      lang="ko">
+<head>
+  <title th:text="${article.title} + ' — 관리자 게시글'">게시글 상세</title>
+  <th:block th:replace="~{fragments/file-picker :: styles}"/>
+</head>
+<body>
+  <section layout:fragment="content"
+           th:with="canManage=${master.bbsMasterId == article.bbsMasterId}">
+
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board}" class="hover:underline">게시판</a>
+      <span class="mx-1">/</span>
+      <a th:href="@{/admin/system/board/{id}/article(id=${master.bbsMasterId})}"
+         class="hover:underline" th:text="${master.bbsName}">게시판</a>
+      <span class="mx-1">/</span>
+      <span>게시글</span>
+    </nav>
+
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${article.title}">제목</h1>
+        <div class="mt-1 flex items-center gap-2 text-sm text-fg-subtle flex-wrap">
+          <span th:text="${article.writerName}">작성자</span>
+          <span class="text-fg-disabled">·</span>
+          <span class="font-mono text-xs" th:text="${@fmt.dt(article.createdAt)}">-</span>
+          <span class="text-fg-disabled">·</span>
+          <span>조회 <strong class="font-mono" th:text="${article.viewCount}">0</strong></span>
+          <span th:if="${article.noticeYn == 'Y'}"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-danger-surface text-danger-fg">공지</span>
+          <span th:if="${article.secretYn == 'Y'}"
+                class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-surface-subtler text-fg">🔒 비밀</span>
+          <span th:class="|inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                ${article.status == 'PUBLISHED' ? 'bg-success-surface text-success-fg' :
+                  article.status == 'HIDDEN'    ? 'bg-surface-subtler text-fg' :
+                  article.status == 'REPORTED'  ? 'bg-warning-surface text-warning-fg' :
+                                                  'bg-danger-surface text-danger-fg'}|"
+                th:text="${article.status}">PUBLISHED</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/system/board/{id}/article(id=${master.bbsMasterId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">목록</a>
+        <a th:href="@{/bbs/{sc}/{bc}/{aid}(sc=${master.siteCode}, bc=${master.bbsCode}, aid=${article.articleId})}"
+           target="_blank" rel="noopener"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">사용자 화면 ↗</a>
+        <form th:if="${canManage}"
+              th:action="@{/admin/system/board/{bid}/article/{aid}(bid=${master.bbsMasterId}, aid=${article.articleId})}"
+              method="post"
+              data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?"
+              class="inline">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <input type="hidden" name="_method" value="delete"/>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm hover:bg-danger-surface">삭제</button>
+        </form>
+      </div>
+    </div>
+
+    <div th:unless="${canManage}" role="status"
+         class="mb-4 rounded border border-secondary-30 bg-secondary-5 px-4 py-3 text-sm text-secondary-80">
+      이 게시글은 <strong>다른 게시판</strong>의 글입니다 (통합 게시판 뷰).
+      <strong>수정 · 삭제 · 모더레이션</strong>은 원본 게시판
+      에서만 가능합니다.
+    </div>
+
+    <div th:if="${message}" role="status" aria-live="polite"
+         class="mb-4 rounded border border-success-border bg-success-surface px-4 py-3 text-sm text-success-fg" th:text="${message}"></div>
+    <div th:if="${error}" role="alert" aria-live="polite"
+         class="mb-4 rounded border border-danger-border bg-danger-surface px-4 py-3 text-sm text-danger-fg" th:text="${error}"></div>
+
+    <div class="bg-surface border border-line rounded-large p-6 mb-4">
+      <article class="prose prose-slate max-w-none whitespace-pre-wrap">
+        <th:block th:replace="~{fragments/bbs-content :: render(content=${article.content}, htmlYn=${master.htmlYn})}"></th:block>
+      </article>
+    </div>
+
+    <section th:if="${master.fileYn == 'Y' and not #lists.isEmpty(existingFiles)}"
+             class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-3">첨부파일</h2>
+      <div th:replace="~{fragments/file-picker :: picker(
+          inputName='_view_attachments',
+          category='ANY',
+          multiple=true,
+          existingFiles=${existingFiles},
+          readOnly=true,
+          entityType='BBS',
+          entityId=${article.articleId},
+          siteId=${master.siteId},
+          maxFiles=${master.fileCountMax},
+          fileGroupId=${article.fileGroupId}
+      )}"></div>
+    </section>
+
+    <section th:if="${canManage}" class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-3">모더레이션</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form th:action="@{/admin/system/board/{bid}/article/{aid}/status(bid=${master.bbsMasterId}, aid=${article.articleId})}"
+              method="post" class="flex items-center gap-2">
+          <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+          <label for="target" class="text-sm text-fg">상태 변경</label>
+          <select id="target" name="target"
+                  class="flex-1 rounded border border-line px-3 py-1.5 text-sm">
+            <option th:each="st : ${statuses}"
+                    th:if="${st.name() != 'DELETED'}"
+                    th:value="${st.name()}"
+                    th:text="${st.name()}"
+                    th:selected="${article.status == st.name()}">PUBLISHED</option>
+          </select>
+          <button type="submit"
+                  class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">적용</button>
+        </form>
+
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-fg">공지 지정</span>
+          <form th:if="${article.noticeYn != 'Y'}"
+                th:action="@{/admin/system/board/{bid}/article/{aid}/notice(bid=${master.bbsMasterId}, aid=${article.articleId})}"
+                method="post" class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="notice" value="true"/>
+            <button type="submit"
+                    class="inline-flex items-center px-3 py-1.5 rounded border border-danger-border bg-surface text-danger-fg text-sm hover:bg-danger-surface">공지로 지정</button>
+          </form>
+          <form th:if="${article.noticeYn == 'Y'}"
+                th:action="@{/admin/system/board/{bid}/article/{aid}/notice(bid=${master.bbsMasterId}, aid=${article.articleId})}"
+                method="post" class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <input type="hidden" name="notice" value="false"/>
+            <button type="submit"
+                    class="inline-flex items-center px-3 py-1.5 rounded border border-line bg-surface text-fg text-sm hover:bg-surface-subtle">공지 해제</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <section class="bg-surface border border-line rounded-large p-5 mb-4">
+      <h2 class="text-sm font-semibold text-fg mb-3">
+        댓글 <span class="text-fg-subtle" th:text="'(' + ${article.commentCount} + ' / 전체 ' + ${#lists.size(comments)} + ')'">(0 / 전체 0)</span>
+      </h2>
+      <ul th:if="${not #lists.isEmpty(comments)}" class="space-y-2">
+        <li th:each="cm : ${comments}"
+            th:class="${cm.parentCommentId != null}
+                      ? 'pl-6 border-l-2 border-line py-1.5'
+                      : 'py-1.5 border-b border-divider'"
+            class="flex items-start justify-between gap-2 text-sm">
+          <div class="flex-1 min-w-0">
+            <div class="text-xs text-fg-subtle mb-0.5">
+              <strong class="text-fg" th:text="${cm.writerName}">작성자</strong>
+              <span class="mx-1">·</span>
+              <span class="font-mono" th:text="${@fmt.dt(cm.createdAt)}">-</span>
+              <span class="mx-1">·</span>
+              <span th:class="|inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium
+                ${cm.status == 'PUBLISHED' ? 'bg-success-surface text-success-fg' :
+                  cm.status == 'HIDDEN'    ? 'bg-surface-subtler text-fg' :
+                  cm.status == 'REPORTED'  ? 'bg-warning-surface text-warning-fg' :
+                                              'bg-danger-surface text-danger-fg'}|"
+                    th:text="${cm.status}">PUBLISHED</span>
+              <span th:if="${cm.secretYn == 'Y'}"
+                    class="ml-1 inline-flex items-center px-1.5 py-0 rounded text-[10px] font-bold bg-warning-surface text-warning-fg">🔒 비밀</span>
+            </div>
+            <p class="text-fg-strong whitespace-pre-wrap" th:text="${cm.content}">내용</p>
+          </div>
+          <div th:if="${canManage}" class="flex items-center gap-1 shrink-0">
+            <form th:action="@{/admin/system/board/{bid}/article/{aid}/comments/{cid}/status(bid=${master.bbsMasterId}, aid=${article.articleId}, cid=${cm.commentId})}"
+                  method="post" class="flex items-center gap-1">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <select name="target"
+                      class="rounded border border-line px-1.5 py-0.5 text-xs">
+                <option th:each="st : ${commentStatuses}"
+                        th:if="${st.name() != 'DELETED'}"
+                        th:value="${st.name()}"
+                        th:text="${st.name()}"
+                        th:selected="${cm.status == st.name()}">PUBLISHED</option>
+              </select>
+              <button type="submit"
+                      class="px-2 py-0.5 rounded bg-brand-50 text-fg-on text-xs hover:bg-brand-60">변경</button>
+            </form>
+            <form th:action="@{/admin/system/board/{bid}/article/{aid}/comments/{cid}(bid=${master.bbsMasterId}, aid=${article.articleId}, cid=${cm.commentId})}"
+                  method="post"
+                  data-confirm="모든 데이타가 삭제 됩니다. 삭제 하시겠습니까?">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+              <input type="hidden" name="_method" value="delete"/>
+              <button type="submit"
+                      class="px-2 py-0.5 rounded border border-danger-border bg-surface text-danger-fg text-xs hover:bg-danger-surface">삭제</button>
+            </form>
+          </div>
+        </li>
+      </ul>
+      <p th:if="${#lists.isEmpty(comments)}"
+         class="text-sm text-fg-subtle">댓글이 없습니다.</p>
+    </section>
+
+    <section class="bg-surface border border-line rounded-large p-5">
+      <h2 class="text-sm font-semibold text-fg mb-3">감사 정보</h2>
+      <dl class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">작성자 ID</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${article.writerUserId} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">작성자 타입</dt>
+          <dd class="text-fg" th:text="${article.writerUserType} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">생성 IP</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${article.clientIp} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">수정자</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${article.updatedBy} ?: '-'">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2">
+          <dt class="text-fg-subtle">수정시각</dt>
+          <dd class="font-mono text-xs text-fg" th:text="${@fmt.dt(article.updatedAt)}">-</dd>
+        </div>
+        <div class="grid grid-cols-[120px_1fr] gap-2 md:col-span-2">
+          <dt class="text-fg-subtle">PK</dt>
+          <dd class="font-mono text-xs text-fg-subtle" th:text="${article.articleId}">id</dd>
+        </div>
+      </dl>
+    </section>
+
+    <th:block th:replace="~{fragments/file-picker :: scripts}"/>
+  </section>
+</body>
+</html>

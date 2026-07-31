@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<!--
+  ★ 오시는길 샘플(서식) — templates/samples/location.html
+  · SiteTemplateScaffolder 가 새 사이트 폴더로 복사하는 원본. 복사 후 각 학과가
+    소속 캠퍼스 주소·건물·연락처로 교체한다(아래는 건양대 두 캠퍼스 공통 안내).
+  · cse 오시는길 구조 이식(지도 + 주소/교통) — KRDS 시맨틱 토큰판.
+    지도 iframe 은 CSP frame-src(www.google.com) 허용 범위.
+-->
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head>
+  <title>오시는 길</title>
+  <link rel="stylesheet" th:href="@{/css/banner-carousel.css}"/>
+</head>
+<body>
+<section layout:fragment="content">
+
+  <!-- ══ 오시는 길 — 서브페이지 상단 비주얼(SUB_HERO)은 KRDS 레이아웃이 공통 렌더 ══ -->
+  <div class="bg-surface border-b border-line">
+    <div class="max-w-content mx-auto px-4 py-16">
+      <p class="text-label-md text-fg-subtle mb-3">Location</p>
+      <h1 class="text-heading-xl font-bold text-fg-strong">오시는 길</h1>
+      <p class="text-body-lg text-fg-subtle mt-4">
+        <span th:text="${siteContext?.site?.siteName} ?: '학과'">학과명</span> 위치 안내
+        <!-- ⬇ 소속 캠퍼스·건물·호수로 교체해 주세요 -->
+      </p>
+    </div>
+  </div>
+
+  <div class="max-w-content mx-auto px-4 py-12 grid grid-cols-1 lg:grid-cols-12 gap-4">
+    <!-- 지도 — 캠퍼스 주소로 q= 교체 -->
+    <div class="lg:col-span-8 bg-surface border border-line rounded-large overflow-hidden">
+      <iframe title="오시는 길 지도" class="block w-full h-96 border-0"
+              src="https://www.google.com/maps?q=건양대학교&output=embed&hl=ko"
+              loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+    <!-- 주소/연락처 -->
+    <div class="lg:col-span-4 bg-surface border border-line rounded-large p-6">
+      <h2 class="text-heading-sm font-bold text-fg-strong mb-4">캠퍼스 안내</h2>
+      <dl class="text-body-sm text-fg space-y-4">
+        <div>
+          <dt class="font-bold text-fg-strong">메디컬캠퍼스</dt>
+          <dd class="text-fg-subtle mt-1">35365 대전광역시 서구 관저동로 158</dd>
+        </div>
+        <div>
+          <dt class="font-bold text-fg-strong">글로컬캠퍼스</dt>
+          <dd class="text-fg-subtle mt-1">32992 충청남도 논산시 대학로 121</dd>
+        </div>
+        <div>
+          <dt class="font-bold text-fg-strong">대표전화</dt>
+          <dd class="text-fg-subtle mt-1">041-730-5114</dd>
+        </div>
+        <div>
+          <dt class="font-bold text-fg-strong">지도에서 열기</dt>
+          <dd class="mt-1">
+            <a class="text-primary-60 hover:underline"
+               href="https://www.google.com/maps/search/?api=1&amp;query=%EA%B1%B4%EC%96%91%EB%8C%80%ED%95%99%EA%B5%90"
+               target="_blank" rel="noopener noreferrer">Google 지도 →</a>
+          </dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+
+</section>
+</body>
+</html>

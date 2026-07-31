@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head><title>교수 상세</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span>
+      <a th:href="@{/admin/dept/faculty}" class="hover:underline">교수진</a> <span class="mx-1">/</span>
+      <span th:text="${item.nameKo}">교수명</span>
+    </nav>
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-6">
+      <div><h1 class="text-heading-lg font-bold text-fg-strong">
+          <span th:text="${item.nameKo}">교수명</span>
+          <span class="text-fg-disabled text-sm font-normal" th:if="${item.nameEn}" th:text="${item.nameEn}">EN</span></h1>
+        <p class="text-sm text-fg-subtle mt-1">
+          <span class="font-mono" th:text="${item.siteCode}">me</span>
+          <span th:if="${item.position}" th:text="' · ' + ${item.position}"> · 교수</span>
+          <span th:if="${item.useYn == 'N'}" class="text-danger-fg"> · 미사용</span></p></div>
+      <div class="flex gap-2">
+        <a th:href="@{/admin/dept/faculty/{id}/edit(id=${item.facultyId})}"
+           class="inline-flex items-center px-3 py-1.5 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">교수 정보 수정</a>
+        <a th:href="@{/admin/dept/faculty}"
+           class="inline-flex items-center px-3 py-1.5 rounded border border-line text-fg text-sm hover:bg-surface-subtle">목록</a>
+      </div>
+    </div>
+
+    <!-- 기본 정보 -->
+    <div class="bg-surface border border-line rounded-large p-6 mb-6">
+      <div class="flex gap-6 items-start">
+        <img th:if="${item.photoUrl}" th:src="${item.photoUrl}" alt="" class="w-24 h-24 object-cover rounded shrink-0"/>
+        <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-3 text-sm min-w-0 grow">
+          <div th:if="${item.researchArea}" class="md:col-span-3">
+            <dt class="text-xs font-medium text-fg-subtle mb-0.5">연구분야</dt><dd class="text-fg" th:text="${item.researchArea}">연구분야</dd></div>
+          <div th:if="${item.office}"><dt class="text-xs font-medium text-fg-subtle mb-0.5">연구실</dt><dd class="text-fg" th:text="${item.office}">위치</dd></div>
+          <div th:if="${item.phone}"><dt class="text-xs font-medium text-fg-subtle mb-0.5">전화</dt><dd class="text-fg font-mono" th:text="${item.phone}">전화</dd></div>
+          <div th:if="${item.email}"><dt class="text-xs font-medium text-fg-subtle mb-0.5">이메일</dt><dd class="text-fg" th:text="${item.email}">이메일</dd></div>
+          <div th:if="${item.website}"><dt class="text-xs font-medium text-fg-subtle mb-0.5">홈페이지</dt>
+            <dd><a class="text-brand-60 hover:underline" th:href="${item.website}" target="_blank" rel="noopener noreferrer" th:text="${item.website}">homepage</a></dd></div>
+          <div th:if="${item.deptCode}"><dt class="text-xs font-medium text-fg-subtle mb-0.5">학과코드</dt><dd class="text-fg font-mono" th:text="${item.deptCode}">ME</dd></div>
+        </dl>
+      </div>
+    </div>
+
+    <!-- 교수 실적 6종 — 유형별 섹션, 추가/수정/삭제 후 이 상세로 복귀(returnFaculty) -->
+    <div class="flex items-center justify-between gap-4 flex-wrap mb-3">
+      <h2 class="text-heading-md font-bold text-fg-strong">교수 실적</h2>
+      <a th:href="@{/admin/dept/faculty-program(facultyId=${item.facultyId})}"
+         class="text-sm text-brand-60 hover:underline">실적 관리 화면에서 보기 →</a>
+    </div>
+    <div class="space-y-6">
+      <div th:each="t : ${types}" th:with="rows=${programs.get(t)}" class="bg-surface border border-line rounded-large overflow-hidden">
+        <div class="flex items-center justify-between gap-4 px-4 py-3 bg-surface-subtle border-b border-line">
+          <h3 class="text-sm font-bold text-fg-strong">
+            <span th:text="${t.labelKo}">논문</span>
+            <span class="text-fg-subtle font-normal" th:text="'(' + ${t.labelEn} + ')'">(Journal)</span>
+            <span class="text-fg-subtle font-normal" th:text="' · ' + ${#lists.size(rows)} + '건'"> · 0건</span></h3>
+          <a th:href="@{/admin/dept/faculty-program/new(facultyId=${item.facultyId}, programType=${t.name()}, returnFaculty=${item.facultyId})}"
+             class="text-sm text-brand-60 hover:underline">+ 추가</a>
+        </div>
+        <div class="overflow-x-auto" th:if="${!#lists.isEmpty(rows)}">
+          <table class="min-w-full divide-y divide-line text-sm">
+            <thead class="text-fg-subtle" th:switch="${t.name()}">
+              <tr th:case="'PATENT'">
+                <th class="px-4 py-2 text-left font-medium w-10">No</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.titleLabel}">출원등록명</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.dateLabel}">등록일자</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.orgLabel}">등록번호</th>
+                <th class="px-4 py-2 text-left font-medium">출원구분</th>
+                <th class="px-4 py-2 text-right font-medium">관리</th>
+              </tr>
+              <tr th:case="'AWARD'">
+                <th class="px-4 py-2 text-left font-medium w-10">No</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.titleLabel}">수상명</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.orgLabel}">수상기관</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.dateLabel}">수상일</th>
+                <th class="px-4 py-2 text-left font-medium">구분</th>
+                <th class="px-4 py-2 text-right font-medium">관리</th>
+              </tr>
+              <tr th:case="*">
+                <th class="px-4 py-2 text-left font-medium w-10">No</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.titleLabel}">명칭</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.orgLabel}">기관</th>
+                <th class="px-4 py-2 text-left font-medium" th:text="${t.dateLabel}">일자</th>
+                <th class="px-4 py-2 text-right font-medium">관리</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-divider">
+              <tr th:each="p, st : ${rows}" class="hover:bg-surface-subtle align-top" th:switch="${t.name()}">
+                <th:block th:case="'PATENT'">
+                  <td class="px-4 py-2 whitespace-nowrap font-mono text-fg-subtle" th:text="${#lists.size(rows) - st.index}">1</td>
+                  <td class="px-4 py-2"><span th:text="${p.title}">출원등록명</span>
+                    <span th:if="${p.useYn == 'N'}" class="text-danger-fg text-xs">미사용</span></td>
+                  <td class="px-4 py-2 whitespace-nowrap font-mono" th:text="${p.issueDate}">2026.03.04</td>
+                  <td class="px-4 py-2 whitespace-nowrap font-mono" th:text="${p.regNo}">10-2936704</td>
+                  <td class="px-4 py-2 whitespace-nowrap" th:text="${p.category}">국내</td>
+                </th:block>
+                <th:block th:case="'AWARD'">
+                  <td class="px-4 py-2 whitespace-nowrap font-mono text-fg-subtle" th:text="${#lists.size(rows) - st.index}">1</td>
+                  <td class="px-4 py-2"><span th:text="${p.title}">수상명</span>
+                    <span th:if="${p.useYn == 'N'}" class="text-danger-fg text-xs">미사용</span></td>
+                  <td class="px-4 py-2 whitespace-nowrap" th:text="${p.organization}">수상기관</td>
+                  <td class="px-4 py-2 whitespace-nowrap font-mono" th:text="${p.issueDate}">2022.05.16</td>
+                  <td class="px-4 py-2 whitespace-nowrap" th:text="${p.category}">교내</td>
+                </th:block>
+                <th:block th:case="*">
+                  <td class="px-4 py-2 whitespace-nowrap font-mono text-fg-subtle" th:text="${#lists.size(rows) - st.index}">1</td>
+                  <td class="px-4 py-2"><span th:text="${p.title}">명칭</span>
+                    <span th:if="${p.useYn == 'N'}" class="text-danger-fg text-xs">미사용</span></td>
+                  <td class="px-4 py-2 whitespace-nowrap" th:text="${p.organization} ?: ${p.roleDesc}">기관</td>
+                  <td class="px-4 py-2 whitespace-nowrap font-mono" th:text="${p.displayDate}">2025.12.31</td>
+                </th:block>
+                <td class="px-4 py-2 whitespace-nowrap text-right">
+                  <a th:href="@{/admin/dept/faculty-program/{id}/edit(id=${p.programId}, returnFaculty=${item.facultyId})}"
+                     class="text-brand-60 hover:underline mr-3">수정</a>
+                  <form th:action="@{/admin/dept/faculty-program/{id}/delete(id=${p.programId})}" method="post" class="inline" data-confirm="삭제하시겠습니까?">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <input type="hidden" name="returnFaculty" th:value="${item.facultyId}"/>
+                    <button type="submit" class="text-danger-fg hover:underline">삭제</button></form>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p th:if="${#lists.isEmpty(rows)}" class="px-4 py-4 text-sm text-fg-subtle">
+          등록된 <span th:text="${t.labelKo}">논문</span> 실적이 없습니다.</p>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

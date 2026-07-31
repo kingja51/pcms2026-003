@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
+      lang="ko">
+<head><title th:text="${master.masterName} + ' 목록'">민원 목록</title></head>
+<body>
+  <section layout:fragment="content">
+
+    <div>
+      <h1 class="text-heading-lg font-bold text-fg-strong mb-1" th:text="${master.masterName}">민원</h1>
+      <p class="text-body-sm text-fg-subtle mb-6" th:if="${master.description}" th:text="${master.description}"></p>
+
+      <div th:if="${message}" role="status" aria-live="polite" class="krds-alert krds-alert-success mb-4">
+        <span class="shrink-0 font-bold text-success-icon" aria-hidden="true">✓</span>
+        <p th:text="${message}"></p>
+      </div>
+      <div th:if="${error}" role="alert" class="krds-alert krds-alert-danger mb-4">
+        <span class="shrink-0 font-bold text-danger-icon" aria-hidden="true">✕</span>
+        <p th:text="${error}"></p>
+      </div>
+
+      <!-- 검색 -->
+      <form th:action="@{/complaint/{mc}(mc=${master.masterCode})}" method="get"
+            role="search" aria-label="민원 검색"
+            class="bg-surface border border-line rounded-large p-4 mb-4">
+        <div class="grid grid-cols-1 md:grid-cols-[1fr_160px_auto] gap-3 items-end">
+          <div>
+            <label for="keyword" class="block text-label-sm font-medium text-fg-subtle mb-1">검색어</label>
+            <input id="keyword" name="keyword" type="text" th:value="${search?.keyword}"
+                   maxlength="100" placeholder="제목"
+                   class="krds-input"/>
+          </div>
+          <div th:if="${not #lists.isEmpty(categories)}">
+            <label for="categoryId" class="block text-label-sm font-medium text-fg-subtle mb-1">카테고리</label>
+            <select id="categoryId" name="categoryId" class="krds-input">
+              <option value="">전체</option>
+              <option th:each="cat : ${categories}" th:value="${cat.categoryId}"
+                      th:text="${cat.categoryName}"
+                      th:selected="${search?.categoryId == cat.categoryId}">-</option>
+            </select>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="submit" class="krds-btn krds-btn-primary">검색</button>
+            <a th:href="@{/complaint/{mc}(mc=${master.masterCode})}"
+               class="krds-btn krds-btn-tertiary">초기화</a>
+          </div>
+        </div>
+      </form>
+
+      <!--
+        show_in_list='Y' → 전체 공개 목록 → 순번/제목/등록일만 (3 컬럼)
+        show_in_list='N' → 본인 민원만    → 순번/제목/상태/등록일 (4 컬럼)
+      -->
+      <div class="overflow-x-auto bg-surface border border-line rounded-large mb-4">
+        <table class="min-w-full text-body-sm">
+          <caption class="sr-only" th:text="${master.masterName} + ' 목록'"></caption>
+          <thead class="bg-surface-subtle">
+            <tr class="text-center text-label-sm font-bold text-fg-subtle">
+              <th scope="col" class="px-3 py-2.5 border-b border-line w-14 text-center whitespace-nowrap">번호</th>
+              <th scope="col" class="px-3 py-2.5 border-b border-line">제목</th>
+              <!-- show_in_list='N' 본인 목록 → 상태 컬럼 표시 -->
+              <th th:if="${master.showInList != 'Y'}" scope="col" class="px-3 py-2.5 border-b border-line w-24 whitespace-nowrap text-center">상태</th>
+              <th scope="col" class="px-3 py-2.5 border-b border-line w-40 whitespace-nowrap">등록일</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="row,rowStat : ${page.content}" class="hover:bg-surface-subtle">
+              <td class="px-3 py-2.5 border-b border-divider text-center text-fg-subtle text-body-xs whitespace-nowrap"
+                  th:text="${page.totalElements - (page.page - 1) * page.pageSize - rowStat.index}">-</td>
+              <td class="px-3 py-2.5 border-b border-divider">
+                <!-- show_in_list='N'(본인 목록) 일 때만 링크 클릭 가능 -->
+                <a th:if="${master.showInList != 'Y'}"
+                   th:href="@{/complaint/{mc}/{no}(mc=${master.masterCode}, no=${row.complaintNo})}"
+                   class="text-fg-strong hover:text-primary-60 font-medium"
+                   th:text="${row.title}">제목</a>
+                <!-- show_in_list='Y' 전체 공개 → 제목만 텍스트 (익명성 보호: 상세 접근 불가) -->
+                <span th:unless="${master.showInList != 'Y'}"
+                      class="text-fg-strong font-medium"
+                      th:text="${row.title}">제목</span>
+                <span th:if="${master.showInList != 'Y' and row.categoryName != null}"
+                      class="ml-1 text-body-xs text-fg-disabled"
+                      th:text="'[' + ${row.categoryName} + ']'"></span>
+              </td>
+              <!-- show_in_list='N' → 상태 배지 표시 -->
+              <td th:if="${master.showInList != 'Y'}" class="px-3 py-2.5 border-b border-divider whitespace-nowrap text-center">
+                <span th:if="${row.status != null}"
+                      th:classappend="${row.status == 'RECEIVED'}    ? 'bg-info-surface text-info-fg'
+                                   : (${row.status == 'IN_PROGRESS'} ? 'bg-warning-surface text-warning-fg'
+                                   : (${row.status == 'ANSWERED'}    ? 'bg-success-surface text-success-fg'
+                                   : (${row.status == 'CLOSED'}      ? 'bg-surface-subtle text-fg-subtle'
+                                   : 'bg-danger-surface text-danger-fg')))"
+                      class="krds-badge"
+                      th:text="${row.status == 'RECEIVED'}    ? '접수'
+                             : (${row.status == 'IN_PROGRESS'} ? '처리중'
+                             : (${row.status == 'ANSWERED'}    ? '답변완료'
+                             : (${row.status == 'CLOSED'}      ? '종결'
+                             : '반려')))">-</span>
+              </td>
+              <td class="px-3 py-2.5 border-b border-divider text-fg-subtle text-body-xs whitespace-nowrap" th:text="${@fmt.dt(row.createdAt)}">-</td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(page.content)}">
+              <td th:colspan="${master.showInList == 'Y' ? 3 : 4}"
+                  class="px-3 py-10 text-center text-body-sm text-fg-subtle">
+                <span th:if="${master.showInList == 'Y'}">접수된 민원이 없습니다.</span>
+                <span th:unless="${master.showInList == 'Y'}">접수된 민원이 없습니다. 처음으로 민원을 접수해 보세요.</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 작성 버튼 -->
+      <div class="flex items-center justify-between mb-4">
+        <nav th:if="${page.totalPages > 1}" aria-label="페이지">
+          <ul class="flex items-center gap-1 text-body-sm">
+            <li th:each="p : ${#numbers.sequence(1, page.totalPages)}">
+              <a th:href="@{/complaint/{mc}(mc=${master.masterCode},
+                           page=${p}, pageSize=${page.pageSize},
+                           keyword=${search.keyword}, categoryId=${search.categoryId})}"
+                 th:text="${p}"
+                 th:class="${p == page.page}
+                           ? 'inline-flex items-center justify-center size-10 rounded-medium bg-primary-50 text-white'
+                           : 'inline-flex items-center justify-center size-10 rounded-medium border border-line bg-surface text-fg hover:bg-surface-subtle'">1</a>
+            </li>
+          </ul>
+        </nav>
+        <div class="ml-auto">
+          <a th:href="@{/complaint/{mc}/write(mc=${master.masterCode})}"
+             th:if="${canWrite}"
+             class="krds-btn krds-btn-primary">민원 접수</a>
+          <span th:unless="${canWrite}"
+                class="text-body-xs text-fg-subtle">로그인 후 민원을 접수할 수 있습니다.</span>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+</body>
+</html>

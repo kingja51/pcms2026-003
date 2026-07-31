@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  user_id (UUID v7) → 회원/직원/관리자 contact lookup.
+
+  3-way UNION ALL — user_id 가 어느 테이블에 있는지 모르므로 모두 시도.
+  EncryptInterceptor 가 ResultSet 매핑 시 @Encrypt 필드(email/name) 의 {AG} 프리픽스를
+  자동 감지해 복호화. 평문(member_name) 은 그대로 통과.
+
+  delete_yn='N' 만 매치 — 탈퇴/퇴사자에게는 알림 발송 skip 효과.
+
+  우선순위: ADMIN → EMPLOYEE → MEMBER. 같은 user_id 가 동시에 두 테이블에 있을 일은
+  없으나, 만약 그렇다면 가장 권한 높은 쪽이 우선.
+-->
+<mapper namespace="com.gonet.primary.notification.mapper.UserContactMapper">
+
+  <select id="findByUserId" resultType="com.gonet.primary.notification.dto.UserContact">
+    SELECT user_id, user_type, login_id, email, name FROM (
+      SELECT admin_id    AS user_id, 'ADMIN'    AS user_type,
+             login_id, email, admin_name    AS name, 1 AS prio
+        FROM tb_admin
+       WHERE admin_id    = #{userId}
+         AND delete_yn   = 'N'
+      UNION ALL
+      SELECT employee_id AS user_id, 'EMPLOYEE' AS user_type,
+             login_id, email, employee_name AS name, 2 AS prio
+        FROM tb_employee
+       WHERE employee_id = #{userId}
+         AND delete_yn   = 'N'
+      UNION ALL
+      SELECT member_id   AS user_id, 'MEMBER'   AS user_type,
+             login_id, email, member_name   AS name, 3 AS prio
+        FROM tb_member
+       WHERE member_id   = #{userId}
+         AND delete_yn   = 'N'
+    ) c
+    ORDER BY prio
+    LIMIT 1
+  </select>
+
+</mapper>

@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_content + tb_content_history CRUD Mapper.
+  감사컬럼은 AuditInterceptor 가 자동 주입 (#{createdBy}, #{updatedBy} 등).
+-->
+<mapper namespace="com.gonet.primary.content.mapper.ContentMapper">
+
+  <sql id="contentColumnsFull">
+    c.content_id, c.site_id, c.menu_id,
+    c.title, c.slug, c.body, c.original_content, c.summary, c.body_hash,
+    c.meta_keywords, c.meta_description,
+    c.status, c.published_at, c.publish_scheduled_at, c.unpublish_at,
+    c.view_count, c.version_no, c.delete_yn,
+    c.created_by, c.created_ip, c.created_at,
+    c.updated_by, c.updated_ip, c.updated_at,
+    s.site_code AS site_code,
+    s.site_name AS site_name,
+	(SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+    m.menu_name AS menu_name
+  </sql>
+
+  <sql id="listFilter">
+    WHERE c.delete_yn = 'N'
+    <if test="search.siteId != null and search.siteId != ''">
+      AND c.site_id = #{search.siteId}
+    </if>
+    <if test="search.status != null and search.status != '' and search.status != 'ALL'">
+      AND c.status = #{search.status}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      <choose>
+        <when test="search.searchType == 'TITLE'">
+          AND c.title LIKE CONCAT('%', #{search.keyword}, '%')
+        </when>
+        <when test="search.searchType == 'SLUG'">
+          AND c.slug  LIKE CONCAT('%', #{search.keyword}, '%')
+        </when>
+        <when test="search.searchType == 'BODY'">
+          AND c.body  LIKE CONCAT('%', #{search.keyword}, '%')
+        </when>
+        <otherwise>
+          AND (c.title LIKE CONCAT('%', #{search.keyword}, '%')
+            OR c.slug  LIKE CONCAT('%', #{search.keyword}, '%')
+            OR c.summary LIKE CONCAT('%', #{search.keyword}, '%'))
+        </otherwise>
+      </choose>
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.content.dto.Content">
+    SELECT <include refid="contentColumnsFull"/>
+      FROM tb_content c
+      LEFT JOIN tb_site s ON s.site_id = c.site_id
+      LEFT JOIN tb_menu m ON m.menu_id = c.menu_id AND m.delete_yn = 'N'
+    <include refid="listFilter"/>
+    ORDER BY c.updated_at DESC, c.title ASC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_content c
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.content.dto.Content">
+    SELECT <include refid="contentColumnsFull"/>
+      FROM tb_content c
+      LEFT JOIN tb_site s ON s.site_id = c.site_id
+      LEFT JOIN tb_menu m ON m.menu_id = c.menu_id AND m.delete_yn = 'N'
+     WHERE c.content_id = #{contentId}
+       AND c.delete_yn  = 'N'
+  </select>
+
+  <select id="existsBySlug" resultType="int">
+    <![CDATA[
+    SELECT COUNT(1)
+      FROM tb_content
+     WHERE site_id   = #{siteId}
+       AND slug      = #{slug}
+       AND delete_yn = 'N'
+    ]]>
+    <if test="excludeContentId != null and excludeContentId != ''">
+      AND content_id &lt;&gt; #{excludeContentId}
+    </if>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.content.dto.Content">
+    INSERT INTO tb_content (
+      content_id, site_id, menu_id,
+      title, slug, body, original_content, summary,
+      meta_keywords, meta_description,
+      status, published_at, publish_scheduled_at, unpublish_at,
+      view_count, version_no, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{contentId}, #{siteId}, #{menuId},
+      #{title}, #{slug}, #{body}, #{originalContent}, #{summary},
+      #{metaKeywords}, #{metaDescription},
+      COALESCE(#{status}, 'DRAFT'), #{publishedAt}, #{publishScheduledAt}, #{unpublishAt},
+      COALESCE(#{viewCount}, 0), COALESCE(#{versionNo}, 1), 'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <!-- 본문 필드 UPDATE. 상태/게시 컬럼은 건드리지 않음 (updateStatus 전용). -->
+  <update id="update" parameterType="com.gonet.primary.content.dto.Content">
+    UPDATE tb_content SET
+      <if test="menuId != null and menuId != ''">menu_id=#{menuId},</if>
+      <if test="title != null and title != ''">title=#{title},</if>
+      <if test="slug != null and slug != ''">slug=#{slug},</if>
+      <if test="body != null and body != ''">body=#{body},</if>
+      <if test="originalContent != null and originalContent != ''">original_content=#{originalContent},</if>
+      <if test="summary != null and summary != ''">summary=#{summary},</if>
+      <if test="metaKeywords != null and metaKeywords != ''">meta_keywords=#{metaKeywords},</if>
+      <if test="metaDescription != null and metaDescription != ''">meta_description=#{metaDescription},</if>
+      <if test="versionNo != null">version_no=#{versionNo},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    WHERE content_id = #{contentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="updateStatus">
+    UPDATE tb_content
+       SET status       = #{status},
+           published_at = #{publishedAt},
+           unpublish_at = #{unpublishAt},
+           updated_by   = #{updatedBy},
+           updated_ip   = #{updatedIp},
+           updated_at   = CURRENT_TIMESTAMP
+     WHERE content_id = #{contentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="incrementVersion">
+    UPDATE tb_content
+       SET version_no = version_no + 1
+     WHERE content_id = #{contentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_content
+       SET delete_yn  = 'Y',
+           updated_by = #{updatedBy},
+           updated_ip = #{updatedIp},
+           updated_at = CURRENT_TIMESTAMP
+     WHERE content_id = #{contentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!-- 디스크 HTML → DB 동기화 — body / original_content / summary / body_hash 갱신. -->
+  <update id="updateBodyOriginalSummary">
+    UPDATE tb_content
+       SET body             = #{body},
+           original_content = #{originalContent},
+           summary          = #{summary},
+           body_hash        = #{bodyHash},
+           updated_by       = #{updatedBy},
+           updated_ip       = #{updatedIp},
+           updated_at       = CURRENT_TIMESTAMP
+     WHERE content_id = #{contentId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <!-- 색인 재구축용 — 활성 콘텐츠 전체. status 무관 (Service 가 PUBLISHED 만 등록). -->
+  <select id="findAllForReindex" resultType="com.gonet.primary.content.dto.Content">
+    SELECT <include refid="contentColumnsFull"/>
+      FROM tb_content c
+      LEFT JOIN tb_site s ON s.site_id = c.site_id
+      LEFT JOIN tb_menu m ON m.menu_id = c.menu_id AND m.delete_yn = 'N'
+     WHERE c.delete_yn = 'N'
+     ORDER BY c.created_at ASC
+  </select>
+
+  <!-- ================================================================ -->
+  <!-- tb_content_history                                                -->
+  <!-- ================================================================ -->
+
+  <insert id="insertHistory" parameterType="com.gonet.primary.content.dto.ContentHistory">
+    INSERT INTO tb_content_history (
+      content_history_id, content_id, version_no,
+      title, body, summary,
+      changed_by, change_note,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{contentHistoryId}, #{contentId}, #{versionNo},
+      #{title}, #{body}, #{summary},
+      #{changedBy}, #{changeNote},
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <select id="findHistoryByContentId" resultType="com.gonet.primary.content.dto.ContentHistory">
+    SELECT h.content_history_id, h.content_id, h.version_no,
+           h.title, h.body, h.summary,
+           h.changed_by, h.change_note,
+           h.created_by, h.created_ip, h.created_at,
+           h.updated_by, h.updated_ip, h.updated_at
+      FROM tb_content_history h
+     WHERE h.content_id = #{contentId}
+     ORDER BY h.version_no DESC, h.created_at DESC
+  </select>
+
+  <select id="findHistory" resultType="com.gonet.primary.content.dto.ContentHistory">
+    SELECT h.content_history_id, h.content_id, h.version_no,
+           h.title, h.body, h.summary,
+           h.changed_by, h.change_note,
+           h.created_by, h.created_ip, h.created_at,
+           h.updated_by, h.updated_ip, h.updated_at
+      FROM tb_content_history h
+     WHERE h.content_history_id = #{contentHistoryId}
+  </select>
+
+    <!-- ============================================================
+         Soft-delete retention — RetentionScheduler 가 cutoff 를 계산해 전달
+         childOrder: history(10) → content(30) — 자식 history 먼저 정리해야 FK 위반 회피
+         ============================================================ -->
+
+    <!-- tb_content 자기 정리 (자식 history 가 먼저 정리됐다는 전제) -->
+    <delete id="purgeSoftDeletedOlderThan">
+        DELETE FROM tb_content
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </delete>
+
+    <select id="countSoftDeletedOlderThan" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_content
+         WHERE delete_yn = 'Y'
+           AND updated_at &lt;= #{cutoff}
+    </select>
+
+    <!-- tb_content_history 자식 정리 — 부모 content cutoff 기반 (history 자체엔 delete_yn 없음) -->
+    <delete id="purgeHistoryOfSoftDeletedContent">
+        DELETE FROM tb_content_history
+         WHERE content_id IN (
+           SELECT c.content_id
+             FROM tb_content c
+            WHERE c.delete_yn = 'Y'
+              AND c.updated_at &lt;= #{cutoff}
+         )
+    </delete>
+
+    <select id="countHistoryOfSoftDeletedContent" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_content_history h
+         WHERE h.content_id IN (
+           SELECT c.content_id
+             FROM tb_content c
+            WHERE c.delete_yn = 'Y'
+              AND c.updated_at &lt;= #{cutoff}
+         )
+    </select>
+
+</mapper>

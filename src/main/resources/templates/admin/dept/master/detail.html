@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
+      layout:decorate="~{fragments/layout-admin}" lang="ko">
+<head><title>학과 마스터 상세</title></head>
+<body>
+  <section layout:fragment="content">
+    <nav aria-label="상위 경로" class="text-sm text-fg-subtle mb-2">
+      <a th:href="@{/admin}" class="hover:underline">대시보드</a> <span class="mx-1">/</span>
+      <a th:href="@{/admin/dept/master}" class="hover:underline">학과 마스터</a> <span class="mx-1">/</span>
+      <span>상세</span>
+    </nav>
+
+    <!-- 헤더 -->
+    <div class="flex items-start justify-between gap-4 flex-wrap mb-6">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <span class="inline-block px-2 py-0.5 rounded text-xs font-mono"
+                th:classappend="${item.nodeType == 'CAMPUS'} ? 'bg-secondary-10 text-secondary-70' : (${item.nodeType == 'COLLEGE'} ? 'bg-information-10 text-info-fg' : (${item.nodeType == 'MAJOR'} ? 'bg-warning-10 text-warning-fg' : 'bg-surface-subtler text-fg-subtle'))"
+                th:text="${item.nodeType}">DEPT</span>
+          <span class="text-xs text-fg-disabled" th:text="'depth ' + ${item.depth}">depth 3</span>
+        </div>
+        <h1 class="text-heading-lg font-bold text-fg-strong" th:text="${item.deptName}">학과명</h1>
+        <p class="text-sm text-fg-subtle mt-0.5" th:if="${item.deptNameEn}" th:text="${item.deptNameEn}">EN</p>
+        <!-- 계층 경로 -->
+        <p class="text-sm text-fg-subtle mt-1">
+          <span th:text="${item.campus}">캠퍼스</span>
+          <span th:if="${item.college}"> <span class="mx-1">▸</span> <span th:text="${item.college}">단과대학</span></span>
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <a th:href="@{/admin/dept/master/{id}/edit(id=${item.deptId})}" class="inline-flex items-center px-4 py-2 rounded bg-brand-50 text-fg-on text-sm font-medium hover:bg-brand-60">수정</a>
+        <a th:href="@{/admin/dept/master}" class="inline-flex items-center px-4 py-2 rounded border border-line text-fg text-sm hover:bg-surface-subtle">목록으로</a>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <!-- 기본 정보 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-sm font-bold text-fg mb-3">기본 정보</h2>
+        <dl class="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+          <dt class="text-fg-subtle">노드 유형</dt><dd class="col-span-2 text-fg-strong font-mono" th:text="${item.nodeType}">DEPT</dd>
+          <dt class="text-fg-subtle">캠퍼스</dt><dd class="col-span-2 text-fg-strong" th:text="${item.campus} ?: '-'">캠퍼스</dd>
+          <dt class="text-fg-subtle">단과대학/계열</dt><dd class="col-span-2 text-fg-strong" th:text="${item.college} ?: '-'">단과대학</dd>
+          <dt class="text-fg-subtle">학과코드</dt><dd class="col-span-2 text-fg-strong font-mono" th:text="${item.deptCode}">ME</dd>
+          <dt class="text-fg-subtle">사이트코드</dt><dd class="col-span-2 text-fg-strong font-mono" th:text="${item.siteCode} ?: '-'">me</dd>
+          <dt class="text-fg-subtle">정렬순서</dt><dd class="col-span-2 text-fg-strong" th:text="${item.sortOrder}">0</dd>
+          <dt class="text-fg-subtle">사용여부</dt>
+          <dd class="col-span-2">
+            <span th:if="${item.useYn == 'Y'}" class="inline-block px-2 py-0.5 rounded text-xs bg-success-10 text-success-fg">사용</span>
+            <span th:unless="${item.useYn == 'Y'}" class="inline-block px-2 py-0.5 rounded text-xs bg-surface-subtler text-fg-subtle">미사용</span>
+          </dd>
+        </dl>
+      </div>
+
+      <!-- 연락 / 링크 -->
+      <div class="bg-surface border border-line rounded-large p-5">
+        <h2 class="text-sm font-bold text-fg mb-3">연락 · 링크</h2>
+        <dl class="grid grid-cols-3 gap-x-3 gap-y-2 text-sm">
+          <dt class="text-fg-subtle">학과장</dt><dd class="col-span-2 text-fg-strong" th:text="${item.headProfessor} ?: '-'">-</dd>
+          <dt class="text-fg-subtle">대표전화</dt><dd class="col-span-2 text-fg-strong font-mono" th:text="${item.phone} ?: '-'">-</dd>
+          <dt class="text-fg-subtle">팩스</dt><dd class="col-span-2 text-fg-strong font-mono" th:text="${item.fax} ?: '-'">-</dd>
+          <dt class="text-fg-subtle">이메일</dt><dd class="col-span-2 text-fg-strong" th:text="${item.email} ?: '-'">-</dd>
+          <dt class="text-fg-subtle">사무실</dt><dd class="col-span-2 text-fg-strong" th:text="${item.office} ?: '-'">-</dd>
+          <dt class="text-fg-subtle">홈페이지</dt>
+          <dd class="col-span-2">
+            <a th:if="${item.homepage}" th:href="${item.homepage}" target="_blank" rel="noopener"
+               class="text-brand-60 hover:underline break-all" th:text="${item.homepage}">url</a>
+            <span th:unless="${item.homepage}" class="text-fg-disabled">-</span>
+          </dd>
+        </dl>
+        <div class="mt-3" th:if="${item.description}">
+          <div class="text-fg-subtle text-sm mb-1">소개</div>
+          <p class="text-sm text-fg whitespace-pre-line" th:text="${item.description}">소개</p>
+        </div>
+      </div>
+
+      <!-- 계층 (상위 / 하위) -->
+      <div class="bg-surface border border-line rounded-large p-5 lg:col-span-2">
+        <h2 class="text-sm font-bold text-fg mb-3">계층 구조</h2>
+        <div class="text-sm mb-4">
+          <span class="text-fg-subtle mr-2">상위 노드</span>
+          <a th:if="${parent}" th:href="@{/admin/dept/master/{id}(id=${parent.deptId})}"
+             class="text-brand-60 hover:underline">
+            <span class="font-mono text-xs text-fg-disabled" th:text="${parent.nodeType}">COLLEGE</span>
+            <span th:text="${parent.deptName}">상위</span>
+          </a>
+          <span th:unless="${parent}" class="text-fg-disabled">최상위(부모 없음)</span>
+        </div>
+        <div class="text-sm">
+          <div class="text-fg-subtle mb-2">하위 노드 <strong th:text="${children != null ? #lists.size(children) : 0}">0</strong>개</div>
+          <div th:if="${children != null and !#lists.isEmpty(children)}" class="border border-line rounded overflow-x-auto">
+            <table class="min-w-full divide-y divide-line">
+              <thead class="bg-surface-subtle text-fg-subtle">
+                <tr>
+                  <th class="px-3 py-2 text-left font-medium whitespace-nowrap">유형</th>
+                  <th class="px-3 py-2 text-left font-medium whitespace-nowrap">학과코드</th>
+                  <th class="px-3 py-2 text-left font-medium">학과명</th>
+                  <th class="px-3 py-2 text-left font-medium whitespace-nowrap">사이트</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-divider">
+                <tr th:each="c : ${children}" class="hover:bg-surface-subtle">
+                  <td class="px-3 py-2 whitespace-nowrap"><span class="font-mono text-xs text-fg-subtle" th:text="${c.nodeType}">DEPT</span></td>
+                  <td class="px-3 py-2 whitespace-nowrap font-mono" th:text="${c.deptCode}">코드</td>
+                  <td class="px-3 py-2">
+                    <a th:href="@{/admin/dept/master/{id}(id=${c.deptId})}" class="text-brand-60 hover:underline" th:text="${c.deptName}">이름</a>
+                  </td>
+                  <td class="px-3 py-2 whitespace-nowrap font-mono text-fg-subtle" th:text="${c.siteCode} ?: '-'">-</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p th:if="${children == null or #lists.isEmpty(children)}" class="text-fg-disabled">하위 노드 없음</p>
+        </div>
+      </div>
+
+      <!-- 식별 / 감사 -->
+      <div class="bg-surface border border-line rounded-large p-5 lg:col-span-2">
+        <h2 class="text-sm font-bold text-fg mb-3">식별 · 감사</h2>
+        <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+          <div class="flex gap-3"><dt class="text-fg-subtle w-24 shrink-0">dept_id</dt><dd class="text-fg-strong font-mono break-all" th:text="${item.deptId}">DPM_...</dd></div>
+          <div class="flex gap-3"><dt class="text-fg-subtle w-24 shrink-0">parent_dept_id</dt><dd class="text-fg-strong font-mono break-all" th:text="${item.parentDeptId} ?: '-'">-</dd></div>
+          <div class="flex gap-3"><dt class="text-fg-subtle w-24 shrink-0">등록</dt><dd class="text-fg-strong"><span th:text="${item.createdBy} ?: '-'">-</span> <span class="text-fg-disabled" th:text="${item.createdAt}">-</span></dd></div>
+          <div class="flex gap-3"><dt class="text-fg-subtle w-24 shrink-0">수정</dt><dd class="text-fg-strong"><span th:text="${item.updatedBy} ?: '-'">-</span> <span class="text-fg-disabled" th:text="${item.updatedAt}">-</span></dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+</body>
+</html>

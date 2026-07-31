@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<!-- ══════════════════════════════════════════════════════════════════════
+     게시글 첨부파일 다운로드 박스 — 전 게시판 타입 상세 공용 (공지사항 포맷 표준)
+     · 한 줄 2개 그리드(모바일 1개), 파일명 클릭=다운로드, 문서 7종만 🔍 뷰어 배지.
+     · files 가 null/빈 목록이면 렌더 자체가 생략되므로 호출측 th:if 불필요
+       (fileYn='N' 게시판은 files 가 비어 오므로 자연 비노출).
+     · 사용: <th:block th:replace="~{fragments/bbs-attachments :: box(files=${existingFiles})}"/>
+     ══════════════════════════════════════════════════════════════════════ -->
+<th:block th:fragment="box(files)">
+  <div th:if="${files != null and not #lists.isEmpty(files)}"
+       class="rounded-large border border-line bg-surface-subtle p-4 mt-6">
+    <div class="flex items-center gap-1.5 text-body-sm font-bold text-fg-strong mb-2.5">
+      <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/></svg>
+      <span>첨부파일 다운로드</span>
+      <span class="text-fg-subtle font-normal" th:text="'(' + ${#lists.size(files)} + ')'">(2)</span>
+    </div>
+    <ul class="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <li th:each="f : ${files}"
+          class="flex items-center gap-2 min-w-0 text-body-sm text-fg rounded-medium border border-line bg-surface px-3 py-2">
+        <svg class="size-4 text-fg-subtle shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg>
+        <a th:href="@{/fileDown/{fid}(fid=${f.fileId})}"
+           class="min-w-0 truncate text-primary-50 hover:text-primary-60 hover:underline"
+           th:text="${f.originalName}" th:title="${f.originalName}">document.pdf</a>
+        <span class="text-body-xs text-fg-subtle shrink-0"
+              th:if="${f.sizeBytes != null}"
+              th:text="'(' + (${f.sizeBytes >= 1048576}
+                       ? ${#numbers.formatDecimal(f.sizeBytes / 1048576.0, 0, 'COMMA', 1, 'POINT')} + ' MB'
+                       : ${#numbers.formatDecimal(f.sizeBytes / 1024.0, 0, 'COMMA', 1, 'POINT')} + ' KB') + ')'">(120 KB)</span>
+        <!-- 뷰어 — doc-extensions 7종만 노출. 클릭 시 file-viewer-popup.js 가 팝업창으로 연다. -->
+        <a th:if="${f.originalName != null
+             and #strings.toLowerCase(f.originalName) matches '.+[.](pdf|txt|hwp|hwpx|docx|xlsx|pptx)$'}"
+           th:href="@{/file/preview/{fid}(fid=${f.fileId})}"
+           target="_blank" rel="noopener" data-viewer-popup
+           class="krds-badge bg-success-surface text-success-fg no-underline hover:bg-success-border ml-auto shrink-0">🔍 뷰어</a>
+      </li>
+    </ul>
+  </div>
+</th:block>
+</body>
+</html>

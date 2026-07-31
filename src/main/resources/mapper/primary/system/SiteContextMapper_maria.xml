@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  SiteContext 로드용 Mapper (tb_site / tb_template / tb_menu).
+  컬럼→프로퍼티 매핑: mybatis.configuration.map-underscore-to-camel-case=true.
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ H-3 resultMap 도입 + M-1 서브쿼리 → JOIN                                 │
+  │ ────────────────────────────────────────────────────────────────────── │
+  │ · 기존: 4 select 마다 동일 서브쿼리 (tb_template) 반복 호출 → JOIN 으로 통합. │
+  │ · 기존: resultType 만 사용 → LEFT JOIN 결과에서 site_id NULL 분기를 추적   │
+  │         하기 어려웠음. siteSummaryMap 으로 명시 매핑.                       │
+  │ · findSiteIdByMenuId 는 INNER JOIN 으로 강화 — site 가 없으면 결과 없음    │
+  │   (이전 LEFT JOIN 은 m.site_id 만 채워지고 다른 필드 모두 NULL 인 위험 행 반환). │
+  └────────────────────────────────────────────────────────────────────────┘
+-->
+<mapper namespace="com.gonet.primary.system.site.mapper.SiteContextMapper">
+
+  <!-- ================================================================ -->
+  <!-- ResultMap                                                         -->
+  <!-- ================================================================ -->
+
+  <resultMap id="siteSummaryMap"
+             type="com.gonet.primary.system.site.dto.SiteSummary">
+    <id     property="siteId"            column="site_id"/>
+    <result property="siteCode"          column="site_code"/>
+    <result property="siteName"          column="site_name"/>
+    <result property="domain"            column="domain"/>
+    <result property="defaultLang"       column="default_lang"/>
+    <result property="defaultTemplateId" column="default_template_id"/>
+    <result property="description"       column="description"/>
+    <result property="headMeta"          column="head_meta"/>
+    <result property="copyright"         column="copyright"/>
+    <result property="theme"             column="theme"/>
+    <result property="useYn"             column="use_yn"/>
+    <result property="layoutPath"        column="layout_path"/>
+  </resultMap>
+
+  <!-- ================================================================ -->
+  <!-- tb_site                                                           -->
+  <!-- ================================================================ -->
+
+  <sql id="siteCols">
+    s.site_id, s.site_code, s.site_name, s.domain, s.default_lang,
+    s.default_template_id, s.description, s.head_meta, s.copyright, s.theme, s.use_yn,
+    COALESCE(t.layout_path, 'front/layouts/EMPTY/empty') AS layout_path
+  </sql>
+
+  <sql id="siteFrom">
+    FROM tb_site s
+    LEFT JOIN tb_template t
+      ON t.template_id = s.default_template_id
+     AND t.use_yn      = 'Y'
+     AND t.delete_yn   = 'N'
+  </sql>
+
+  <select id="findSiteById" resultMap="siteSummaryMap">
+    SELECT <include refid="siteCols"/>
+    <include refid="siteFrom"/>
+     WHERE s.site_id   = #{siteId}
+       AND s.use_yn    = 'Y'
+       AND s.delete_yn = 'N'
+  </select>
+
+  <select id="findSiteByDomain" resultMap="siteSummaryMap">
+    SELECT <include refid="siteCols"/>
+    <include refid="siteFrom"/>
+     WHERE s.domain    = #{domain}
+       AND s.use_yn    = 'Y'
+       AND s.delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="findSiteByCode" resultMap="siteSummaryMap">
+    SELECT <include refid="siteCols"/>
+    <include refid="siteFrom"/>
+     WHERE s.site_code = #{siteCode}
+       AND s.use_yn    = 'Y'
+       AND s.delete_yn = 'N'
+  </select>
+
+  <select id="findDefaultSite" resultMap="siteSummaryMap">
+    SELECT <include refid="siteCols"/>
+    <include refid="siteFrom"/>
+     WHERE s.site_code = 'DEFAULT'
+       AND s.use_yn    = 'Y'
+       AND s.delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <!-- ================================================================ -->
+  <!-- tb_template                                                       -->
+  <!-- ================================================================ -->
+
+  <select id="findTemplateById"
+          resultType="com.gonet.primary.system.site.dto.TemplateInfo">
+    SELECT template_id, template_code, template_name, layout_path, use_yn
+      FROM tb_template
+     WHERE template_id = #{templateId}
+       AND use_yn      = 'Y'
+       AND delete_yn   = 'N'
+  </select>
+
+  <!-- 템플릿 프리뷰(?tmpl=CODE) 검증용 — template_code UNIQUE -->
+  <select id="findTemplateByCode"
+          resultType="com.gonet.primary.system.site.dto.TemplateInfo">
+    SELECT template_id, template_code, template_name, layout_path, use_yn
+      FROM tb_template
+     WHERE template_code = #{templateCode}
+       AND use_yn        = 'Y'
+       AND delete_yn     = 'N'
+  </select>
+
+  <!-- ================================================================ -->
+  <!-- tb_menu (flat 조회, in-memory 트리 조립)                          -->
+  <!-- ================================================================ -->
+
+  <!--
+    H-3 강화: site_id NULL 안전성을 위해 INNER JOIN 으로 변경.
+    site 가 부재한 menu 행 (delete_yn='Y' 등 정합성 깨진 데이터) 은 결과에서 제외.
+  -->
+  <select id="findSiteIdByMenuId" resultMap="siteSummaryMap">
+    SELECT <include refid="siteCols"/>
+      FROM tb_menu m
+      INNER JOIN tb_site s
+        ON s.site_id   = m.site_id
+       AND s.use_yn    = 'Y'
+       AND s.delete_yn = 'N'
+      LEFT JOIN tb_template t
+        ON t.template_id = s.default_template_id
+       AND t.use_yn      = 'Y'
+       AND t.delete_yn   = 'N'
+     WHERE m.menu_id   = #{menuId}
+       AND m.delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="findMenusBySiteId"
+          resultType="com.gonet.primary.system.site.dto.MenuNode">
+    SELECT m.menu_id, m.parent_menu_id, m.menu_name, m.menu_type,
+           m.link_target_id, m.link_url,
+           c.slug      AS link_slug,
+           b.bbs_code  AS link_bbs_code,
+           m.sort_order, m.depth, m.auth_required_yn
+      FROM tb_menu m
+      LEFT JOIN tb_content c
+        ON c.content_id  = m.link_target_id
+       AND c.delete_yn   = 'N'
+      LEFT JOIN tb_bbs_master b
+        ON b.bbs_master_id = m.link_target_id
+       AND b.delete_yn     = 'N'
+     WHERE m.site_id   = #{siteId}
+       AND m.use_yn    = 'Y'
+       AND m.delete_yn = 'N'
+     ORDER BY m.depth ASC, m.sort_order ASC
+  </select>
+
+</mapper>

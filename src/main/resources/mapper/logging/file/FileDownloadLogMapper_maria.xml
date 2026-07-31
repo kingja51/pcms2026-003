@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.logging.file.mapper.FileDownloadLogMapper">
+
+  <sql id="columns">
+    log_file_download_id,
+    file_id, file_group_id, download_type,
+    actor_user_id, actor_user_type, actor_login_id,
+    original_name, extension, size_bytes,
+    request_uri, client_ip, user_agent, trace_id,
+    result, downloaded_at,
+    created_by, created_ip, created_at
+  </sql>
+
+  <insert id="insert" parameterType="com.gonet.logging.file.dto.FileDownloadLog"
+          useGeneratedKeys="true" keyProperty="logFileDownloadId">
+    INSERT INTO log_file_download (
+      file_id, file_group_id, download_type,
+      actor_user_id, actor_user_type, actor_login_id,
+      original_name, extension, size_bytes,
+      request_uri, client_ip, user_agent, trace_id,
+      result, downloaded_at,
+      created_by, created_ip, created_at
+    ) VALUES (
+      #{fileId}, #{fileGroupId}, #{downloadType},
+      #{actorUserId}, #{actorUserType}, #{actorLoginId},
+      #{originalName}, #{extension}, #{sizeBytes},
+      #{requestUri}, #{clientIp}, #{userAgent}, #{traceId},
+      COALESCE(#{result}, 'SUCCESS'),
+      COALESCE(#{downloadedAt}, CURRENT_TIMESTAMP),
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <select id="findRecentByFileId" resultType="com.gonet.logging.file.dto.FileDownloadLog">
+    SELECT <include refid="columns"/>
+      FROM log_file_download
+     WHERE file_id = #{fileId}
+     ORDER BY downloaded_at DESC
+     LIMIT #{limit}
+  </select>
+
+  <select id="findRecentByGroupId" resultType="com.gonet.logging.file.dto.FileDownloadLog">
+    SELECT <include refid="columns"/>
+      FROM log_file_download
+     WHERE file_group_id = #{fileGroupId}
+     ORDER BY downloaded_at DESC
+     LIMIT #{limit}
+  </select>
+
+  <select id="countByFileId" resultType="int">
+    SELECT COUNT(1) FROM log_file_download WHERE file_id = #{fileId}
+  </select>
+
+  <sql id="recentFilter">
+    WHERE downloaded_at &gt;= #{search.dateFrom}
+      AND downloaded_at &lt;  DATE_ADD(#{search.dateTo}, INTERVAL 1 DAY)
+    <if test="search.keyword != null">
+      AND (
+            original_name  LIKE CONCAT('%', #{search.keyword}, '%')
+         OR actor_login_id LIKE CONCAT('%', #{search.keyword}, '%')
+         OR client_ip      LIKE CONCAT('%', #{search.keyword}, '%')
+         OR file_id        LIKE CONCAT('%', #{search.keyword}, '%')
+         OR download_type  LIKE CONCAT('%', #{search.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="findRecent" resultType="com.gonet.logging.file.dto.FileDownloadLog">
+    SELECT <include refid="columns"/>
+      FROM log_file_download
+    <include refid="recentFilter"/>
+     ORDER BY downloaded_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countRecent" resultType="long">
+    SELECT COUNT(1)
+      FROM log_file_download
+    <include refid="recentFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.logging.file.dto.FileDownloadLog">
+    SELECT <include refid="columns"/>
+      FROM log_file_download
+     WHERE log_file_download_id = #{id}
+     LIMIT 1
+  </select>
+
+  <select id="findByTraceId" resultType="com.gonet.logging.file.dto.FileDownloadLog">
+    SELECT <include refid="columns"/>
+      FROM log_file_download
+     WHERE trace_id = #{traceId}
+     ORDER BY downloaded_at ASC
+     LIMIT 200
+  </select>
+
+</mapper>

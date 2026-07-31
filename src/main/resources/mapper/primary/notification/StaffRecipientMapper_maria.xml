@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  STAFF 이상 활성 admin/employee user_id lookup.
+
+  closure 확장된 role_ids CSV 에 입력 role_code 의 role_id 가 포함된 사용자 매치.
+  tb_role 의 role_code 가 site_id 별로 다중 존재할 수 있으므로 EXISTS 로 묶는다.
+
+  운영 broadcast 가 빈번하지 않다면 매번 조회로 충분 — 캐싱은 후속 (5분 TTL Caffeine).
+-->
+<mapper namespace="com.gonet.primary.notification.mapper.StaffRecipientMapper">
+
+  <select id="findActiveUserIdsByRoleCode" resultType="java.lang.String">
+    SELECT u.user_id
+      FROM v_user_login u
+     WHERE u.delete_yn  = 'N'
+       AND u.status     = 'ACTIVE'
+       AND u.user_type IN ('STAFF', 'EMPLOYEE')
+       AND u.role_ids IS NOT NULL
+       AND u.role_ids <![CDATA[ <> ]]> ''
+       AND EXISTS (
+         SELECT 1
+           FROM tb_role r
+          WHERE r.role_code = #{roleCode}
+            AND r.delete_yn = 'N'
+            AND r.use_yn    = 'Y'
+            AND FIND_IN_SET(r.role_id, u.role_ids) > 0
+       )
+  </select>
+
+</mapper>
