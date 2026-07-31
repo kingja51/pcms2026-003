@@ -12,6 +12,137 @@
 ---
 
 ```
+================ 2026.8.1 04:05:30 =======================
+```
+
+## P8 — 멀티사이트 데모 · 마감 🟡 작업 완료, 기동 검증 대기
+
+**완료**: 2026-08-01 04:05:30
+**목표**: 배포 가능 상태로 마무리한다.
+
+### 스키마와 코드가 어긋나 있었다 — D13 으로 해소
+
+시드·문서·배포 자산을 만들고 보니 **화면이 렌더되지 않는 상태**였다.
+결정이 필요한 문제라 먼저 물었고, **A안(스키마를 코드에 맞춘다)** 으로 정해져
+`V2026080104` 로 해소했다.
+
+> `tb_template.layout_path` 컬럼이 **003 베이스라인 DDL 에 없는데** 매퍼 **17곳**이
+> 그것을 SELECT 한다. `SiteContextService.getContextByCode()` 가 SQL 오류로 죽고,
+> 그 결과 **모든 사용자 사이트 페이지**가 렌더되지 않는다.
+
+003 DDL 은 `default_layout_id` FK → `tb_layout` **3단 구조**로 재설계됐는데
+(PLAN §7 에 "문서에 없음" 으로 기록돼 있던 그 구조다), 이식한 코드는 001 형태
+(단일 문자열 컬럼) 그대로다. **신설된 `tb_layout`·`tb_theme` 를 읽는 코드는 0건**이다.
+`file_group_id` 도 같은 상태다.
+
+해소 방향은 둘이고 **성격이 다르다**:
+
+| | 내용 | 비용 | 대가 |
+|---|---|---|---|
+| **A** | `tb_template` 에 `layout_path`(+`file_group_id`) 복원 | 마이그레이션 1개 | `default_layout_id` 와 진실이 둘이 된다 |
+| **B** | 매퍼 17곳 + `TemplateSaveForm`·`TemplateMngController`·관리자 폼을 3단 구조로 재작성 | 큰 작업 | 스키마 의도에 맞고 진실이 하나 |
+
+**A안으로 결정**(D13). `V2026080104__restore_template_layout_path.sql`:
+
+1. `layout_path` 를 nullable 로 추가 → `default_layout_id` → `tb_layout.layout_code`
+   에서 backfill → **NOT NULL 승격**. 한 번에 NOT NULL 로 추가하면 기존 행에
+   빈 문자열이 들어가 조용히 깨진다
+2. `file_group_id` 추가 (FK 는 걸지 않는다 — 001 도 안 걸었고 파일 그룹이 먼저
+   지워질 수 있다)
+3. **`default_layout_id` 를 nullable 로 완화** — 이게 없으면 A안이 반쪽이다.
+   `TemplateMapper.insert` 는 이 컬럼을 넣지 않는다(DTO 에 필드 자체가 없다).
+   NOT NULL 로 두면 관리자 화면에서 **템플릿을 새로 만들 때마다 INSERT 가 실패**한다.
+   FK 는 유지했다 — B안으로 전환할 때 되돌리기 쉽다
+
+적용 후 `TemplateMapper` 가 쓰는 컬럼을 스키마와 전수 대조해 **불일치 0** 을 확인했다.
+
+진실이 둘(`layout_path` · `default_layout_id`)인 상태는 감수한다. 동기화는 없고
+현재 코드는 `layout_path` 만 읽으므로 `default_layout_id` 는 참고 컬럼이다.
+B안으로 갈 때 손댈 목록은 PLAN §6 D13 에 적어 두었다.
+
+### 산출물
+
+| 구분 | 내용 |
+|---|---|
+| 데모 시드 | `sql/seed_demo_sites.sql` — 레이아웃 5 · 템플릿 5 · 테마 5 · 사이트 5 · **접근규칙 10행** · 메뉴 15 |
+| 문서 | 개발가이드 **§18 사이트 추가 절차(복제 레시피)** 신설 |
+| 배포 | `deploy/tomcat/{setenv.sh, setenv.bat, pcms.env.example}` |
+| 검증 | war 구조 실측 · 테스트 52건 · 상시 게이트 8종 |
+
+### 사이트 추가에 자바 코드가 필요 없다
+
+001 은 사이트마다 컨트롤러를 복사했다. 003 은 `DefaultUsrController` 하나가
+`/{siteCode}/**` 를 전부 처리하므로 **데이터 4가지만** 넣으면 된다.
+PLAN 이 "한 세트 = 레이아웃 + 콘텐츠 + 컨트롤러 + 접근규칙 + 시드" 라고 적은 것 중
+**컨트롤러 항목은 P4 설계로 이미 사라졌다.**
+
+개발가이드 §18 은 그 4가지 중 무엇이 빠지면 어떤 증상이 나는지를 표로 정리했다.
+증상이 고약하기 때문이다 — 404 도 500 도 아니고 로그인 페이지로 튕기거나 민짜 화면이 뜬다:
+
+| 빠진 것 | 증상 |
+|---|---|
+| 레이아웃·템플릿 | EMPTY 폴백 — 헤더·푸터 없는 민짜 화면 |
+| 사이트 | `/{siteCode}` 404 |
+| **접근 규칙 2행** | 무매칭 DENY — **로그인 페이지로 리다이렉트** |
+| 메뉴 | 메뉴가 비고 `/{sc}/{slug}` 404 |
+
+`site_code` 예약어 20개도 함께 적었다 — 리터럴 URL 매핑이 차지한 이름
+(`admin`·`member`·`bbs`·`survey`·`complaint`·`schedule`·`holiday`·`actuator` 등)으로
+사이트를 만들면 Spring 이 리터럴을 우선해 **그 사이트만 조용히 안 열린다.**
+
+### pcms.env.example 은 001 것을 복사하지 않았다
+
+001 의 `.env.example` 은 `.env` 의 사본이라 운영 비밀값 21종이 커밋될 뻔했다
+(CLAUDE.md 에 기록된 사건이다). 그래서 **yml 실측에서 기계 추출**했다:
+
+- `${VAR}` 중 **기본값이 없는 것 = 필수 16종** (미주입 시 fail-fast)
+- 기본값이 있는 것 = 선택 43종 → 운영에서 실제로 채워야 하는 것만 추림
+
+값은 전부 `__CHANGE_ME__` 다. `deploy/tomcat/pcms.env` 는 `.gitignore` 대상이고
+`.example` 만 커밋된다.
+
+`setenv.sh` 는 `source` 를 쓰지 않고 라인 단위로 읽어 export 한다 —
+DB 비밀번호에 `&` 하나만 있어도 `source` 는 조용히 깨진다.
+
+### war 는 표준 war 가 맞다
+
+빌드 로그에 `spring-boot:repackage` 가 찍혀서 CLAUDE.md 의 "repackage 안 함" 규약
+위반처럼 보였다. 실측하니 아니었다:
+
+```
+WEB-INF/classes + WEB-INF/lib   1,713 항목
+BOOT-INF                            0
+WEB-INF/lib-provided                0
+런처 클래스·Spring-Boot 매니페스트    없음
+```
+
+`spring-boot-maven-plugin` 의 repackage 실행이 `<skip>true</skip>` 로 무력화돼 있다.
+로그만 보고 위반으로 오인하지 않도록 §7 에 기록했다.
+
+### D6(데모 시각 언어) 결정
+
+미결이었으나 **이식된 레이아웃 5종을 그대로 쓰기로** 하고 진행했다 —
+KRDS · IBM Carbon · AIRBNB · CLAY · EMPTY(폴백). 시각 언어를 새로 정의하면
+P8 이 디자인 프로젝트가 된다. 다르게 가려면 알려 주면 된다.
+
+### DoD
+
+| 항목 | 결과 |
+|---|---|
+| 전체 회귀 — 테스트 52건 · 상시 게이트 8종 | ✅ |
+| war 표준 패키징 | ✅ 실측 확인 |
+| 데모 사이트 전 페이지 익명 200 | 🟡 차단 해소(D13 A안) — 실제 200 확인은 기동 후 |
+| war 가 외부 Tomcat 에서 기동 | 🟡 미실행 |
+
+### 미해결
+
+1. **외부 Tomcat 배포 리허설** — war 구조는 확인, 실제 기동은 미실행
+2. **파일 정리 트리거 이중화**(P7 이월) — `FilePurgeScheduler` vs `FileRetentionTarget`
+3. 누적된 기동 검증 — P4~P8 의 DoD 왕복
+
+---
+
+```
 ================ 2026.8.1 03:12:20 =======================
 ```
 

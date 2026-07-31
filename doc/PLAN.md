@@ -55,7 +55,7 @@
 | **P5** | 회원 · 인증 연동 | 회원 생명주기 | 🟡 2026-08-01 — 작업 완료(OTP 정리 배치는 P7), DoD 왕복 검증 대기 |
 | **P6** | 부가 도메인 | 설문·민원·일정·팝업·알림 등 | 🟡 2026-08-01 — 작업 완료, DoD 왕복 검증 대기 |
 | **P7** | 운영 · 관측 | 로깅·통계·배치 | 🟡 2026-08-01 — 작업 완료, DoD 발화 검증 대기 |
-| **P8** | 멀티사이트 데모 · 마감 | 배포 가능 상태 | ⬜ |
+| **P8** | 멀티사이트 데모 · 마감 | 배포 가능 상태 | 🟡 2026-08-01 — 작업 완료(D13 A안 적용), 기동 검증 대기 |
 
 ---
 
@@ -559,20 +559,36 @@
 
 #### 작업
 
-- [ ] 사이트 데모 **5종 세트** — 한 세트 = **레이아웃 + 콘텐츠 + 컨트롤러 + `tb_role_url_access` + 시드**
-      (레이아웃만 만들고 시드·접근 규칙을 빠뜨리는 것이 **가장 흔한 실수**)
-- [ ] 사이트 추가 절차 문서화(복제 레시피)
-- [ ] 배포 자산 — `deploy/tomcat/setenv.sh`·`setenv.bat`·`pcms.env.example`
-      (**NICE JPMS 플래그** 포함, 비밀값은 스크립트 밖 `conf/pcms.env`)
-- [ ] war 표준 패키징 확인(repackage 안 함) + 외부 Tomcat 배포 리허설
-- [ ] 문서 최종 갱신 — README·개발가이드·PLAN
-- [ ] 전체 회귀 확인
+- [x] 사이트 데모 **5종 세트** — `sql/seed_demo_sites.sql` (2026-08-01).
+      레이아웃 5 + 템플릿 5 + 테마 5 + 사이트 5 + **접근규칙 10행** + 메뉴 15.
+      **컨트롤러는 만들지 않는다** — `DefaultUsrController` 가 `/{siteCode}/**` 를
+      전부 처리하므로 사이트 추가에 자바 코드가 필요 없다(001 은 사이트마다 복사했다)
+      — 마이그레이션이 아니라 `sql/` 에 둔다. 데모 데이터가 운영에 딸려 가면 안 된다
+      — **선행: `V2026080104`**(D13 A안). 적용 전에 돌리면 `tb_template` INSERT 에서
+        "Unknown column 'layout_path'" 로 멈춘다
+- [x] 사이트 추가 절차 문서화 — **개발가이드 §18**(복제 레시피).
+      4가지(레이아웃·사이트·접근규칙·메뉴) 중 무엇이 빠지면 어떤 증상이 나는지 표로 정리.
+      `site_code` 예약어 목록(리터럴 URL 과 충돌하는 20단어)도 함께
+- [x] 배포 자산 — `deploy/tomcat/{setenv.sh,setenv.bat,pcms.env.example}` (2026-08-01).
+      `pcms.env.example` 은 **001 것을 복사하지 않고 yml 실측에서 새로 만들었다** —
+      001 의 `.env.example` 은 `.env` 사본이라 비밀값 21종이 커밋될 뻔했다.
+      필수 16종 / 선택 43종을 `${VAR}` 기본값 유무로 기계 추출했고 값은 전부 `__CHANGE_ME__`
+- [x] war 표준 패키징 확인 — **실측 통과**(2026-08-01).
+      `WEB-INF/classes`+`lib` 1,713항목 · **BOOT-INF 0** · `lib-provided` 0 · 런처 0.
+      `spring-boot-maven-plugin` 의 repackage 는 `<skip>true</skip>` 로 무력화돼 있다.
+      war 86MB. **외부 Tomcat 배포 리허설은 미실행**
+- [x] 문서 최종 갱신 — 개발가이드 §18 신설, PLAN·RESULT 갱신
+- [x] 전체 회귀 확인 — 테스트 52건 · 상시 게이트 8종 전부 통과
 
 #### DoD
 
 - **최종 DoD(§1) 5개 항목 전부 통과**
+  — 🟡 정적 항목은 통과, 기동 항목은 미검증
 - 데모 사이트 전 페이지 익명 200
+  — 🟡 **차단 해소**(D13 A안, `V2026080104`). 스키마와 코드가 맞았고 시드도 준비됐다.
+    **실제 200 확인은 기동 후**
 - war 가 외부 Tomcat 에서 기동
+  — 🟡 **war 구조는 실측 확인**(표준 war, BOOT-INF 0). 실제 배포 리허설은 미실행
 
 ---
 
@@ -606,7 +622,8 @@
 | D8 | **`tb_election_voter`·`tb_election_voter_import_job` 배치 DB** | ① primary ② **secondary(개별프로그램)** | **P0** | ✅ 2026-07-31 — **② secondary**. FK 없어 이동에 제약 변경 없음. `site_id` 는 primary `tb_site` 를 가리키지만 DB 분리로 조인 불가 → 사이트 필터는 `SiteContext` 로 |
 | D7 | **`tb_employee` 의 로그인·권한 컬럼 처리** — 직원이 로그인 주체가 아니게 되어 `PASSWORD`·`two_factor_secret` 등이 死컬럼이 됐다 | ① 전부 DROP(권장 — 쓰지 않는 자격증명을 남기지 않는다) ② 남기되 애플리케이션에서 미사용 ③ 별도 이관 후 DROP | **P0** | ✅ 2026-07-31 — **① 전부 DROP**. **19컬럼** 제거(`employee_seq` 포함 — `v_user_login.uniq_id` 전용이라 혼동 요인), `uk_employee_login`·`uk_employee_seq`·`chk_employee_captcha_required_yn` 제거, `idx_employee_status` → `idx_employee_active(delete_yn, resign_date)` 대체, `AUTO_INCREMENT` 옵션 제거 |
 | D5 | **Namo CrossEditor 4** 납품 패키지 확보 시점 및 제품 API 확인 | | P3 | |
-| D6 | 사이트 데모 시각 언어(KRDS / IBM Carbon / 기타) | | P8 | |
+| D6 | 사이트 데모 시각 언어(KRDS / IBM Carbon / 기타) | **이식된 레이아웃 5종 사용**(KRDS·IBM·AIRBNB·CLAY·EMPTY) | P8 | ✅ 2026-08-01 — 새로 만들지 않고 실측 자산을 쓴다. 시각 언어를 새로 정의하면 P8 이 디자인 프로젝트가 된다 |
+| D13 | `tb_template` 스키마 방향 — 코드(단일 `layout_path`) vs DDL(3단 `tb_layout`) | **A안 — 스키마를 코드에 맞춘다** | P8 | ✅ 2026-08-01 사용자 결정. `V2026080104` 적용. B안(3단 구조 재작성) 전환 시 손댈 곳: 매퍼 17곳 · `TemplateSaveForm` · `TemplateMngController` · `admin/system/template/form.html` |
 
 ---
 
@@ -674,6 +691,8 @@
 | 2026-08-01 | **`DormantScheduler` 의 cron 이 하드코딩돼 있었다** — `@Scheduled(cron = "0 0 1 * * *")`. CLAUDE.md 규약("cron 은 `${…:기본값}` 으로 외부화하고 dry-run 플래그를 둔다") 위반이다. 스케줄러는 평소 조용해서 규약 위반이 화면처럼 티나지 않고, **급히 꺼야 할 때** 배포가 필요하다는 사실이 드러난다 | P7 | 중 | ✅ **해결 2026-08-01** — cron·enabled·dry-run 외부화. 같은 실수를 자동 검출하도록 `SchedulerContractTest` 신설(cron 외부화·파괴적 배치의 dry-run·`@SchedulerLock` 부착·제외 대상 부재 4건) |
 | 2026-08-01 | **파일 정리에 트리거가 둘이다** — `FilePurgeScheduler.runOnce()` 와 `FileRetentionTarget`(→ `SoftDeleteRetentionScheduler`) 이 같은 정리를 한다. 후자에는 dry-run 이 걸리지만 전자에는 없어서, **어느 경로로 도는지에 따라 dry-run 이 먹기도 하고 안 먹기도 한다** | P7 | 중 | 미정 — `FilePurgeScheduler` 에 dry-run 을 덧대는 것보다 **트리거를 하나로 합치는 편**이 맞다. 디스크 파일 삭제까지 포함하므로 어느 쪽을 남길지는 결정이 필요하다 |
 | 2026-08-01 | **로그 뷰어·통계 컨트롤러가 1차 이식에서 빠졌다** — `logging/*` 패키지만 훑었는데 실제 화면 컨트롤러는 `primary/system/{log,stat}` 에 있었다. 템플릿(`admin/system/log`·`access-stat`)은 P4 에서 이미 들어와 있어 **화면만 있고 컨트롤러가 없는** 상태였다 | P7 | 낮음 | ✅ **해결 2026-08-01** — `primary/system/{log,stat}` 5종 + `logging/viewer` 4종 보완 이식. 패키지 이름만 보고 범위를 정하면 놓친다는 사례 |
+| 2026-08-01 | **`tb_template.layout_path` 컬럼이 없는데 매퍼 17곳이 그것을 SELECT 한다** — 003 베이스라인 DDL 은 `default_layout_id` FK → `tb_layout` **3단 구조**로 바뀌었는데, 이식한 코드는 001 형태(단일 문자열 컬럼) 그대로다. 신설된 `tb_layout`·`tb_theme` 를 읽는 코드는 **0건**이다. `SiteContextService.getContextByCode()` 가 SQL 오류로 죽어 **모든 사용자 사이트 페이지가 렌더되지 않는다**. `file_group_id` 도 같은 상태다(TemplateMapper 가 SELECT, DDL 에 없음) | P8 | **높음** | ✅ **해결 2026-08-01 — A안 채택(D13, 사용자 결정).** `V2026080104` 가 `layout_path`(NOT NULL, backfill 후 승격)·`file_group_id` 를 복원한다. **`default_layout_id` 도 nullable 로 완화**했다 — `TemplateMapper.insert` 가 그 컬럼을 넣지 않아(DTO 에 필드 자체가 없다) NOT NULL 이면 템플릿 신규 등록이 매번 실패한다. 이걸 빠뜨리면 A안이 반쪽이 된다. FK 는 유지 — B안 전환 시 되돌리기 쉽다 |
+| 2026-08-01 | **`spring-boot:repackage` 가 실행되지만 무해하다** — 빌드 로그에 goal 이 찍혀 CLAUDE.md 의 "repackage 안 함" 규약 위반처럼 보인다. 실측하니 `<skip>true</skip>` 로 무력화돼 있고 산출물은 표준 war 다(BOOT-INF 0 · lib-provided 0 · 런처 0 · `WEB-INF/classes`+`lib` 1,713) | P8 | 낮음 | ✅ 확인만 — 수정 불요. 로그만 보고 위반으로 오인하지 않도록 기록해 둔다 |
 | 2026-07-31 | **`pageQuery` 가 CSRF 토큰을 페이지 링크에 흘린다** — 신설한 `SiteContextModelAdvice.injectPageQuery` 가 `page` 만 빼고 전 파라미터를 복사했다. Spring Security 는 토큰을 읽은 뒤에도 파라미터 맵에서 지우지 않으므로, POST 가 뷰를 직접 렌더하는 경로(검증 실패 시 폼 재렌더 — `BoardCategoryMngController:79` 등 실재)에서 **모든 페이지 링크 href 에 토큰이 박힌다**. Referer 로 외부 유출 + 브라우저 히스토리 + `log_access` 적재 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. 요청의 `CsrfToken` 에서 실제 파라미터명을 읽어 제외하고, 못 읽으면 기본값 `_csrf` 로 막는다(커스텀 이름 대응). 테스트 2건 추가. **조각 채택 화면이 0곳이라 실제 유출은 없었다** — 65개 목록 전환 전에 잡았다 |
 | 2026-07-31 | **`/fileDown/{id}/thumb` 이 접근통제 없이 열렸다** — `FileServiceImpl.downloadThumbnail` 만 `enforceDownloadAuth` 가 없었다(`download`·`previewInline`·`downloadGroup` 은 전부 있음). 무매칭 DENY 시절엔 도달 불가였으나 P4 의 `/fileDown/**` PERMIT_ALL 규칙이 이 경로를 열어 **MEMBER 전용 첨부의 썸네일이 UUID 만 알면 익명에게 노출**되는 상태가 됐다 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. `enforceDownloadAuth` 추가. **바이러스 게이트(`isDownloadable`)는 넣지 않았다** — 썸네일은 `ThumbnailGenerator` 가 새로 만든 JPG 라 원본 악성코드를 옮기지 않는다는 인터페이스 javadoc 의 **의도된 예외**가 맞다. 그 논리는 악성코드 전파만 다루고 접근통제는 다루지 않는다는 점이 누락 지점이었다 |
 
