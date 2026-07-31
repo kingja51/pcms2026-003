@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  PCMS 2026-003 로깅 구성.
+
+  감사 경로 중 하나 — JSON 구조화 로그 파일.
+    · logger "com.gonet.audit" 를 전용 appender 로 분리 → audit.log (JSON, 롤링)
+    · 운영에서는 Loki/Promtail 또는 ELK 가 이 파일을 수집한다.
+
+  로깅 백엔드는 Logback 단일이다. eGov RTE 가 끌어오는 log4j2 구현체
+  (log4j-core / log4j-slf4j2-impl) 는 pom.xml 에서 제외했고, 남은 log4j-api 호출은
+  Spring Boot 의 log4j-to-slf4j 가 받아 여기로 넘긴다.
+-->
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <!--
+    LOG_PATH 미지정 시 기본 /data/pcms2026-003/logs.
+    ※ ${...} 안에 기본값을 줄 때는 반드시 `:-` 문법을 쓴다.
+      001 원본은 ${/data/gopcms2026/logs} 로 적혀 있어 logback 이 미정의 키로 해석,
+      '..._IS_UNDEFINED' 디렉터리가 생기는 잠재 결함이 있었다.
+  -->
+  <property name="LOG_HOME" value="${LOG_PATH:-/data/pcms2026-003/logs}"/>
+
+  <!-- 1) STDOUT — 개발/컨테이너 표준출력 -->
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- 2) FILE — 일반 애플리케이션 로그 -->
+  <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/pcms2026.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/pcms2026.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>200MB</maxFileSize>
+      <maxHistory>180</maxHistory>
+      <totalSizeCap>5GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>${FILE_LOG_PATTERN}</pattern>
+    </encoder>
+  </appender>
+
+  <!-- 3) AUDIT — 구조화 JSON (감사 전용) -->
+  <appender name="AUDIT_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/audit.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/audit.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>200MB</maxFileSize>
+      <maxHistory>90</maxHistory>
+      <totalSizeCap>10GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+      <includeMdcKeyName>traceId</includeMdcKeyName>
+      <includeMdcKeyName>spanId</includeMdcKeyName>
+      <customFields>{"app":"pcms2026-003","channel":"audit"}</customFields>
+    </encoder>
+  </appender>
+
+  <!-- com.gonet.audit 로거 — AUDIT_JSON 으로만 전송 (중복 방지: additivity=false) -->
+  <logger name="com.gonet.audit" level="INFO" additivity="false">
+    <appender-ref ref="AUDIT_JSON"/>
+  </logger>
+
+  <!-- 4) SQL — MyBatis 쿼리 전용 콘솔 출력 -->
+  <appender name="SQL_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss.SSS} [%X{traceId:-}] %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- 5) SQL — MyBatis 쿼리 전용 파일 (쿼리만 적재) -->
+  <appender name="SQL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+    <file>${LOG_HOME}/sql.log</file>
+    <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+      <fileNamePattern>${LOG_HOME}/sql.%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+      <maxFileSize>100MB</maxFileSize>
+      <maxHistory>30</maxHistory>
+      <totalSizeCap>2GB</totalSizeCap>
+    </rollingPolicy>
+    <encoder>
+      <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{traceId:-}] %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <!-- Spring Security -->
+  <logger name="org.springframework.security" level="INFO"/>
+
+  <!-- MyBatis 프레임워크 내부 로거. 실제 SQL 은 여기서 찍히지 않는다. -->
+  <logger name="org.mybatis" level="INFO"/>
+  <logger name="org.apache.ibatis" level="INFO"/>
+
+  <!--
+    MyBatis 쿼리 전용 로거.
+    실제 SQL(Preparing / Parameters / Total)은 "매퍼 인터페이스 FQN" 로거에서 DEBUG 로 출력되고,
+    MyBatisDefaults 의 logPrefix("gopcms.sql.") 덕분에 모든 매퍼 SQL 로거가 "gopcms.sql." 로 시작한다.
+    → 이 로거 하나로 전체 SQL 을 잡아 SQL_CONSOLE / SQL_FILE 로만 보낸다(additivity=false).
+    결과 행 데이터까지 보려면 level 을 TRACE 로 올린다.
+    ⚠️ TRACE 는 파라미터에 PII 평문이 찍힐 수 있다 — 진단 후 되돌릴 것.
+  -->
+  <logger name="gopcms.sql" level="DEBUG" additivity="false">
+    <appender-ref ref="SQL_CONSOLE"/>
+    <appender-ref ref="SQL_FILE"/>
+  </logger>
+
+  <!-- HikariCP — 기동 시 풀 3개(HikariPrimary/Secondary/Logging) 생성 로그가 여기서 나온다 -->
+  <logger name="com.zaxxer.hikari" level="INFO"/>
+
+  <!-- Flyway — 마이그레이션 적용 이력을 기동 로그에서 확인 -->
+  <logger name="org.flywaydb" level="INFO"/>
+
+  <root level="INFO">
+    <appender-ref ref="STDOUT"/>
+    <appender-ref ref="FILE"/>
+  </root>
+
+  <!-- 로컬 개발은 디버그 로깅 -->
+  <springProfile name="local">
+    <logger name="com.gonet" level="DEBUG"/>
+  </springProfile>
+
+</configuration>
