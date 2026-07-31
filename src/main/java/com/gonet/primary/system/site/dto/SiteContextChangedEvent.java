@@ -10,7 +10,7 @@ import java.util.Objects;
  *
  * <p>발행 지점 (관리자 MngController 의 CUD 이후):
  * <ul>
- *   <li>사이트 수정 (tb_site: default_template_id 변경, use_yn 등)</li>
+ *   <li>사이트 수정 (tb_site: template_id 변경, use_yn 등)</li>
  *   <li>템플릿 수정/삭제 (tb_template)</li>
  *   <li>메뉴 CUD (tb_menu)</li>
  * </ul>

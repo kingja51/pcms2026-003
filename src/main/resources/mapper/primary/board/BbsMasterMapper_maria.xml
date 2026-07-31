@@ -15,7 +15,7 @@
     m.created_by, m.created_ip, m.created_at,
     m.updated_by, m.updated_ip, m.updated_at,
 
-    (SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+    (SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.template_id) AS layout_path ,
 
     s.site_code AS site_code,
     s.site_name AS site_name,

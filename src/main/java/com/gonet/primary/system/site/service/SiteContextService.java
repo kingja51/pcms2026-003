@@ -49,11 +49,11 @@ public class SiteContextService {
             return null;
         }
         TemplateInfo template = null;
-        if (site.getDefaultTemplateId() != null) {
-            template = mapper.findTemplateById(site.getDefaultTemplateId());
+        if (site.getTemplateId() != null) {
+            template = mapper.findTemplateById(site.getTemplateId());
             if (template == null) {
                 log.warn("Default template missing for site={} (default_template_id={})",
-                    siteId, site.getDefaultTemplateId());
+                    siteId, site.getTemplateId());
             }
         }
         List<MenuNode> tree = buildMenuTree(mapper.findMenusBySiteId(siteId));
@@ -123,7 +123,7 @@ public class SiteContextService {
         }
 
         if(siteSummary.getLayoutPath() != null && !siteSummary.getLayoutPath().isBlank()) {
-            TemplateInfo template = mapper.findTemplateById(siteSummary.getDefaultTemplateId());
+            TemplateInfo template = mapper.findTemplateById(siteSummary.getTemplateId());
             return new SiteContext(siteSummary, null, List.of());
         }
 
@@ -202,7 +202,7 @@ public class SiteContextService {
         site.setSiteName("");
         site.setDomain(null);
         site.setDefaultLang("ko");
-        site.setDefaultTemplateId(null);
+        site.setTemplateId(null);
         site.setHeadMeta(null);
         site.setCopyright(null);
         site.setUseYn("Y");

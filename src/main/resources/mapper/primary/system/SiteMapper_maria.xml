@@ -11,10 +11,12 @@
   <sql id="siteColumnsFull">
     s.site_id, s.site_code, s.site_name, s.domain, s.default_lang,
 
-	(SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+	(SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.template_id) AS layout_path ,
 
-    s.default_template_id, s.description,
-    s.head_meta, s.copyright, s.theme,
+    s.template_id, s.description,
+    s.head_meta, s.copyright,
+    s.theme_id, s.layout_id,
+    th.theme_code AS theme,   <!-- 파생값 — SiteContextMapper 주석 참조 -->
     s.use_yn, s.delete_yn,
     s.created_by, s.created_ip, s.created_at,
     s.updated_by, s.updated_ip, s.updated_at,
@@ -36,7 +38,10 @@
   <select id="findList" resultType="com.gonet.primary.system.site.dto.Site">
     SELECT <include refid="siteColumnsFull"/>
       FROM tb_site s
-      LEFT JOIN tb_template t ON t.template_id = s.default_template_id
+      LEFT JOIN tb_template t ON t.template_id = s.template_id
+      LEFT JOIN tb_theme th ON th.template_id = s.template_id
+                          AND th.theme_id    = s.theme_id
+                          AND th.delete_yn   = 'N'
     <include refid="searchFilter"/>
     ORDER BY s.created_at DESC, s.site_code ASC
     LIMIT #{search.pageSize} OFFSET #{search.offset}
@@ -51,7 +56,10 @@
   <select id="findById" resultType="com.gonet.primary.system.site.dto.Site">
     SELECT <include refid="siteColumnsFull"/>
       FROM tb_site s
-      LEFT JOIN tb_template t ON t.template_id = s.default_template_id
+      LEFT JOIN tb_template t ON t.template_id = s.template_id
+      LEFT JOIN tb_theme th ON th.template_id = s.template_id
+                          AND th.theme_id    = s.theme_id
+                          AND th.delete_yn   = 'N'
      WHERE s.site_id   = #{siteId}
        AND s.delete_yn = 'N'
   </select>
@@ -59,7 +67,10 @@
   <select id="findByCode" resultType="com.gonet.primary.system.site.dto.Site">
     SELECT <include refid="siteColumnsFull"/>
       FROM tb_site s
-      LEFT JOIN tb_template t ON t.template_id = s.default_template_id
+      LEFT JOIN tb_template t ON t.template_id = s.template_id
+      LEFT JOIN tb_theme th ON th.template_id = s.template_id
+                          AND th.theme_id    = s.theme_id
+                          AND th.delete_yn   = 'N'
      WHERE s.site_code  = #{siteCode}
        AND s.delete_yn  = 'N'
      LIMIT 1
@@ -88,13 +99,13 @@
   <insert id="insert" parameterType="com.gonet.primary.system.site.dto.Site">
     INSERT INTO tb_site (
       site_id, site_code, site_name, domain, default_lang,
-      default_template_id, description, head_meta, copyright, theme,
+      template_id, theme_id, layout_id, description, head_meta, copyright,
       use_yn, delete_yn,
       created_by, created_ip, created_at,
       updated_by, updated_ip, updated_at
     ) VALUES (
       #{siteId}, #{siteCode}, #{siteName}, #{domain}, #{defaultLang},
-      #{defaultTemplateId}, #{description}, #{headMeta}, #{copyright}, #{theme},
+      #{templateId}, #{themeId}, #{layoutId}, #{description}, #{headMeta}, #{copyright},
       COALESCE(#{useYn},'Y'), 'N',
       #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
       #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
@@ -107,11 +118,13 @@
       <if test="siteName != null and siteName != ''">site_name=#{siteName},</if>
       <if test="domain != null and domain != ''">domain=#{domain},</if>
       <if test="defaultLang != null and defaultLang != ''">default_lang=#{defaultLang},</if>
-      <if test="defaultTemplateId != null and defaultTemplateId != ''">default_template_id=#{defaultTemplateId},</if>
+      <if test="templateId != null and templateId != ''">template_id=#{templateId},</if>
       <if test="description != null and description != ''">description=#{description},</if>
       <if test="headMeta != null and headMeta != ''">head_meta=#{headMeta},</if>
       <if test="copyright != null and copyright != ''">copyright=#{copyright},</if>
-      theme=#{theme},   <!-- 무조건 갱신 — 빈 입력 = 테마 해제(템플릿 기본 브랜드) 지원 -->
+      <!-- 무조건 갱신 — 빈 입력 = 선택 해제(템플릿 기본을 따른다) -->
+      theme_id=#{themeId},
+      layout_id=#{layoutId},
       use_yn=COALESCE(#{useYn}, use_yn),
       updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
     WHERE site_id   = #{siteId}
@@ -120,7 +133,7 @@
 
   <update id="updateDefaultTemplate">
     UPDATE tb_site
-       SET default_template_id = #{templateId},
+       SET template_id = #{templateId},
            updated_at          = CURRENT_TIMESTAMP
      WHERE site_id   = #{siteId}
        AND delete_yn = 'N'

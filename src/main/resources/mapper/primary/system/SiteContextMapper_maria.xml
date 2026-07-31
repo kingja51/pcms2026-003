@@ -28,10 +28,18 @@
     <result property="siteName"          column="site_name"/>
     <result property="domain"            column="domain"/>
     <result property="defaultLang"       column="default_lang"/>
-    <result property="defaultTemplateId" column="default_template_id"/>
+    <result property="templateId" column="template_id"/>
     <result property="description"       column="description"/>
     <result property="headMeta"          column="head_meta"/>
     <result property="copyright"         column="copyright"/>
+    <result property="themeId"           column="theme_id"/>
+    <result property="layoutId"          column="layout_id"/>
+    <!--
+      theme 은 tb_site 의 컬럼이 아니라 tb_theme.theme_code **파생값**이다.
+      DB 의 진실은 theme_id 하나다. theme_id 를 그대로 CSS 클래스에 쓰면
+      SiteContextModelAdvice 의 화이트리스트 ^[a-z][a-z0-9-]{1,30}$ 에 걸려
+      null 이 되고 **테마가 조용히 미적용**된다.
+    -->
     <result property="theme"             column="theme"/>
     <result property="useYn"             column="use_yn"/>
     <result property="layoutPath"        column="layout_path"/>
@@ -43,16 +51,25 @@
 
   <sql id="siteCols">
     s.site_id, s.site_code, s.site_name, s.domain, s.default_lang,
-    s.default_template_id, s.description, s.head_meta, s.copyright, s.theme, s.use_yn,
+    s.template_id, s.theme_id, s.layout_id,
+    s.description, s.head_meta, s.copyright, s.use_yn,
+    th.theme_code AS theme,
     COALESCE(t.layout_path, 'front/layouts/EMPTY/empty') AS layout_path
   </sql>
 
   <sql id="siteFrom">
     FROM tb_site s
     LEFT JOIN tb_template t
-      ON t.template_id = s.default_template_id
+      ON t.template_id = s.template_id
      AND t.use_yn      = 'Y'
      AND t.delete_yn   = 'N'
+    <!-- 복합 FK(template_id, theme_id) 와 같은 기준으로 조인한다 —
+         템플릿만 바꾸고 테마가 남으면 매칭되지 않아 NULL 이 된다(의도된 동작). -->
+    LEFT JOIN tb_theme th
+      ON th.template_id = s.template_id
+     AND th.theme_id    = s.theme_id
+     AND th.use_yn      = 'Y'
+     AND th.delete_yn   = 'N'
   </sql>
 
   <select id="findSiteById" resultMap="siteSummaryMap">
@@ -128,9 +145,17 @@
        AND s.use_yn    = 'Y'
        AND s.delete_yn = 'N'
       LEFT JOIN tb_template t
-        ON t.template_id = s.default_template_id
+        ON t.template_id = s.template_id
        AND t.use_yn      = 'Y'
        AND t.delete_yn   = 'N'
+      <!-- siteCols 가 th.theme_code 를 쓴다 — 이 조인이 없으면
+           "Unknown column 'th.theme_code'" 로 죽는다.
+           siteFrom 을 못 쓰는 이유: 여기는 tb_menu 에서 출발한다. -->
+      LEFT JOIN tb_theme th
+        ON th.template_id = s.template_id
+       AND th.theme_id    = s.theme_id
+       AND th.use_yn      = 'Y'
+       AND th.delete_yn   = 'N'
      WHERE m.menu_id   = #{menuId}
        AND m.delete_yn = 'N'
      LIMIT 1

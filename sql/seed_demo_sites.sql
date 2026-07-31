@@ -14,7 +14,7 @@
 --  절차 설명은 개발가이드 §18(사이트 추가 절차 — 복제 레시피).
 -- ============================================================================
 --
---  ⚠️ **선행 필수: Flyway V2026080104 가 적용돼 있어야 한다.**
+--  ⚠️ **선행 필수: Flyway V2026080104·V2026080105 가 적용돼 있어야 한다.**
 --
 --  베이스라인 DDL 의 `tb_template` 에는 `layout_path` 컬럼이 없다. 매퍼 17곳이
 --  그것을 SELECT 하므로 그대로는 `SiteContextService` 가 SQL 오류로 죽고
@@ -22,8 +22,9 @@
 --
 --  V2026080104 가 `layout_path`·`file_group_id` 를 복원하고
 --  `default_layout_id` 를 nullable 로 완화한다(D13 — A안, 2026-08-01 사용자 결정).
---  적용 전에 이 파일을 돌리면 아래 tb_template INSERT 에서
---  "Unknown column 'layout_path'" 로 멈춘다 — 그게 곧 선행이 안 됐다는 신호다.
+--  V2026080105 는 tb_site 에 `theme`(테마 코드 문자열)를 추가한다.
+--  적용 전에 이 파일을 돌리면 "Unknown column 'layout_path'" 또는
+--  "Unknown column 'theme'" 로 멈춘다 — 그게 곧 선행이 안 됐다는 신호다.
 -- ============================================================================
 
 SET NAMES utf8mb4;
@@ -51,7 +52,7 @@ VALUES
   ('LAY_DEMO_EMPTY',  'EMPTY',  '민짜(폴백)',  NULL, '레이아웃 미지정 시 폴백. 헤더·푸터 없음',      90, 'Y', 'N', @actor, @ip, current_timestamp());
 
 -- ════════════════════════════════════════════════════════════════════════════
---  ② 템플릿 — layout_path 는 뷰 경로 문자열(위 차단 요인 (A) 가정)
+--  ② 템플릿 — layout_path 는 뷰 경로 문자열(V2026080104 가 복원한 컬럼)
 -- ════════════════════════════════════════════════════════════════════════════
 
 DELETE FROM `tb_template` WHERE `template_id` LIKE 'TPL_DEMO%';
@@ -91,15 +92,17 @@ VALUES
 
 DELETE FROM `tb_site` WHERE `site_id` LIKE 'SIT_DEMO%';
 
+--  컬럼명은 DDL 원본 `template_id` 다(2026-08-01 사용자 결정 — 코드 쪽을 맞췄다).
+--  `theme` 은 테마 **코드 문자열**, `theme_id` 는 FK 로 서로 다른 컬럼이다 — 둘 다 채운다.
 INSERT INTO `tb_site`
-  (site_id, site_code, site_name, template_id, theme_id,
+  (site_id, site_code, site_name, template_id, theme_id, theme,
    sort_order, use_yn, delete_yn, created_by, created_ip, created_at)
 VALUES
-  ('SIT_DEMO_MAIN',  'main',  '대표 사이트',   'TPL_DEMO_KRDS',   'THM_DEMO_KRDS',   10, 'Y', 'N', @actor, @ip, current_timestamp()),
-  ('SIT_DEMO_PORTAL','portal','통합 포털',     'TPL_DEMO_IBM',    'THM_DEMO_IBM',    20, 'Y', 'N', @actor, @ip, current_timestamp()),
-  ('SIT_DEMO_TOUR',  'tour',  '관광 사이트',   'TPL_DEMO_AIRBNB', 'THM_DEMO_AIRBNB', 30, 'Y', 'N', @actor, @ip, current_timestamp()),
-  ('SIT_DEMO_CULT',  'cult',  '문화 사이트',   'TPL_DEMO_CLAY',   'THM_DEMO_CLAY',   40, 'Y', 'N', @actor, @ip, current_timestamp()),
-  ('SIT_DEMO_PLAIN', 'plain', '민짜 데모',     'TPL_DEMO_EMPTY',  'THM_DEMO_EMPTY',  90, 'Y', 'N', @actor, @ip, current_timestamp());
+  ('SIT_DEMO_MAIN',  'main',  '대표 사이트',   'TPL_DEMO_KRDS',   'THM_DEMO_KRDS',   'default', 10, 'Y', 'N', @actor, @ip, current_timestamp()),
+  ('SIT_DEMO_PORTAL','portal','통합 포털',     'TPL_DEMO_IBM',    'THM_DEMO_IBM',    'blue',    20, 'Y', 'N', @actor, @ip, current_timestamp()),
+  ('SIT_DEMO_TOUR',  'tour',  '관광 사이트',   'TPL_DEMO_AIRBNB', 'THM_DEMO_AIRBNB', 'default', 30, 'Y', 'N', @actor, @ip, current_timestamp()),
+  ('SIT_DEMO_CULT',  'cult',  '문화 사이트',   'TPL_DEMO_CLAY',   'THM_DEMO_CLAY',   'default', 40, 'Y', 'N', @actor, @ip, current_timestamp()),
+  ('SIT_DEMO_PLAIN', 'plain', '민짜 데모',     'TPL_DEMO_EMPTY',  'THM_DEMO_EMPTY',  'default', 90, 'Y', 'N', @actor, @ip, current_timestamp());
 
 -- ════════════════════════════════════════════════════════════════════════════
 --  ⑤ 접근 규칙 — **사이트마다 2행**. 빠뜨리면 로그인 페이지로 리다이렉트된다.

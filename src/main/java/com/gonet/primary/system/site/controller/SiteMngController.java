@@ -279,11 +279,12 @@ public class SiteMngController {
         f.setSiteName(s.getSiteName());
         f.setDomain(s.getDomain());
         f.setDefaultLang(s.getDefaultLang());
-        f.setDefaultTemplateId(s.getDefaultTemplateId());
+        f.setTemplateId(s.getTemplateId());
         f.setDescription(s.getDescription());
         f.setHeadMeta(s.getHeadMeta());
         f.setCopyright(s.getCopyright());
-        f.setTheme(s.getTheme());
+        f.setThemeId(s.getThemeId());
+        f.setLayoutId(s.getLayoutId());
         f.setUseYn(s.getUseYn());
         return f;
     }

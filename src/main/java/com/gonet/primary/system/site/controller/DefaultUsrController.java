@@ -58,7 +58,7 @@ import java.util.Set;
  *       메뉴에 없는 slug 는 404</li>
  * </ol>
  *
- * <p>레이아웃은 {@code tb_site.default_template_id} → {@code layout_path} 동적 decorate.
+ * <p>레이아웃은 {@code tb_site.template_id} → {@code layout_path} 동적 decorate.
  * 배너·팝업·themeClass 는 {@link SiteContextModelAdvice} 가 전역 주입한다.
  *
  * <h2>001 대비 변경 — 일정·날씨 주입 제외</h2>
@@ -79,7 +79,7 @@ public class DefaultUsrController {
 
     private static final Logger log = LoggerFactory.getLogger(DefaultUsrController.class);
 
-    /** site 에 default_template_id 가 없거나 조회 실패 시 최종 fallback. */
+    /** site 에 template_id 가 없거나 조회 실패 시 최종 fallback. */
     private static final String FALLBACK_LAYOUT = "front/layouts/EMPTY/empty";
 
     /** URL 매핑 정규식 — site_code varchar(30), 안전 문자만(리다이렉트·뷰명 주입 차단). */

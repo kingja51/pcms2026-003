@@ -17,7 +17,7 @@
     c.updated_by, c.updated_ip, c.updated_at,
     s.site_code AS site_code,
     s.site_name AS site_name,
-	(SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.default_template_id) AS layout_path ,
+	(SELECT IFNULL(MAX(layout_path), 'front/layouts/EMPTY/empty')  FROM tb_template  WHERE template_id = s.template_id) AS layout_path ,
     m.menu_name AS menu_name
   </sql>
 

@@ -136,7 +136,7 @@
 
       <!--
         템플릿 선택 — 사이트 생성 후 이 화면에서 기본 템플릿을 선택하면
-        SiteService.changeDefaultTemplate() → tb_site.default_template_id 업데이트 +
+        SiteService.changeDefaultTemplate() → tb_site.template_id 업데이트 +
         SiteContextChangedEvent(TEMPLATE_CHANGED) 발행 → 캐시 무효화 → 다음 요청부터 새 레이아웃 반영.
       -->
       <section aria-labelledby="template-heading"
@@ -172,7 +172,7 @@
 
           <label class="flex items-center gap-2 text-sm">
             <input type="radio" name="templateId" value=""
-                   th:checked="${site.defaultTemplateId == null}"
+                   th:checked="${site.templateId == null}"
                    class="accent-brand-50"/>
             <span class="text-fg">(선택 안 함)</span>
           </label>
@@ -181,7 +181,7 @@
                  class="flex items-start gap-2 text-sm p-3 rounded border border-line hover:bg-surface-subtle cursor-pointer">
             <input type="radio" name="templateId" class="accent-brand-50 mt-0.5"
                    th:value="${t.templateId}"
-                   th:checked="${t.templateId == site.defaultTemplateId}"/>
+                   th:checked="${t.templateId == site.templateId}"/>
             <span>
               <strong class="text-fg-strong" th:text="${t.templateName}">템플릿명</strong>
               <small class="block mt-0.5 text-xs text-fg-subtle font-mono"

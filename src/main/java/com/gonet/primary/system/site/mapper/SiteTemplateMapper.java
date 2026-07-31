@@ -17,6 +17,6 @@ public interface SiteTemplateMapper {
     /** 전역 활성 템플릿 목록 (드롭다운/라디오용) */
     List<TemplateInfo> findAllActive();
 
-    /** 템플릿 단건 — 존재 검증용 (default_template_id 세팅 전 체크) */
+    /** 템플릿 단건 — 존재 검증용 (template_id 세팅 전 체크) */
     TemplateInfo findById(@Param("templateId") String templateId);
 }

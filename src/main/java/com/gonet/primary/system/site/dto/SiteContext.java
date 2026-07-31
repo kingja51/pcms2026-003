@@ -31,7 +31,7 @@ public class SiteContext implements Serializable {
     public static final String REQUEST_ATTR = "siteContext";
 
     private final SiteSummary    site;
-    private final TemplateInfo   template;   // nullable (default_template_id NULL 시)
+    private final TemplateInfo   template;   // nullable (template_id NULL 시)
     private final List<MenuNode> menuTree;
     private final Instant        loadedAt;
     /** 현재 요청의 메뉴 ID — 캐시 무관, 요청 단위 부가 정보. nullable. */

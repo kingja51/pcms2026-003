@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 import java.util.regex.Pattern;
 
 /**
- * 템플릿 프리뷰(?tmpl=CODE) — 사이트의 default_template_id 를 건드리지 않고
+ * 템플릿 프리뷰(?tmpl=CODE) — 사이트의 template_id 를 건드리지 않고
  * <b>현재 세션에서만</b> 레이아웃을 임시 교체해 템플릿 전환 결과를 확인하는 장치.
  *
  * <p>사용법 (사용자 화면 URL 에 쿼리 파라미터):
@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
  *   <li>코드는 {@code tb_template}(use_yn='Y', delete_yn='N') 존재 검증 후에만 적용 — 임의 경로 주입 불가</li>
  *   <li>DB 조회는 전환 시점 1회, 이후는 세션 보관 {@link TemplateInfo} 재사용</li>
  *   <li>읽기 전용 — tb_site/tb_template 를 변경하지 않는다. 영구 전환은 관리자 사이트 관리
- *       (default_template_id) 로 수행</li>
+ *       (template_id) 로 수행</li>
  * </ul>
  *
  * <p>적용 지점: {@code AbstractSiteUsrController}(사이트 쉘) · {@code ProgramUsrController}(/prg 쉘)

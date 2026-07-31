@@ -31,6 +31,6 @@ public interface TemplateMapper {
 
     int softDelete(@Param("templateId") String templateId);
 
-    /** 해당 템플릿을 default_template_id 로 참조하는 사이트 수 (삭제 전 경고/정리용) */
+    /** 해당 템플릿을 template_id 로 참조하는 사이트 수 (삭제 전 경고/정리용) */
     int countReferencingSites(@Param("templateId") String templateId);
 }

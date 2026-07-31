@@ -97,7 +97,7 @@
   <select id="countReferencingSites" resultType="int">
     SELECT COUNT(1)
       FROM tb_site
-     WHERE default_template_id = #{templateId}
+     WHERE template_id = #{templateId}
        AND delete_yn           = 'N'
   </select>
 

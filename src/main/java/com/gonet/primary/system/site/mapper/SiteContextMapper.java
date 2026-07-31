@@ -13,8 +13,8 @@ import java.util.List;
  *
  * <p>3개 쿼리로 분리 (JOIN 없이):
  * <ol>
- *   <li>{@link #findSiteById}     — tb_site (default_template_id 포함)</li>
- *   <li>{@link #findTemplateById} — tb_template (default_template_id 있을 때만)</li>
+ *   <li>{@link #findSiteById}     — tb_site (template_id 포함)</li>
+ *   <li>{@link #findTemplateById} — tb_template (template_id 있을 때만)</li>
  *   <li>{@link #findMenusBySiteId} — tb_menu 전체 (flat, in-memory 트리 조립)</li>
  * </ol>
  *

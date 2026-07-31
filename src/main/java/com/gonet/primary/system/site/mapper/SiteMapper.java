@@ -34,7 +34,7 @@ public interface SiteMapper {
 
     int update(Site site);
 
-    /** 기본 템플릿 1건 변경 — default_template_id */
+    /** 기본 템플릿 1건 변경 — template_id */
     int updateDefaultTemplate(@Param("siteId") String siteId,
                                @Param("templateId") String templateId);
 

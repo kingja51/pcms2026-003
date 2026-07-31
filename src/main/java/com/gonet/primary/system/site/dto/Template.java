@@ -10,7 +10,7 @@ import lombok.Setter;
  * tb_template 1건 — CRUD 풀 엔티티.
  *
  * <p>2026-04-23c 부터 템플릿은 <b>전역 카탈로그</b>. 사이트에 소속되지 않고
- * {@link Site#defaultTemplateId} 로 사이트가 선택.
+ * {@link Site#templateId} 로 사이트가 선택.
  *
  * <p>경량 버전 {@link TemplateInfo} 와 역할 분리:
  * <ul>

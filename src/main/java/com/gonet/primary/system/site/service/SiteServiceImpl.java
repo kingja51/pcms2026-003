@@ -79,7 +79,7 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
     public String create(SiteSaveForm form) {
         Objects.requireNonNull(form, "form");
         validateDuplicates(form.getSiteCode(), form.getDomain(), null);
-        validateTemplateExists(form.getDefaultTemplateId());
+        validateTemplateExists(form.getTemplateId());
 
         Site s = new Site();
         s.setSiteId(UuidV7Generator.generate("SIT"));
@@ -87,11 +87,12 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
         s.setSiteName(form.getSiteName().trim());
         s.setDomain(blankToNull(form.getDomain()));
         s.setDefaultLang(form.getDefaultLang());
-        s.setDefaultTemplateId(blankToNull(form.getDefaultTemplateId()));
+        s.setTemplateId(blankToNull(form.getTemplateId()));
         s.setDescription(form.getDescription());
         s.setHeadMeta(blankToNull(form.getHeadMeta()));
         s.setCopyright(blankToNull(form.getCopyright()));
-        s.setTheme(normalizeTheme(form.getTheme()));
+        s.setThemeId(blankToNull(form.getThemeId()));
+        s.setLayoutId(blankToNull(form.getLayoutId()));
         s.setUseYn(form.getUseYn() == null ? "Y" : form.getUseYn());
 
         try {
@@ -125,17 +126,18 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
             throw new IllegalArgumentException("사이트를 찾을 수 없습니다: " + form.getSiteId());
         }
         validateDuplicates(form.getSiteCode(), form.getDomain(), form.getSiteId());
-        validateTemplateExists(form.getDefaultTemplateId());
+        validateTemplateExists(form.getTemplateId());
 
         existing.setSiteCode(form.getSiteCode().trim());
         existing.setSiteName(form.getSiteName().trim());
         existing.setDomain(blankToNull(form.getDomain()));
         existing.setDefaultLang(form.getDefaultLang());
-        existing.setDefaultTemplateId(blankToNull(form.getDefaultTemplateId()));
+        existing.setTemplateId(blankToNull(form.getTemplateId()));
         existing.setDescription(form.getDescription());
         existing.setHeadMeta(blankToNull(form.getHeadMeta()));
         existing.setCopyright(blankToNull(form.getCopyright()));
-        existing.setTheme(normalizeTheme(form.getTheme()));
+        existing.setThemeId(blankToNull(form.getThemeId()));
+        existing.setLayoutId(blankToNull(form.getLayoutId()));
         existing.setUseYn(form.getUseYn() == null ? existing.getUseYn() : form.getUseYn());
 
         mapper.update(existing);
@@ -208,13 +210,4 @@ public class SiteServiceImpl extends EgovAbstractServiceImpl implements SiteServ
         return (s == null || s.isBlank()) ? null : s.trim();
     }
 
-    /**
-     * 테마 입력 정규화 — 저장 canonical 은 "theme-" 접두 포함 소문자 클래스명.
-     * 빈값은 null (템플릿 기본 브랜드), "navy" 처럼 접두 생략 입력은 "theme-navy" 로 보정.
-     */
-    private static String normalizeTheme(String raw) {
-        if (raw == null || raw.isBlank()) return null;
-        String t = raw.trim().toLowerCase();
-        return t.startsWith("theme-") ? t : "theme-" + t;
-    }
 }
