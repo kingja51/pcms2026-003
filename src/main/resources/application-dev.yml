@@ -1,0 +1,61 @@
+# ============================================================================
+# PCMS 2026-003 Dev Profile (공용 개발 서버)
+# ============================================================================
+# · 모든 민감값은 환경변수 또는 Jasypt ENC(...) 로 주입한다.
+# · ⚠️ 이 파일에 평문 비밀번호 금지 —
+#   001 의 application-dev.yml 은 DB 비밀번호 3개를 평문 기본값으로 박아 두었고
+#   그대로 커밋되었다. 003 은 기본값 없는 ${VAR} 로만 주입한다(미주입 시 부팅 실패).
+# ----------------------------------------------------------------------------
+
+spring:
+  thymeleaf:
+    cache: true
+
+gopcms:
+  datasource:
+    primary:
+      jdbc-url: ${PCMS_DB_PRIMARY_URL}
+      username: ${PCMS_DB_PRIMARY_USER}
+      password: ${PCMS_DB_PRIMARY_PASSWORD}
+      driver-class-name: ${PCMS_DB_PRIMARY_DRIVER:org.mariadb.jdbc.Driver}
+    secondary:
+      jdbc-url: ${PCMS_DB_SECONDARY_URL}
+      username: ${PCMS_DB_SECONDARY_USER}
+      password: ${PCMS_DB_SECONDARY_PASSWORD}
+      driver-class-name: ${PCMS_DB_SECONDARY_DRIVER:org.mariadb.jdbc.Driver}
+    logging:
+      jdbc-url: ${PCMS_DB_LOGGING_URL}
+      username: ${PCMS_DB_LOGGING_USER}
+      password: ${PCMS_DB_LOGGING_PASSWORD}
+      driver-class-name: ${PCMS_DB_LOGGING_DRIVER:org.mariadb.jdbc.Driver}
+
+  crypto:
+    pii:
+      master-key: ${PCMS_PII_MASTER_KEY}
+      key-id: ${PCMS_PII_KEY_ID:v1}
+
+  # --------------------------------------------------------------------------
+  # Flyway — dev 는 활성 (D1 ③, 2026-07-31).
+  #   dev DB 계정은 DDL 권한을 갖는다. 마이그레이션 검증을 여기서 끝내고
+  #   운영에는 검증된 파일만 DBA 가 집행한다.
+  # --------------------------------------------------------------------------
+  flyway:
+    enabled: ${PCMS_FLYWAY_ENABLED:true}
+
+  # --------------------------------------------------------------------------
+  # 라이프사이클 dry-run override — dev 는 실제 DELETE 를 하지 않는다.
+  #   매일 cron 시각에 candidates 카운트만 로그로 남긴다.
+  # --------------------------------------------------------------------------
+  retention:
+    dry-run: true
+  lifecycle:
+    withdraw-purge:
+      dry-run: true
+
+server:
+  error:
+    include-stacktrace: never
+    include-message: never
+
+# dev 는 application.yml 의 sampling.probability=1.0 을 그대로 쓴다(전수 traceId).
+# 운영 부하가 문제되면 prod profile 처럼 0.1 로 낮춘다.

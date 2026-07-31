@@ -1,0 +1,184 @@
+# ============================================================================
+# PCMS 2026-003 Prod Profile (운영 환경)
+# ============================================================================
+# 활성화: setenv.sh / setenv.bat 에 `SPRING_PROFILES_ACTIVE=prod`
+#
+# 정책:
+#   · 이 파일은 git 커밋 가능 — 비밀값/평문 절대 금지, 모두 환경변수 placeholder
+#   · application.yml 의 운영 기본값을 그대로 쓰고 운영 전용 항목만 override
+#   · 환경별로 다른 값(DB URL·마스터키)은 setenv 의 환경변수 주입 책임
+#
+# 필수 환경변수 (setenv 에서 export — 미주입 시 부팅 실패):
+#   JASYPT_ENCRYPTOR_PASSWORD              Jasypt ENC(...) 복호화 마스터키
+#   PCMS_MAIL_USERNAME / GMAIL_SMTP_USER_PASSWD  SMTP 계정·앱 비밀번호
+#   PCMS_PII_MASTER_KEY                    PII AES-256-GCM 마스터키 (base64 32바이트)
+#   PCMS_DB_PRIMARY_URL   / USER / PASSWORD
+#   PCMS_DB_SECONDARY_URL / USER / PASSWORD
+#   PCMS_DB_LOGGING_URL   / USER / PASSWORD
+#   PCMS_STATIC_ROOT                       외부 정적 자원 루트
+#   PCMS_UPLOAD_ROOT / PCMS_QUARANTINE / PCMS_THUMBNAIL
+#   PCMS_TRUSTED_PROXIES                   fronting proxy CIDR CSV (예: 10.0.0.0/8)
+#
+# 선택 환경변수 (빈 값이면 해당 기능만 비활성, 부팅은 정상):
+#   PCMS_OAUTH2_{NAVER|KAKAO|GOOGLE}_CLIENT_{ID,SECRET} / _CALLBACK_URL
+#   PCMS_NICE_SITE_CODE / PCMS_NICE_SITE_PASSWORD / _RETURN_URL / _ERROR_URL
+#   PCMS_CAPTCHA_SITE_KEY / PCMS_CAPTCHA_SECRET_KEY
+#   PCMS_KMA_SERVICE_KEY
+#   PCMS_KAKAO_MAP_APPKEY / PCMS_NAVER_MAP_CLIENT_ID / PCMS_GOOGLE_MAP_API_KEY
+#
+# ⚠️ NICE 본인인증을 쓰면 setenv 에 JPMS 플래그가 필요하다:
+#   --add-exports=java.base/com.sun.crypto.provider=ALL-UNNAMED
+#   --add-opens=java.base/com.sun.crypto.provider=ALL-UNNAMED
+#   누락 시 본인인증 화면에서만 500 이 난다.
+# ----------------------------------------------------------------------------
+
+spring:
+  thymeleaf:
+    cache: true       # 운영은 캐시 ON — 파일 변경 즉시 반영 불필요
+
+  # --------------------------------------------------------------------------
+  # 정적 자원 — 외부 디렉터리 우선 + war 내부 classpath fallback
+  #
+  # 운영 정책:
+  #   · WEB-INF/classes/static 밖의 운영자 친화적 외부 디렉터리 사용
+  #   · 디자이너/운영자가 SFTP 로 즉시 교체 가능 (war 재배포 불요)
+  #   · 외부에 없으면 war 내부(시스템 자원) 폴백 — 안전망
+  #
+  # Nginx 가 앞단에서 직접 서빙하면 (`location ~ ^/(css|js|img|fonts|tmpl)/`)
+  # Spring 까지 오지 않는다. 이 설정은 안전망 + Nginx 없는 환경 대비.
+  #
+  # ⚠️ 외부 디렉터리가 우선이므로 같은 경로 파일이 양쪽에 있으면 외부가 이긴다.
+  #   시스템 자원(공통 fragment 의 로고 등)을 운영자가 실수로 외부에 만들면 덮어쓰인다.
+  #   운영 가이드로 "외부 디렉터리에는 사이트별/콘텐츠 자원만" 을 강제할 것.
+  # --------------------------------------------------------------------------
+  web:
+    resources:
+      static-locations:
+        - file:${PCMS_STATIC_ROOT}/
+        - classpath:/static/
+
+# ----------------------------------------------------------------------------
+# DB — 운영 환경변수만 사용 (기본값 폴백 없음: fail-fast).
+#   003 은 MariaDB 단일 벤더다(개발가이드 §6-4). 드라이버 기본값도 MariaDB.
+# ----------------------------------------------------------------------------
+gopcms:
+  datasource:
+    primary:
+      jdbc-url:  ${PCMS_DB_PRIMARY_URL}
+      username:  ${PCMS_DB_PRIMARY_USER}
+      password:  ${PCMS_DB_PRIMARY_PASSWORD}
+      driver-class-name: ${PCMS_DB_PRIMARY_DRIVER:org.mariadb.jdbc.Driver}
+    secondary:
+      jdbc-url:  ${PCMS_DB_SECONDARY_URL}
+      username:  ${PCMS_DB_SECONDARY_USER}
+      password:  ${PCMS_DB_SECONDARY_PASSWORD}
+      driver-class-name: ${PCMS_DB_SECONDARY_DRIVER:org.mariadb.jdbc.Driver}
+    logging:
+      jdbc-url:  ${PCMS_DB_LOGGING_URL}
+      username:  ${PCMS_DB_LOGGING_USER}
+      password:  ${PCMS_DB_LOGGING_PASSWORD}
+      driver-class-name: ${PCMS_DB_LOGGING_DRIVER:org.mariadb.jdbc.Driver}
+
+  # --------------------------------------------------------------------------
+  # Flyway — 운영은 앱이 실행하지 않는다 (D1 ③ 확정, 2026-07-31).
+  #
+  #   앱 런타임 계정에 DDL 권한을 주지 않는 보수 방침에 따라, 운영 스키마 변경은
+  #   DBA 가 집행한다. 앱이 쓰는 것과 **같은 마이그레이션 파일**을 Flyway CLI 로
+  #   적용하므로 flyway_schema_history 는 동일하게 유지된다.
+  #
+  #   ⚠️ 환경변수 override 를 일부러 두지 않았다 — `${PCMS_FLYWAY_ENABLED:false}` 로
+  #     두면 setenv 실수 한 줄로 운영에서 DDL 이 돌 수 있다. 정책을 권고가 아니라
+  #     강제로 만들기 위해 리터럴 false 로 고정한다.
+  #     운영에서 정말 필요해지면 이 값을 고치는 커밋이 남아 리뷰 대상이 된다.
+  #
+  #   DBA 집행 절차:
+  #     flyway -url=... -user=<DDL계정> -locations=filesystem:db/migration/primary/mariadb migrate
+  #     (secondary / logging 도 각각 동일하게)
+  # --------------------------------------------------------------------------
+  flyway:
+    enabled: false
+
+  crypto:
+    pii:
+      master-key: ${PCMS_PII_MASTER_KEY}
+      key-id: ${PCMS_PII_KEY_ID:v1}
+
+  # --------------------------------------------------------------------------
+  # 보안 — 운영 환경 강제 정책
+  # --------------------------------------------------------------------------
+  security:
+    # ----------------------------------------------------------------------
+    # 신뢰 프록시 CIDR — fronting proxy(Nginx/ALB/CloudFront 등) 가 있을 때만 채운다.
+    # 빈 값이면 IpUtils 가 X-Forwarded-* 헤더를 일체 무시한다 → 관리자 IP 화이트리스트 /
+    # RateLimit / 감사 IP 가 위조된 헤더에 의존하지 않는다 (헤더 위조 공격 영구 차단).
+    # 운영 권장 — fronting proxy 의 사설 CIDR 또는 ::1 을 명시.
+    # ----------------------------------------------------------------------
+    trusted-proxies: ${PCMS_TRUSTED_PROXIES:}
+    admin:
+      # ----------------------------------------------------------------------
+      # tb_admin_allow_ip 0건일 때의 IP 가드 폴백 — 운영은 반드시 false.
+      # true 면 화이트리스트 미설정 시 모든 IP 를 허용한다 (초기 세팅 편의용).
+      # 운영에서 true 이면 IP 가드가 무력화된다 — 의도된 안전장치.
+      # ----------------------------------------------------------------------
+      ip-fallback-allow: false
+
+  # --------------------------------------------------------------------------
+  # 라이프사이클 dry-run — 운영은 false (실제 hard delete).
+  # application.yml 기본이 이미 false 라 명시는 불필요하지만,
+  # "운영에서 false 임" 을 yaml 에 못 박아 두는 안전장치다.
+  # --------------------------------------------------------------------------
+  retention:
+    dry-run: false
+  lifecycle:
+    withdraw-purge:
+      dry-run: false
+
+# ----------------------------------------------------------------------------
+# 서버 응답 — 운영은 stacktrace/message 노출 절대 금지
+# ----------------------------------------------------------------------------
+server:
+  error:
+    include-stacktrace: never
+    include-message:    never
+    include-binding-errors: never
+    whitelabel:
+      enabled: false
+
+# ----------------------------------------------------------------------------
+# Tracing — 운영 부하 완화. 전수 1.0 → 10% 샘플링.
+# 모든 요청에 traceId 가 필요하면 1.0 유지 (CMS 트래픽이 작으면 무방).
+# ----------------------------------------------------------------------------
+management:
+  tracing:
+    sampling:
+      probability: 0.1
+  health:
+    mail:
+      enabled: true     # 운영 메일 헬스 ON — SMTP 장애 즉시 감지
+
+# ----------------------------------------------------------------------------
+# SpringDoc — 운영에서는 Swagger UI / OpenAPI 노출 금지.
+# 정보 노출 + 공격 표면 축소. 필요하면 별도 프로파일에서 재활성.
+# ----------------------------------------------------------------------------
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# ----------------------------------------------------------------------------
+# 로깅 레벨 — 운영은 보수적
+# ----------------------------------------------------------------------------
+logging:
+  level:
+    root:                                              WARN
+    com.gonet:                                         INFO
+    com.gonet.audit:                                   INFO    # 감사 채널 (Logback JSON appender)
+    org.springframework:                               WARN
+    org.springframework.security:                      WARN
+    org.springframework.web:                           WARN
+    org.springframework.transaction:                   WARN
+    org.mybatis:                                       WARN
+    org.apache.ibatis:                                 WARN
+    com.zaxxer.hikari:                                 WARN
+    org.hibernate.validator:                           WARN

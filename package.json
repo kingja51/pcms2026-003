@@ -1,0 +1,14 @@
+{
+  "name": "pcms2026-003-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PCMS 2026-003 Tailwind v4 CSS 빌드 (Spring Boot 정적자원). 입력은 KRDS 토큰 원본 src/krds.css. Node 는 CSS 컴파일 전용 — 런타임 서버가 아니다. CDN 금지이므로 이 빌드는 필수다.",
+  "scripts": {
+    "css": "tailwindcss -i src/krds.css -o src/main/resources/static/css/output.css --minify",
+    "css:watch": "tailwindcss -i src/krds.css -o src/main/resources/static/css/output.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
+    "tailwindcss": "^4.3.0"
+  }
+}

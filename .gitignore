@@ -24,8 +24,8 @@ dependency-reduced-pom.xml
 node_modules/
 npm-debug.log*
 # Tailwind CLI 산출물 (생성물이므로 커밋하지 않는다)
-src/main/resources/static/css/app.css
-src/main/resources/static/css/app.css.map
+src/main/resources/static/css/output.css
+src/main/resources/static/css/output.css.map
 
 # ── IDE ───────────────────────────────────────────────────
 .idea/

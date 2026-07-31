@@ -70,21 +70,38 @@
 #### 작업
 
 - [x] `git init` + `.gitignore` — `.env`, `target/`, `node_modules/`, `.idea/`, 빌드 산출물
-- [ ] 빌드 정의 이식 — `pom.xml`(artifactId/name/finalName `pcms2026-003`), `lombok.config`, `package.json`, `mvnw`, `.mvn/`
-- [ ] **eGov 호환성 — 실행환경 필수 4종 의존성 명시** (호환성 가이드 규칙 1-②)
-      `org.egovframe.rte` : `egovframe-rte-ptl-mvc` · `-fdl-cmmn` · `-psl-dataaccess` · `-fdl-logging`
-      — **4종 전부 5.0.0 동일 버전**. `-psl-dataaccess` 의 JPA transitive 는 exclusion(규칙 위반 아님)
-- [ ] **eGov 호환성 — Spring Boot 버전 상한 고정** — 5.0 기준선 **3.5.6**, 현 지정 **3.5.9** 는
-      패치 상향이라 규칙 2 예외조항으로 허용. **3.6.x/4.x 로의 minor 상향은 즉시 위반** — pom 주석에 명시
-      (Java 21 은 규칙상 "JDK 17 이상" 이므로 문제 없음)
+- [x] **`pom.xml` 이식** — artifactId/name/finalName `pcms2026-003`, war, Java 21, Spring Boot 3.5.9 (2026-07-31)
+- [x] 나머지 빌드 정의 이식 — `lombok.config`, `package.json`, `mvnw`, `mvnw.cmd`, `.mvn/wrapper/` (2026-07-31)
+      — `package.json` 은 `css`·`css:watch` 2개만 이식. 001 의 `css:tmpl`·`css:sg`·`css:all` 은
+        `scripts/*.mjs`·`styleguide/` 의존이라 003 에 해당 자산이 없어 제외
+      — `.gitignore` 의 Tailwind 산출물 경로를 `app.css` → **`output.css`** 로 정정(실제 빌드 산출물명)
+- [x] **eGov 호환성 — 실행환경 필수 4종 의존성 명시** (호환성 가이드 규칙 2-①)
+      `egovframe-rte-ptl-mvc` · `-fdl-cmmn` · `-psl-dataaccess` · `-fdl-logging` **전부 5.0.0** + 선택 `-fdl-idgnr` 동일 버전.
+      **001 은 `fdl-logging` 을 통째로 exclusion 해 규칙 2 위반이었다** — 003 은 모듈을 살리고
+      `log4j-core`/`log4j-slf4j2-impl` 만 제외(`log4j-api` 는 유지 → Spring Boot `log4j-to-slf4j` 가 Logback 으로 위임)
+- [x] **eGov 호환성 — Spring Boot 버전 상한 고정** — 기준선 **3.5.6**, 현 지정 **3.5.9**(패치 상향, 규칙 2 예외조항).
+      **3.6.x/4.x minor 상향은 즉시 위반** — pom 헤더 주석에 명시함. Java 21 은 "JDK 17 이상" 충족
+- [x] **`dependency:tree` 실측 검증 완료** (2026-07-31, 아티팩트 225개)
+      — rte **5종 전부 5.0.0** · Spring Boot **3.5.9** · spring-core **6.2.15** · spring-security-core **6.5.7** ·
+        mybatis **3.5.19**(기준선 일치) · Flyway 11.7.2(core+mysql)
+      — **log4j 브리지 단일화 확인**: `log4j-to-slf4j` + `log4j-api` 만 존재,
+        `log4j-slf4j2-impl`·`log4j-core` **0건** → 001 의 부팅 실패 조건 해소
+      — postgresql · lucene · genai **0건**
 - [ ] **`pom.xml` 이식 시 `com.google.genai:google-genai` 제외**(2026-07-31 결정) —
       `google-genai.version` property 도 함께 제거. AI 기능은 추후 context 방식으로 별도 개발한다.
       연동 코드(`GeminiFileService*`, `GeminiFileRenewScheduler`)도 이식하지 않는다
-- [ ] `lib/` 로컬 의존 jar 배치(NiceID 등) + pom system-scope 확인
+- [x] `lib/` 로컬 의존 jar 배치(NiceID 등) + pom system-scope 확인 (2026-07-31, 사용자 배치)
 - [x] `.env.example` 작성 — **키 이름 + `__CHANGE_ME__`**. 비밀 아닌 값(경로·드라이버·localhost URL)만 예시값
       — 001 실측 57종 전량. 키 인벤토리는 `.env.key.example`(용도·발급처·페이즈·[S]/[P] 구분) 로 분리
-- [ ] `application.yml` + `application-{local,dev,prod}.yml` 이식
-      — 한글 주석(운영 정책) 보존, **비밀값은 기본값 없는 `${VAR}`**
+- [x] `application.yml` + `application-{local,dev,prod}.yml` 이식 (2026-07-31)
+      — 한글 주석(운영 정책) 보존, **비밀값 평문 fallback 전량 제거**
+      — 포트 분리: base **8083** / local **8082** (001 은 8081/8080 — 동시 기동 가능)
+      — `gopcms.flyway.*` 신설(local 만 기본 활성, dev/prod 는 D1 결정 전까지 false)
+      — 제거: `ai.gemini.*` 전체 · `gopcms.search.stopwords` · retention buckets 의 `tb_search_*` 4종
+      — `g2b` 블록 전체 제거 (tb_g2b_* 4종 미이식 확정 — 2026-07-31)
+- [x] `.env.example` 키 정합 (2026-07-31) — yml 요구 58종 = 템플릿 58종.
+      `PCMS_MAIL_{HOST,PORT,USERNAME}`·`PCMS_OAUTH2_*_ENABLED`·`PCMS_FLYWAY_ENABLED`·
+      `PCMS_CONTENT_HTML_ROOT` 추가, `GEMINI_*` 6종·`PCMS_SEARCH_STOPWORDS_ENABLED` 삭제
 - [ ] `logback-spring.xml` 이식
 - [ ] **3-DB 구성** — `config/datasource/`: `GopcmsDataSourceProperties`, `DataSourceFactory`,
       `PrimaryDataSourceConfig`, `SecondaryDataSourceConfig`, `LoggingDataSourceConfig`
@@ -95,7 +112,8 @@
       (`basePackage` + `sqlSessionFactoryBeanName`). 애노테이션은 `@Mapper` → **`@EgovMapper`**
       — `@Mapper` 는 실행환경 v4.3 이하 표기라 5.0 기준 **위반**
       — FQN(`org.egovframe.rte.psl.dataaccess.mapper.EgovMapper` 추정)은 **실제 5.0 jar 로 확인**
-- [ ] 진입점 — `GopcmsApplication`(`main()` + `SpringBootServletInitializer` 이중 진입점)
+- [x] 진입점 — **`com.gonet.Pcms2026Application`**(`main()` + `SpringBootServletInitializer` 이중 진입점),
+      `DataSourceAutoConfiguration` 제외 + `@EnableCaching/@EnableAsync/@EnableScheduling/@EnableTransactionManagement` (2026-07-31)
 - [ ] eGovFrame 설정(`config/egov/`) 이식
 - [ ] **Flyway 도입** — `db/migration/{db}/{vendor}/` 구조, DataSource별 Flyway 빈, `baselineOnMigrate`
 - [ ] 로컬 DB 3종 생성 + 001 DDL 로 스키마 구축 → Flyway 베이스라인 기록
@@ -413,7 +431,7 @@
 
 | # | 항목 | 선택지 | 필요 시점 | 결정 |
 |---|---|---|---|---|
-| D1 | **Flyway 실행 계정** — 앱 계정에 DDL 권한이 없는 기존 방침과 충돌 | ① DDL 권한 전용 flyway 계정 분리 ② 앱 계정에 DDL 부여 ③ 로컬·dev 만 활성, 운영은 DBA 집행 | **P0** | |
+| D1 | **Flyway 실행 계정** — 앱 계정에 DDL 권한이 없는 기존 방침과 충돌 | ① DDL 권한 전용 flyway 계정 분리 ② 앱 계정에 DDL 부여 ③ 로컬·dev 만 활성, 운영은 DBA 집행 | **P0** | ✅ 2026-07-31 — **③ 로컬·dev 만 활성, 운영은 DBA 집행**. local/dev 는 `enabled=true` 기본, **prod 는 환경변수 override 없이 `false` 하드코딩**(정책을 권고가 아닌 강제로). 운영 스키마 변경은 DBA 가 같은 마이그레이션 파일을 Flyway CLI 로 집행한다 |
 | D2 | **Flyway 적용 범위** | ① 3개 DB 전부 ② primary 만 | **P0** | ✅ 2026-07-31 — **① 3개 DB 전부**. DataSource별 Flyway 빈 3개 명시 구성 |
 | D3 | **git 원격 저장소** — 사용 여부 및 URL | | **P0** | ✅ 2026-07-31 — `https://github.com/kingja51/pcms2026-003` (public). 기본 브랜치 `main` |
 | D4 | **로컬 DB·데이터 경로** — 001과 공유할지 분리할지(스키마명, 업로드/로그 경로) | | **P0** | ✅ 2026-07-31 — 001과 **분리**. MariaDB 11.8.3 `pcms2026-003-{primary,logging,secondary}` (업로드·로그 경로 미정) |
@@ -435,7 +453,7 @@
 |---|---|---|---|---|
 | 2026-07-31 | **001 MyBatis 설정이 `_maria.xml` 을 하드코딩**한다(`{Primary,Secondary,Logging}MyBatisConfig` 의 `classpath*:mapper/**/*_maria.xml`). 드라이버 환경변수와 무관하게 maria 만 로드된다 — mysql·postgres XML 84개씩이 실제로는 사용되지 않는 상태 | P0 | 중 | ✅ **해결 2026-07-31** — 003 은 **maria 단일 확정**. 접미사 `_maria` 는 유지. CLAUDE/AGENTS/README/개발가이드 §2·§3·§6-2·§6-4·§6-5·§15, PLAN 상시게이트 4·P4·§8 반영 |
 | 2026-07-31 | **`sql/` 덤프에 뷰 5개 미반입** — 라이브 `pcms2026_primary` 에 뷰 9개인데 덤프는 4개. 누락: `v_bbs_article_search`·`v_content_published`·`v_file_search`·`v_menu_search`·`v_schedule_search` | P0 | 중 | 미정 |
-| 2026-07-31 | **secondary 덤프 7테이블 누락** — 라이브 10 vs 덤프 3. `tb_g2b_*` 4종 + `tb_lab`·`tb_staff`·`tb_syllabus`. 003 이식 대상인지 미결 | P0 | 중 | 미정 |
+| 2026-07-31 | **secondary 덤프 7테이블 누락** — 라이브 10 vs 덤프 3. `tb_g2b_*` 4종 + `tb_lab`·`tb_staff`·`tb_syllabus`. 003 이식 대상인지 미결 | P0 | 중 | **부분 해결 2026-07-31** — `tb_g2b_*` 4종은 **미이식 확정**(`g2b` yml 블록·`PCMS_G2B_SERVICE_KEY`·키 인벤토리 항목 제거). `tb_lab`·`tb_staff`·`tb_syllabus` 3종은 **여전히 미정** |
 | 2026-07-31 | **`sql/` 구조가 개발가이드 §3 과 불일치** — 가이드는 `sql/{mariadb,mysql,postgres}/`, 실제는 플랫 3파일 MariaDB 전용 | P0 | 중 | 미정 |
 | 2026-07-31 | **primary DDL 실행 불가 2건** — ① `tb_member_otp`(1307행)·`tb_template`(1992행) 종결 세미콜론 누락 ② FK forward reference 26건으로 `SET FOREIGN_KEY_CHECKS=0` 헤더 필요. 실측: 원본 그대로면 첫 테이블에서 errno 150, 0/74 생성 | P0 | **높음** | 미정 |
 | 2026-07-31 | **`DROP TABLE IF EXISTS` 누락 5건** — `tb_member_otp`·`tb_site`·`tb_template`·`tb_theme`·`tb_layout`. 나머지 69개는 있어 재실행이 안 된다 | P0 | 중 | 미정 |
@@ -444,12 +462,16 @@
 | 2026-07-31 | **`tb_layout`·`tb_theme` 가 문서에 없음** — 개발가이드 §5-1 인벤토리와 PLAN P4 미반영. P4 는 아직 "`tb_site.theme` 연동" 으로 적혀 있으나 실제는 `tb_template`→`tb_layout`/`tb_theme`→`tb_site` 3단 구조 | P4 | 중 | 미정 |
 | 2026-07-31 | **와이어프레임 링크 14개 깨짐** — `wireframe/index.html` 이 frame001~007·011~017 을 링크하나 디렉터리는 frame021~028 만 존재. `tb_layout.wireframe_ref` 값 채울 때 영향 | P8 | 낮음 | 미정 |
 | 2026-07-31 | **와이어프레임 raw hex 426건 + Google Fonts CDN `@import`** — 현 CSP·self-host 폰트 규약과 충돌. 데모 이식 전 KRDS 토큰·self-host 로 변환 필요(인라인 핸들러는 0건) | P8 | 낮음 | 미정 |
-| 2026-07-31 | **PLAN P0 진입점 클래스명 불일치** — PLAN 은 `GopcmsApplication`, 001 실측은 `Pcms2026Application`. DataSource 계열(`GopcmsDataSourceProperties`)은 일치 | P0 | 낮음 | 미정 |
+| 2026-07-31 | **PLAN P0 진입점 클래스명 불일치** — PLAN 은 `GopcmsApplication`, 001 실측은 `Pcms2026Application`. DataSource 계열(`GopcmsDataSourceProperties`)은 일치 | P0 | 낮음 | ✅ **해결 2026-07-31** — **`Pcms2026Application` 채택**(사용자 결정). PLAN P0 항목 갱신. DataSource 계열은 `Gopcms*` 유지 |
 | 2026-07-31 | **[eGov 호환성] `@Mapper` 는 5.0 기준 위반** — 호환성 가이드 규칙 5-①-2)는 Mapper Interface 사용 시 표준프레임워크 `MapperConfigurer` + **`@EgovMapper`** 를 요구하고 `@Mapper` 는 **실행환경 v4.3 이하** 표기로 명시. 현재 개발가이드 R4(:173)·§6-2(:279)·§6-4(:385) 와 CLAUDE.md 가 전부 `@Mapper` | P0 | **높음** | ▶ P0 작업·DoD 및 P1 R4 룰에 반영. **개발가이드·CLAUDE.md 본문 수정은 별도 커밋** |
 | 2026-07-31 | **[eGov 호환성] 실행환경 필수 4종 의존성이 문서에 없음** — 규칙 1-② 는 `egovframe-rte-ptl-mvc`·`-fdl-cmmn`·`-psl-dataaccess`·`-fdl-logging` **동일 버전** 적용을 요구하나, 개발가이드에 eGov 의존성 항목 자체가 없다(`EgovAbstractServiceImpl` 언급만 존재) | P0 | **높음** | ▶ P0 작업·DoD 에 반영 |
 | 2026-07-31 | **[eGov 호환성] Spring Boot 버전 상한** — 5.0 실행환경 기준선은 **3.5.6**(Spring 6.2.11 / Security 6.5.5 / MyBatis 3.5.19). 현 지정 **3.5.9** 는 규칙 1-② 예외("패치 버전 한해 최신 허용")로 **적법**하나, minor 상향 시 즉시 위반 | P0 | 중 | ▶ P0 작업에 상한 고정 항목 추가 |
 | 2026-07-31 | **[eGov 호환성] R3 Service 예외가 규칙 4("예외 없음")와 충돌** — 개발가이드 R3 의 "모니터링·AI 캐시 등 eGov 계층 무관 기술 서비스" 예외는 회색지대. 규칙 4 권장안은 `EgovAbstractServiceImpl` 상속 **공통 추상 서비스** 경유 | P1 | 중 | ▶ P1 작업에 반영 |
 | 2026-07-31 | **[eGov 호환성] 001 의 `Egov` 접두 클래스 이식 시 위반** — 규칙 6-② 상 실행환경 클래스를 상속한 클래스는 `Egov` 로 시작할 수 없다. 그대로 복사하면 위반 | 전 페이즈 | 중 | ▶ §2 진행 규칙 7 로 승격 |
+| 2026-07-31 | **001 yml 에 비밀값 평문이 다수 커밋돼 있다** — `application-dev.yml` 의 DB 비밀번호 3개(`kingja51`), `application.yml` 의 지도 API 키 3종 실제값(Kakao appkey·Naver client-id·Google `AIzaSy…`), Gmail 발신 주소, 개발자 개인 ngrok 도메인 4곳. **003 은 전량 기본값 없는 `${VAR}` 로 전환**했다 | P0 | **높음** | ✅ **처리 2026-07-31** — 이식 시 제거. 001 저장소 자체의 키 회수·폐기 여부는 별건 |
+| 2026-07-31 | **001 pom 은 `egovframe-rte-fdl-logging` 을 전 모듈에서 exclusion** — log4j2↔SLF4J 양방향 브리지 충돌(`log4j-slf4j2-impl cannot be present with log4j-to-slf4j`) 회피가 목적이었으나, **호환성 규칙 2-① 필수 4종 위반**이다. 003 은 모듈을 살리고 `log4j-core`/`log4j-slf4j2-impl` 만 제외 | P0 | **높음** | ✅ **해결 2026-07-31** — pom 이식 시 반영 후 `dependency:tree` 로 실측 확인. `log4j-to-slf4j:2.24.3` + `log4j-api:2.24.3` 만 존재하고 `log4j-slf4j2-impl`·`log4j-core` 는 0건. (`log4j-over-slf4j` 는 log4j **1.x** 브리지라 세대가 달라 충돌 대상 아님) |
+| 2026-07-31 | **`egovframe-rte-psl-dataaccess` 의 JPA transitive** — JPA 금지 프로젝트인데 무엇이 딸려오는지 미확인이었다 | P0 | 낮음 | ✅ **해결 2026-07-31** — 실측 결과 `hibernate-core`(ORM 본체)는 **유입되지 않는다**. `jakarta.persistence-api:3.1.0` + `spring-orm:6.2.15` 만 들어오며 둘 다 API·추상화라 **exclusion 불필요**(제외하면 rte 클래스 로딩 시 NoClassDefFoundError 위험). JPA 미사용은 ArchUnit 규약으로 강제한다. `hibernate-validator` 는 Bean Validation 구현체로 JPA 무관 |
+| 2026-07-31 | **`lucene-analysis-nori` 이식 제외** — 001 실측상 `primary/search/` 전용(`KoreanTokenizer`·`SearchIndexServiceImpl`). 검색이 외부 엔진으로 나가 소비자가 없다 | P0 | 낮음 | ✅ **처리 2026-07-31** — pom 에서 제외 |
 | 2026-07-31 | **Google GenAI SDK 제외에 딸린 잔재** — `tb_search_gemini_*` 2종, `tb_file_group.entity_type` 주석의 `GEMINI_SEARCH` 예시 | P0 | 중 | ✅ **해결 2026-07-31** — 검색 테이블 7종 전량 삭제(D10) 로 흡수. `GEMINI_SEARCH` 주석도 제거 |
 | 2026-07-31 | **검색 삭제 후 `stat_search_keyword`(logging) 가 고아로 남는다** — 앱이 검색어를 수집하지 않으므로 채울 주체가 없다 | P7 | 중 | ✅ **해결 2026-07-31** — 테이블 삭제. P7 통계 항목·개발가이드 §5-1 statistics 행에서도 제거. 검색어 통계는 검색엔진 쪽 책임 |
 | 2026-07-31 | **`tb_employee` 에 로그인·권한 컬럼이 死컬럼으로 남는다** — 직원을 로그인·권한에서 제외했으나 `login_id`·`PASSWORD`·`STATUS`·`login_fail_count`·`locked_until`·`password_changed_at`·`password_expire_at`·`two_factor_enabled_yn`·`two_factor_secret`·`ip_whitelist`·`allowed_time_from/to`·`role_ids`·`group_ids`·`captcha_required_yn`·`last_login_at/ip` 가 그대로다. 특히 **`PASSWORD`·`two_factor_secret` 은 쓰지 않는 자격증명 저장소**라 보안 부채 | P0 | **높음** | ✅ **해결 2026-07-31** — D7 ① 채택, 18컬럼 DROP |

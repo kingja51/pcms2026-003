@@ -162,6 +162,8 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 
 - 위치: `db/migration/{primary,secondary,logging}/{vendor}/`, 네이밍 `V{yyyyMMdd}{NN}__{설명}.sql` / `R__{설명}.sql`.
 - `spring.datasource`가 아니라 커스텀 DataSource 3개라 **자동설정 불가** — DataSource별 Flyway 빈 명시 구성.
+- **실행 주체 분리**(D1 ③, 2026-07-31): local·dev 는 앱이 기동 시 실행, **운영은 DBA 가 Flyway CLI 로 집행**.
+  `application-prod.yml` 의 `gopcms.flyway.enabled` 는 **환경변수 override 없이 `false` 고정** — 되돌리려면 커밋이 필요하다.
 - **적용된 마이그레이션 파일은 수정하지 않는다**(체크섬 불일치로 기동 실패) — 새 버전을 추가한다.
 - **시드 데이터는 마이그레이션에 넣지 않는다**(데모 데이터가 운영에 딸려 가면 안 됨). 단, 참조 데이터(공통코드·기본 접근규칙)는 포함.
 - 신규 테이블은 UUID v7 PK + 감사컬럼 6종 + **MariaDB DDL**. 상세는 개발가이드 §6.
