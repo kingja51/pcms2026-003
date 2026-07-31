@@ -67,7 +67,8 @@
 - [x] `git init` + `.gitignore` — `.env`, `target/`, `node_modules/`, `.idea/`, 빌드 산출물
 - [ ] 빌드 정의 이식 — `pom.xml`(artifactId/name/finalName `pcms2026-003`), `lombok.config`, `package.json`, `mvnw`, `.mvn/`
 - [ ] `lib/` 로컬 의존 jar 배치(NiceID 등) + pom system-scope 확인
-- [ ] `.env.example` 작성 — **키 이름 + `__CHANGE_ME__`**. 비밀 아닌 값(경로·드라이버·localhost URL)만 예시값
+- [x] `.env.example` 작성 — **키 이름 + `__CHANGE_ME__`**. 비밀 아닌 값(경로·드라이버·localhost URL)만 예시값
+      — 001 실측 57종 전량. 키 인벤토리는 `.env.key.example`(용도·발급처·페이즈·[S]/[P] 구분) 로 분리
 - [ ] `application.yml` + `application-{local,dev,prod}.yml` 이식
       — 한글 주석(운영 정책) 보존, **비밀값은 기본값 없는 `${VAR}`**
 - [ ] `logback-spring.xml` 이식
@@ -402,7 +403,18 @@
 
 | 발견일 | 내용 | 발견 페이즈 | 심각도 | 처리 |
 |---|---|---|---|---|
-| | | | | |
+| 2026-07-31 | **001 MyBatis 설정이 `_maria.xml` 을 하드코딩**한다(`{Primary,Secondary,Logging}MyBatisConfig` 의 `classpath*:mapper/**/*_maria.xml`). 드라이버 환경변수와 무관하게 maria 만 로드된다 — mysql·postgres XML 84개씩이 실제로는 사용되지 않는 상태. 003 이식 시 벤더 선택 방식을 정해야 한다 | P0 | 중 | 미정 |
+| 2026-07-31 | **`sql/` 덤프에 뷰 5개 미반입** — 라이브 `pcms2026_primary` 에 뷰 9개인데 덤프는 4개. 누락: `v_bbs_article_search`·`v_content_published`·`v_file_search`·`v_menu_search`·`v_schedule_search` | P0 | 중 | 미정 |
+| 2026-07-31 | **secondary 덤프 7테이블 누락** — 라이브 10 vs 덤프 3. `tb_g2b_*` 4종 + `tb_lab`·`tb_staff`·`tb_syllabus`. 003 이식 대상인지 미결 | P0 | 중 | 미정 |
+| 2026-07-31 | **`sql/` 구조가 개발가이드 §3 과 불일치** — 가이드는 `sql/{mariadb,mysql,postgres}/`, 실제는 플랫 3파일 MariaDB 전용 | P0 | 중 | 미정 |
+| 2026-07-31 | **primary DDL 실행 불가 2건** — ① `tb_member_otp`(1307행)·`tb_template`(1992행) 종결 세미콜론 누락 ② FK forward reference 26건으로 `SET FOREIGN_KEY_CHECKS=0` 헤더 필요. 실측: 원본 그대로면 첫 테이블에서 errno 150, 0/74 생성 | P0 | **높음** | 미정 |
+| 2026-07-31 | **`DROP TABLE IF EXISTS` 누락 5건** — `tb_member_otp`·`tb_site`·`tb_template`·`tb_theme`·`tb_layout`. 나머지 69개는 있어 재실행이 안 된다 | P0 | 중 | 미정 |
+| 2026-07-31 | **참조 테이블 20개의 `site_code` 가 비인덱스·비FK·nullable 중복** — 모든 유니크·인덱스는 `site_id` 선두. `v_site_menu` 조차 `tb_site` 를 조인해 `s.site_code` 를 쓴다. 제거 또는 복합 FK+CASCADE 중 택1 | P4 | 중 | 결정 대기 |
+| 2026-07-31 | **`tb_site` 를 참조하는 FK 부재** — 20개 테이블이 `site_id` 를 갖지만 `REFERENCES tb_site` 가 하나도 없다(자기참조 `fk_site_parent` 만 존재). 의도인지 누락인지 확인 필요 | P4 | 중 | 미정 |
+| 2026-07-31 | **`tb_layout`·`tb_theme` 가 문서에 없음** — 개발가이드 §5-1 인벤토리와 PLAN P4 미반영. P4 는 아직 "`tb_site.theme` 연동" 으로 적혀 있으나 실제는 `tb_template`→`tb_layout`/`tb_theme`→`tb_site` 3단 구조 | P4 | 중 | 미정 |
+| 2026-07-31 | **와이어프레임 링크 14개 깨짐** — `wireframe/index.html` 이 frame001~007·011~017 을 링크하나 디렉터리는 frame021~028 만 존재. `tb_layout.wireframe_ref` 값 채울 때 영향 | P8 | 낮음 | 미정 |
+| 2026-07-31 | **와이어프레임 raw hex 426건 + Google Fonts CDN `@import`** — 현 CSP·self-host 폰트 규약과 충돌. 데모 이식 전 KRDS 토큰·self-host 로 변환 필요(인라인 핸들러는 0건) | P8 | 낮음 | 미정 |
+| 2026-07-31 | **PLAN P0 진입점 클래스명 불일치** — PLAN 은 `GopcmsApplication`, 001 실측은 `Pcms2026Application`. DataSource 계열(`GopcmsDataSourceProperties`)은 일치 | P0 | 낮음 | 미정 |
 
 ---
 

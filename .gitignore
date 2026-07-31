@@ -1,7 +1,9 @@
 # ── 비밀값 (절대 커밋 금지) ────────────────────────────────
 .env
 .env.*
+# 템플릿·인벤토리는 값이 없으므로 추적한다 (실제 값 기입 금지)
 !.env.example
+!.env.key.example
 deploy/tomcat/pcms.env
 **/pcms.env
 
