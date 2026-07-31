@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+  tb_member_otp — 회원 인증번호.
+
+  · 전량 #{} 바인딩. ${} 금지(SQLi).
+  · 평문 코드는 어디에도 없다 — code_hash(HMAC-SHA256 64 hex) 만 다룬다.
+  · "미소비"의 정의는 verified_at IS NULL 이다. 만료 여부는 서비스가 판단한다 —
+    SQL 의 now() 와 자바의 now() 가 갈리면 원인 추적이 어려워지므로 시각 판정은
+    한 곳(서비스)에만 둔다.
+-->
+<mapper namespace="com.gonet.primary.member.otp.mapper.MemberOtpMapper">
+
+  <resultMap id="otpMap" type="com.gonet.primary.member.otp.dto.MemberOtp">
+    <id     property="otpId"        column="otp_id"/>
+    <result property="memberId"     column="member_id"/>
+    <result property="siteId"       column="site_id"/>
+    <result property="purpose"      column="purpose"/>
+    <result property="codeHash"     column="code_hash"/>
+    <result property="expiresAt"    column="expires_at"/>
+    <result property="attemptCount" column="attempt_count"/>
+    <result property="verifiedAt"   column="verified_at"/>
+    <result property="clientIp"     column="client_ip"/>
+    <result property="createdBy"    column="created_by"/>
+    <result property="createdIp"    column="created_ip"/>
+    <result property="createdAt"    column="created_at"/>
+  </resultMap>
+
+  <insert id="insert" parameterType="com.gonet.primary.member.otp.dto.MemberOtp">
+    INSERT INTO tb_member_otp
+      (otp_id, member_id, site_id, purpose, code_hash, expires_at,
+       attempt_count, verified_at, client_ip, created_by, created_ip, created_at)
+    VALUES
+      (#{otpId}, #{memberId}, #{siteId}, #{purpose}, #{codeHash}, #{expiresAt},
+       0, NULL, #{clientIp}, #{createdBy}, #{createdIp}, current_timestamp())
+  </insert>
+
+  <select id="findLatestActive" resultMap="otpMap">
+    SELECT otp_id, member_id, site_id, purpose, code_hash, expires_at,
+           attempt_count, verified_at, client_ip, created_by, created_ip, created_at
+      FROM tb_member_otp
+     WHERE member_id  = #{memberId}
+       AND purpose    = #{purpose}
+       AND verified_at IS NULL
+     ORDER BY created_at DESC, otp_id DESC
+     LIMIT 1
+  </select>
+
+  <select id="findLastIssuedAt" resultType="java.time.LocalDateTime">
+    SELECT MAX(created_at)
+      FROM tb_member_otp
+     WHERE member_id = #{memberId}
+       AND purpose   = #{purpose}
+  </select>
+
+  <select id="countIssuedSince" resultType="int">
+    SELECT COUNT(*)
+      FROM tb_member_otp
+     WHERE member_id  = #{memberId}
+       AND purpose    = #{purpose}
+       AND created_at >= #{since}
+  </select>
+
+  <update id="incrementAttempt">
+    UPDATE tb_member_otp
+       SET attempt_count = attempt_count + 1,
+           updated_at    = current_timestamp()
+     WHERE otp_id = #{otpId}
+  </update>
+
+  <!--
+    verified_at IS NULL 을 WHERE 에 두는 것이 1회용 보장의 핵심이다.
+    동시에 같은 코드로 두 요청이 와도 DB 가 한 건만 갱신한다(반환 1 / 0).
+    자바 if 검사만으로는 두 스레드가 함께 통과한다.
+  -->
+  <update id="markVerified">
+    UPDATE tb_member_otp
+       SET verified_at = #{verifiedAt},
+           updated_at  = current_timestamp()
+     WHERE otp_id      = #{otpId}
+       AND verified_at IS NULL
+  </update>
+
+  <delete id="deleteById">
+    DELETE FROM tb_member_otp WHERE otp_id = #{otpId}
+  </delete>
+
+  <delete id="deleteActiveByMember">
+    DELETE FROM tb_member_otp
+     WHERE member_id  = #{memberId}
+       AND purpose    = #{purpose}
+       AND verified_at IS NULL
+  </delete>
+
+  <!-- P7 보존 배치 — 만료됐거나 이미 소비된 행 정리. -->
+  <delete id="deleteExpiredBefore">
+    DELETE FROM tb_member_otp
+     WHERE expires_at &lt; #{threshold}
+        OR verified_at IS NOT NULL
+  </delete>
+
+</mapper>

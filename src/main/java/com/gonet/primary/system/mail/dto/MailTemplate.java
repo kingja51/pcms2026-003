@@ -34,6 +34,9 @@ public class MailTemplate extends BaseEntity implements SoftDeletable, UseFlagge
     /** 휴면 복원 완료 알림. */
     public static final String CODE_ACCOUNT_DORMANT_RESTORED    = "ACCOUNT_DORMANT_RESTORED";
 
+    /** 휴면 해제 인증번호(수단 B) — 모델: memberName, loginId, otpCode. */
+    public static final String CODE_ACCOUNT_DORMANT_OTP          = "ACCOUNT_DORMANT_OTP";
+
     private String  mailTemplateId;
     private String  templateCode;
     private String  templateName;

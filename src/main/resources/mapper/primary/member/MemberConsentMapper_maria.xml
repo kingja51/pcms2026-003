@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.member.mapper.MemberConsentMapper">
+
+  <select id="findByMemberId" resultType="com.gonet.primary.member.dto.MemberConsent">
+    SELECT member_consent_id, member_id, consent_type, consent_version,
+           agree_yn, agreed_at, client_ip, user_agent,
+           created_by, created_ip, created_at,
+           updated_by, updated_ip, updated_at
+      FROM tb_member_consent
+     WHERE member_id = #{memberId}
+     ORDER BY agreed_at DESC
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.member.dto.MemberConsent">
+    INSERT INTO tb_member_consent (
+      member_consent_id, member_id, consent_type, consent_version,
+      agree_yn, agreed_at, client_ip, user_agent,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{memberConsentId}, #{memberId}, #{consentType}, #{consentVersion},
+      #{agreeYn}, #{agreedAt}, #{clientIp}, #{userAgent},
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_member_consent
+        WHERE member_consent_id =  #{memberConsentId}
+    </delete>
+
+
+  <!-- 관리자 조회 — 목록/카운트/단건/엑셀 -->
+  <sql id="consentFilter">
+    <where>
+      <if test="search.memberId != null and search.memberId != ''">
+        AND member_id = #{search.memberId}
+      </if>
+      <if test="search.consentType != null and search.consentType != ''">
+        AND consent_type = #{search.consentType}
+      </if>
+      <if test="search.agreeYn != null and search.agreeYn != ''">
+        AND agree_yn = #{search.agreeYn}
+      </if>
+      <if test="search.agreedFrom != null">
+        AND agreed_at &gt;= #{search.agreedFrom}
+      </if>
+      <if test="search.agreedTo != null">
+        AND agreed_at &lt; #{search.agreedTo}
+      </if>
+    </where>
+  </sql>
+
+  <sql id="consentCols">
+    member_consent_id, member_id, consent_type, consent_version,
+    agree_yn, agreed_at, client_ip, user_agent,
+    created_by, created_ip, created_at,
+    updated_by, updated_ip, updated_at
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.member.dto.MemberConsent">
+    SELECT <include refid="consentCols"/>
+      FROM tb_member_consent
+    <include refid="consentFilter"/>
+     ORDER BY agreed_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(*) FROM tb_member_consent
+    <include refid="consentFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.member.dto.MemberConsent">
+    SELECT <include refid="consentCols"/>
+      FROM tb_member_consent
+     WHERE member_consent_id = #{memberConsentId}
+  </select>
+
+  <select id="findForExport" resultType="com.gonet.primary.member.dto.MemberConsent">
+    SELECT <include refid="consentCols"/>
+      FROM tb_member_consent
+    <include refid="consentFilter"/>
+     ORDER BY agreed_at DESC
+     LIMIT 50000
+  </select>
+
+</mapper>

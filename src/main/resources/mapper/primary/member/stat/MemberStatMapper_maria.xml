@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.member.stat.mapper.MemberStatMapper">
+
+  <!-- ============================================================ -->
+  <!--   회원 통계 — 모든 SELECT 는 read-only.                      -->
+  <!--   siteId 는 nullable — null 이면 전체 사이트.                 -->
+  <!-- ============================================================ -->
+
+  <!-- 1) 라이프사이클 3 테이블 카운트 ──────────────────────────── -->
+
+  <select id="countActiveMembers" resultType="long">
+    SELECT COUNT(*)
+      FROM tb_member
+     WHERE delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+  </select>
+
+  <select id="countDormantMembers" resultType="long">
+    SELECT COUNT(*)
+      FROM tb_member_dormant
+     WHERE 1 = 1
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+  </select>
+
+  <select id="countWithdrawnMembers" resultType="long">
+    SELECT COUNT(*)
+      FROM tb_member_withdraw
+     WHERE retention_expire_at &gt; CURRENT_TIMESTAMP
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+  </select>
+
+  <select id="countByLifecycleTable"
+          resultType="com.gonet.primary.member.stat.dto.MemberCountByTable">
+    SELECT 'tb_member' AS tableName,
+           COUNT(*)    AS total
+      FROM tb_member
+     WHERE delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+    UNION ALL
+    SELECT 'tb_member_dormant' AS tableName,
+           COUNT(*)            AS total
+      FROM tb_member_dormant
+     WHERE 1 = 1
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+    UNION ALL
+    SELECT 'tb_member_withdraw' AS tableName,
+           COUNT(*)             AS total
+      FROM tb_member_withdraw
+     WHERE retention_expire_at &gt; CURRENT_TIMESTAMP
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+  </select>
+
+  <!-- 2) 연령대 / 성별 ─────────────────────────────────────────── -->
+
+  <!--
+    birth_year 평문(§0.27) — CHAR(4) 숫자만. 비숫자 / NULL 이면 UNKNOWN.
+    YEAR(NOW()) - birth_year 의 10년 단위 floor 로 연령대 산정.
+    60세 이상은 '60+' 로 묶음.
+  -->
+  <select id="ageDistribution"
+          resultType="com.gonet.primary.member.stat.dto.AgeBucketCount">
+    SELECT
+      CASE
+        WHEN birth_year IS NULL OR birth_year NOT REGEXP '^[0-9]{4}$' THEN 'UNKNOWN'
+        WHEN YEAR(NOW()) - CAST(birth_year AS UNSIGNED) &gt;= 60 THEN '60+'
+        WHEN YEAR(NOW()) - CAST(birth_year AS UNSIGNED) &gt;= 50 THEN '50'
+        WHEN YEAR(NOW()) - CAST(birth_year AS UNSIGNED) &gt;= 40 THEN '40'
+        WHEN YEAR(NOW()) - CAST(birth_year AS UNSIGNED) &gt;= 30 THEN '30'
+        WHEN YEAR(NOW()) - CAST(birth_year AS UNSIGNED) &gt;= 20 THEN '20'
+        WHEN YEAR(NOW()) - CAST(birth_year AS UNSIGNED) &gt;= 10 THEN '10'
+        ELSE 'CHILD'
+      END                                       AS ageBucket,
+      COUNT(*)                                  AS total
+      FROM tb_member
+     WHERE delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY ageBucket
+     ORDER BY ageBucket
+  </select>
+
+  <select id="genderDistribution"
+          resultType="com.gonet.primary.member.stat.dto.GenderCount">
+    SELECT
+      COALESCE(NULLIF(gender, ''), 'UNKNOWN')   AS gender,
+      COUNT(*)                                  AS total
+      FROM tb_member
+     WHERE delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY gender
+     ORDER BY gender
+  </select>
+
+  <!-- 3) OAuth2 / DI ──────────────────────────────────────────── -->
+
+  <select id="providerDistribution"
+          resultType="com.gonet.primary.member.stat.dto.ProviderCount">
+    SELECT o.provider AS provider,
+           COUNT(*)   AS total
+      FROM tb_member_oauth o
+      JOIN tb_member m ON m.member_id = o.member_id
+     WHERE o.delete_yn = 'N'
+       AND o.use_yn    = 'Y'
+       AND m.delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+       AND m.site_id = #{siteId}
+    </if>
+     GROUP BY o.provider
+     ORDER BY total DESC
+  </select>
+
+  <select id="diVerifiedShare"
+          resultType="com.gonet.primary.member.stat.dto.DiVerifiedShare">
+    SELECT
+      SUM(CASE WHEN di_hash IS NOT NULL AND di_hash != '' THEN 1 ELSE 0 END) AS verified,
+      SUM(CASE WHEN di_hash IS NULL OR di_hash = ''     THEN 1 ELSE 0 END)   AS unverified
+      FROM tb_member
+     WHERE delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+  </select>
+
+  <!-- 4) 탈퇴 사유 분포 ────────────────────────────────────────── -->
+
+  <select id="withdrawStatusDistribution"
+          resultType="com.gonet.primary.member.stat.dto.WithdrawStatusCount">
+    SELECT
+      COALESCE(NULLIF(withdraw_status, ''), 'UNKNOWN') AS withdrawStatus,
+      COUNT(*)                                          AS total
+      FROM tb_member_withdraw
+     WHERE retention_expire_at &gt; CURRENT_TIMESTAMP
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY withdrawStatus
+     ORDER BY total DESC
+  </select>
+
+  <!-- 5) 일별 추이 ─────────────────────────────────────────────── -->
+
+  <select id="dailyJoinCount"
+          resultType="com.gonet.primary.member.stat.dto.DailyMemberStat">
+    SELECT DATE(created_at) AS statDate,
+           COUNT(*)         AS joinCount
+      FROM tb_member
+     WHERE delete_yn = 'N'
+       AND created_at &gt;= #{from}
+       AND created_at &lt;  DATE_ADD(#{to}, INTERVAL 1 DAY)
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY DATE(created_at)
+     ORDER BY statDate
+  </select>
+
+  <select id="dailyDormantCount"
+          resultType="com.gonet.primary.member.stat.dto.DailyMemberStat">
+    SELECT DATE(created_at) AS statDate,
+           COUNT(*)         AS dormantCount
+      FROM tb_member_dormant
+     WHERE created_at &gt;= #{from}
+       AND created_at &lt;  DATE_ADD(#{to}, INTERVAL 1 DAY)
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY DATE(created_at)
+     ORDER BY statDate
+  </select>
+
+  <select id="dailyWithdrawCount"
+          resultType="com.gonet.primary.member.stat.dto.DailyMemberStat">
+    SELECT DATE(withdraw_at) AS statDate,
+           COUNT(*)          AS withdrawCount
+      FROM tb_member_withdraw
+     WHERE withdraw_at &gt;= #{from}
+       AND withdraw_at &lt;  DATE_ADD(#{to}, INTERVAL 1 DAY)
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY DATE(withdraw_at)
+     ORDER BY statDate
+  </select>
+
+  <!-- 6) 사이트별 ─────────────────────────────────────────────── -->
+
+  <select id="memberCountBySite"
+          resultType="com.gonet.primary.member.stat.dto.SiteMemberCount">
+    SELECT m.site_id   AS siteId,
+           s.site_code AS siteCode,
+           s.site_name AS siteName,
+           COUNT(*)    AS total
+      FROM tb_member m
+      JOIN tb_site   s ON s.site_id = m.site_id
+     WHERE m.delete_yn = 'N'
+     GROUP BY m.site_id, s.site_code, s.site_name
+     ORDER BY total DESC
+  </select>
+
+</mapper>

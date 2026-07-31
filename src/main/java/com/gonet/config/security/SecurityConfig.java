@@ -10,6 +10,10 @@ import com.gonet.config.access.DynamicAuthorizationManager;
 import com.gonet.primary.system.login.controller.AdminLoginFailureHandler;
 import com.gonet.primary.system.login.controller.AdminLoginSuccessHandler;
 import com.gonet.primary.system.login.service.AdminUserDetailsService;
+import com.gonet.primary.system.login.controller.MemberLoginFailureHandler;
+import com.gonet.primary.system.login.controller.MemberLoginSuccessHandler;
+import com.gonet.primary.system.login.controller.MemberLogoutSuccessHandler;
+import com.gonet.primary.system.login.service.MemberUserDetailsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -206,18 +210,125 @@ public class SecurityConfig {
 
     // ------------------------------------------------------------------
     // ------------------------------------------------------------------
-    // 2) Member chain — /member/**  ※ P5 에서 복원
+    // 2) Member chain — /member/**  (P5 에서 복원, 2026-07-31)
     // ------------------------------------------------------------------
-    //
-    // 001 은 여기에 @Order(20) 회원 체인이 있었다. 003 은 P2 에서 제외한다 —
-    // MemberLoginSuccessHandler/FailureHandler 가 MemberMapper(로그인 잠금 카운터)에
-    // 의존하는데 회원 도메인은 P5 범위이기 때문이다.
-    //
-    // 제외해도 /member/** 는 default 체인(Order 100)으로 떨어지고,
-    // tb_role_url_access 에 규칙이 없으면 DynamicAuthorizationManager 가 DENY 한다 —
-    // 회원 기능이 없는 P2 시점에는 이것이 올바른 동작이다.
-    //
-    // P5 에서 회원 도메인과 함께 @Order(20) 체인을 복원한다.
+
+    /**
+     * 회원 체인 — {@code /member/**}. P2 에서 미뤘던 것을 회원 도메인과 함께 되살린다.
+     *
+     * <p>관리자 체인과 다른 점:
+     * <ul>
+     *   <li><b>2FA 없음</b> — 회원은 TOTP 를 쓰지 않는다({@code v_user_login} 의
+     *       {@code two_factor_enabled_yn} 이 회원 갈래에서 상수 {@code 'N'})</li>
+     *   <li><b>IP 게이트 없음</b> — {@code adminLoginIpGateFilter} 를 걸지 않는다.
+     *       회원은 임의 망에서 접속한다</li>
+     *   <li><b>NICE 콜백 CSRF 예외</b> — 본인인증 결과는 외부 도메인이 POST 하므로
+     *       토큰을 모른다. 예외는 {@code /member/identity/nice/success|fail} <b>두 경로뿐</b>이며
+     *       위조 대비는 NICE 암호문 복호화 검증이 담당한다</li>
+     *   <li><b>{@code maxSessionsPreventsLogin(false)}</b> — 새 로그인이 이전 세션을 끊는다.
+     *       관리자와 달리 "먼저 로그인한 쪽 우선" 이면 사용자가 스스로 잠기는 사고가 난다</li>
+     * </ul>
+     *
+     * <p>permitAll 경로는 <b>인증 없이 도달해야만 하는 것</b>만 연다 — 로그인·가입·
+     * 아이디/비밀번호 찾기·휴면 해제·소셜 콜백·본인인증. 나머지는 전부
+     * {@link DynamicAuthorizationManager} 가 DB 규칙으로 판정하고 <b>무매칭이면 DENY</b> 다.
+     * 휴면 해제({@code /member/dormant/**})가 permitAll 인 것은 <b>휴면 계정은 로그인할 수
+     * 없기 때문</b>이다 — 인증을 요구하면 해제 자체가 불가능해진다. 대신 그 안에서
+     * 실명인증 또는 이메일 OTP 로 본인을 확인한다(개발가이드 §10-6).
+     */
+    @Bean
+    @Order(20)
+    public SecurityFilterChain memberFilterChain(
+            HttpSecurity http,
+            MemberUserDetailsService memberUds,
+            PasswordEncoder enc,
+            CspNonceFilter cspNonceFilter,
+            RateLimitFilter rateLimitFilter,
+            SuspiciousRequestFilter suspiciousRequestFilter,
+            LoginFormatValidationFilter loginFormatValidationFilter,
+            DynamicAuthorizationManager dynamicAuthz,
+            MemberLoginSuccessHandler successHandler,
+            MemberLoginFailureHandler failureHandler,
+            MemberLogoutSuccessHandler logoutSuccessHandler,
+            SessionRegistry sessionRegistry,
+            AuthenticationEntryPoint authenticationEntryPoint,
+            AccessDeniedHandler accessDeniedHandler) throws Exception {
+
+        http.securityMatcher("/member/**")
+                .authenticationProvider(providerOf(memberUds, enc))
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        // NICE CheckPlus 콜백 — 외부 도메인이 POST/GET 하므로 CSRF 토큰을 모른다.
+                        // 위조 방어는 NICE 암호문 복호화 검증이 대신한다.
+                        .ignoringRequestMatchers(
+                                PathPatternRequestMatcher.withDefaults().matcher("/member/identity/nice/success"),
+                                PathPatternRequestMatcher.withDefaults().matcher("/member/identity/nice/fail")))
+                .sessionManagement(s -> s
+                        .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+                        .sessionFixation().changeSessionId()
+                        .maximumSessions(1)
+                        .maxSessionsPreventsLogin(false)
+                        .sessionRegistry(sessionRegistry)
+                        .expiredUrl(MEMBER_LOGIN_EXPIRED))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(MEMBER_LOGIN, "/member/join", "/member/join/**",
+                                "/member/find/**", "/member/dormant/**",
+                                "/member/oauth2/**",
+                                "/member/identity/nice", "/member/identity/nice/**")
+                        .permitAll()
+                        .anyRequest().access((authSupplier, ctx) -> {
+                            jakarta.servlet.http.HttpServletRequest req = ctx.getRequest();
+                            log.info("================= [MemberFilterChain 권한 검사 시작] ==============");
+                            log.info("===요청 URL : {} {}", req.getMethod(), req.getRequestURI());
+
+                            org.springframework.security.core.Authentication authItem = authSupplier.get();
+                            if (authItem != null && authItem.isAuthenticated()
+                                    && !"anonymousUser".equals(authItem.getPrincipal())) {
+                                if (authItem.getPrincipal() instanceof com.gonet.primary.system.login.dto.CustomUserDetails ud) {
+                                    log.info("===사용자 유형 : {}", ud.getUserType());
+                                    log.info("===사용자 역할(Role IDs) : {}", ud.getRoleIds());
+                                } else {
+                                    log.info("===사용자 Principal : {}", authItem.getPrincipal());
+                                }
+                            } else {
+                                log.info("===사용자 상태 : 비로그인 (Anonymous)");
+                            }
+
+                            org.springframework.security.authorization.AuthorizationDecision decision =
+                                dynamicAuthz.check(authSupplier, ctx);
+                            log.info("===최종 승인 여부 : {}",
+                                decision != null && decision.isGranted() ? "GRANTED (통과)" : "DENIED (거부)");
+                            log.info("================================================================");
+                            return decision;
+                        }))
+                .exceptionHandling(eh -> eh
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler))
+                .formLogin(form -> form
+                        .loginPage(MEMBER_LOGIN)
+                        .loginProcessingUrl(MEMBER_LOGIN)
+                        .usernameParameter("loginId")
+                        .passwordParameter("password")
+                        .successHandler(successHandler)
+                        .failureHandler(failureHandler)
+                        .permitAll())
+                .logout(logout -> logout
+                        .logoutRequestMatcher(PathPatternRequestMatcher.withDefaults()
+                                .matcher(HttpMethod.POST, MEMBER_LOGOUT))
+                        // 세션 무효화로 sticky siteCode 가 사라지므로 핸들러가 hidden 필드로 받아 URL 에 보존
+                        .logoutSuccessHandler(logoutSuccessHandler)
+                        .deleteCookies(SESSION_COOKIE, CSRF_COOKIE)
+                        .invalidateHttpSession(true));
+
+        applyCommonHeaders(http);
+        // adminLoginIpGateFilter 는 걸지 않는다 — 회원은 임의 망에서 접속한다
+        http.addFilterBefore(suspiciousRequestFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(cspNonceFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(loginFormatValidationFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
 
     // ------------------------------------------------------------------
     // 3) Default chain — 정적/홈/공개 콘텐츠

@@ -1,97 +1,90 @@
 <!DOCTYPE html>
+<!--
+  휴면 해제 — 수단 선택 (개발가이드 §10-6)
+
+  001 은 로그인ID + 이름 + 이메일 + 비밀번호 **3요소 일치** 한 화면이었다.
+  003 은 그 방식을 쓰지 않는다 — 휴면 계정의 비밀번호는 사용자가 가장 잊기 쉬운
+  정보라, 정작 본인이 못 푸는 화면이 된다. 실명인증 / 이메일 OTP 택1 로 바꿨다.
+
+  두 수단 모두 성공 후 처리는 같다(역이관 + restored_at).
+
+  ⚠️ 이 화면은 **로그인 전에 누구나** 본다. 어떤 입력에도 "그런 계정 없음" 류의
+     피드백을 주지 않는다 — 그 순간 계정 열거 도구가 된다.
+     서비스가 예외를 던지지 않으므로 화면에서 분기할 것도 없다.
+-->
 <html xmlns:th="http://www.thymeleaf.org"
       xmlns:layout="http://www.ultraq.net.nz/thymeleaf/layout"
       layout:decorate="~{__${layoutPath ?: 'front/layouts/EMPTY/empty'}__}"
       lang="ko">
 <head>
-  <title>휴면 계정 복원</title>
+  <title>휴면 계정 해제</title>
 </head>
 <body>
-  <section layout:fragment="content" class="max-w-md mx-auto">
+  <section layout:fragment="content" class="max-w-xl mx-auto">
 
-    <div class="bg-white border border-slate-200 rounded-lg shadow-sm p-6 md:p-8">
+    <div class="bg-surface border border-line rounded-large p-6 md:p-8">
+
       <div class="mb-6">
-        <h1 class="text-2xl font-bold text-slate-900">휴면 계정 복원</h1>
-        <p class="text-sm text-slate-500 mt-1">
-          1년 이상 접속이 없어 휴면 상태가 된 계정을 복원합니다.
-          <strong>이름 · 이메일 · 비밀번호</strong> 세 가지를 모두 정확히 입력해야 복원됩니다.
+        <h1 class="text-heading-md text-fg-strong">휴면 계정 해제</h1>
+        <p class="mt-2 text-body-sm text-fg-subtle">
+          장기간 로그인하지 않아 휴면 상태로 전환된 계정입니다.
+          아래 두 가지 중 <strong class="text-fg">한 가지 방법</strong>으로 본인 확인을 하시면 바로 해제됩니다.
         </p>
       </div>
 
-      <div th:if="${message}" role="status"
-           class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800"
-           th:text="${message}"></div>
-      <div th:if="${error}" role="alert"
-           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
-           th:text="${error}"></div>
-      <div th:if="${errors}" role="alert"
-           class="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-        <ul class="list-disc pl-5">
-          <li th:each="e : ${errors}" th:text="${e.defaultMessage}">error</li>
-        </ul>
-      </div>
+      <div th:if="${errorMessage}" role="alert"
+           class="mb-6 px-4 py-3 rounded border border-line bg-surface-alt text-body-sm text-fg"
+           th:text="${errorMessage}">오류</div>
 
-      <form th:action="@{/member/dormant/restore}" th:object="${form}" method="post"
-            autocomplete="off" class="space-y-4">
-        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
-        <th:block th:replace="~{fragments/site-context :: hiddenSiteCode}"/>
+      <!-- ── 수단 A. 실명인증 ─────────────────────────────────────────── -->
+      <form method="post" th:action="@{/member/dormant/restore/identity}"
+            class="border border-line rounded p-5 mb-4">
+        <h2 class="text-heading-sm text-fg-strong">방법 1. 휴대폰 본인인증</h2>
+        <p class="mt-1 mb-4 text-body-sm text-fg-subtle">
+          가입할 때 본인인증을 하셨다면 가장 빠릅니다. 이름·생년월일을 따로 입력하지 않습니다.
+        </p>
 
-        <div>
-          <label for="loginId" class="block text-sm font-medium text-slate-700 mb-1">
-            아이디 <span class="text-red-600">*</span>
-          </label>
-          <input id="loginId" type="text" th:field="*{loginId}"
-                 required minlength="8" maxlength="50" pattern="^[a-z][a-z0-9_]+$"
-                 autocomplete="username"
-                 class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
-        </div>
-
-        <div>
-          <label for="memberName" class="block text-sm font-medium text-slate-700 mb-1">
-            이름 <span class="text-red-600">*</span>
-          </label>
-          <input id="memberName" type="text" th:field="*{memberName}"
-                 required maxlength="100" autocomplete="name"
-                 class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
-        </div>
-
-        <div>
-          <label for="email" class="block text-sm font-medium text-slate-700 mb-1">
-            이메일 <span class="text-red-600">*</span>
-          </label>
-          <input id="email" type="email" th:field="*{email}"
-                 required maxlength="255" autocomplete="email"
-                 class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
-        </div>
-
-        <div>
-          <label for="password" class="block text-sm font-medium text-slate-700 mb-1">
-            비밀번호 <span class="text-red-600">*</span>
-          </label>
-          <input id="password" type="password" th:field="*{password}"
-                 required maxlength="100" autocomplete="current-password"
-                 class="block w-full rounded border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 focus:outline-none"/>
-          <p class="text-xs text-slate-500 mt-1">휴면 전환 이전에 사용하던 비밀번호입니다.</p>
-        </div>
+        <label for="identityLoginId" class="block text-label-md text-fg mb-1">아이디</label>
+        <input type="text" id="identityLoginId" name="loginId" required autocomplete="username"
+               class="w-full px-3 py-2 rounded border border-line bg-surface text-fg"/>
 
         <button type="submit"
-                class="w-full rounded bg-blue-600 px-4 py-2 text-sm font-semibold text-white
-                       hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200 transition-colors">
-          복원하기
+                class="mt-4 w-full px-4 py-2 rounded bg-brand-50 text-fg-on text-label-md font-medium hover:bg-brand-60">
+          휴대폰으로 본인인증
         </button>
       </form>
 
-      <p class="mt-6 text-center text-xs text-slate-500">
-        이미 활성 계정인가요?
-        <a th:href="@{/member/login}" class="text-blue-600 hover:underline font-medium">로그인</a>
-      </p>
-      <p class="mt-2 text-center text-xs text-slate-400">
-        비밀번호가 기억나지 않으면
-        <a th:href="@{/member/find-password}" class="hover:underline">비밀번호 찾기</a>
-        를 이용하세요.
-      </p>
-    </div>
+      <!-- ── 수단 B. 이메일 인증번호 ──────────────────────────────────── -->
+      <form method="post" th:action="@{/member/dormant/restore/otp/request}"
+            class="border border-line rounded p-5">
+        <h2 class="text-heading-sm text-fg-strong">방법 2. 이메일 인증번호</h2>
+        <p class="mt-1 mb-4 text-body-sm text-fg-subtle">
+          가입할 때 등록한 이메일로 6자리 인증번호를 보내 드립니다. 유효시간은 5분입니다.
+        </p>
 
+        <label for="otpLoginId" class="block text-label-md text-fg mb-1">아이디</label>
+        <input type="text" id="otpLoginId" name="loginId" required autocomplete="username"
+               class="w-full px-3 py-2 rounded border border-line bg-surface text-fg mb-3"/>
+
+        <label for="otpEmail" class="block text-label-md text-fg mb-1">가입 이메일</label>
+        <input type="email" id="otpEmail" name="email" required autocomplete="email"
+               class="w-full px-3 py-2 rounded border border-line bg-surface text-fg"/>
+
+        <button type="submit"
+                class="mt-4 w-full px-4 py-2 rounded border border-line bg-surface text-fg text-label-md hover:bg-surface-subtle">
+          인증번호 받기
+        </button>
+      </form>
+
+      <p class="mt-6 text-label-sm text-fg-muted">
+        두 방법 모두 어려우시면 고객센터로 문의해 주세요.
+      </p>
+
+      <div class="mt-6 pt-4 border-t border-line">
+        <a th:href="@{/member/login}"
+           class="text-label-md text-fg-subtle underline underline-offset-2 hover:text-brand-50">로그인으로 돌아가기</a>
+      </div>
+    </div>
   </section>
 </body>
 </html>

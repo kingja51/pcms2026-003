@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_member ↔ tb_member_dormant 이관 + tb_member_dormant_notice 관리.
+  감사컬럼은 AuditInterceptor 가 주입 — INSERT/UPDATE 모두 적용.
+-->
+<mapper namespace="com.gonet.primary.member.dormant.mapper.DormantMapper">
+
+  <!-- ============================================================ -->
+  <!-- 후보 조회                                                       -->
+  <!-- ============================================================ -->
+
+  <!--
+    last_login_at <= now() - cutoffDays 인 ACTIVE 회원 중,
+    (member_id, stage) 이력이 아직 없는 후보를 반환.
+    login_fail_count/locked 상태 무시 — 알림은 독립.
+  -->
+  <select id="findNoticeCandidates"
+          resultType="com.gonet.primary.member.dormant.dto.DormantCandidate">
+    SELECT m.member_id    AS memberId,
+           m.login_id      AS loginId,
+           m.member_name   AS memberName,
+           m.email         AS email,
+           m.last_login_at AS lastLoginAt
+      FROM tb_member m
+      LEFT JOIN tb_member_dormant_notice n
+             ON n.member_id = m.member_id
+            AND n.stage      = #{stage}
+     WHERE m.delete_yn  = 'N'
+       AND m.status     = 'ACTIVE'
+       AND m.last_login_at IS NOT NULL
+       AND m.last_login_at &lt;= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL #{cutoffDays} DAY)
+       AND n.notice_id IS NULL
+  </select>
+
+  <select id="findTransferCandidates"
+          resultType="com.gonet.primary.member.dormant.dto.DormantCandidate">
+    SELECT m.member_id    AS memberId,
+           m.login_id      AS loginId,
+           m.member_name   AS memberName,
+           m.email         AS email,
+           m.last_login_at AS lastLoginAt
+      FROM tb_member m
+     WHERE m.delete_yn  = 'N'
+       AND m.status     = 'ACTIVE'
+       AND m.last_login_at IS NOT NULL
+       AND m.last_login_at &lt;= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL #{cutoffDays} DAY)
+  </select>
+
+  <!-- ============================================================ -->
+  <!-- 알림 이력                                                       -->
+  <!-- ============================================================ -->
+
+  <insert id="insertNotice">
+    INSERT INTO tb_member_dormant_notice
+      (notice_id, member_id, stage, sent_at, created_by, created_ip, created_at)
+    VALUES
+      (uuid_v7(), #{memberId}, #{stage}, CURRENT_TIMESTAMP(),
+       'SYSTEM', '127.0.0.1', CURRENT_TIMESTAMP())
+  </insert>
+
+  <delete id="deleteNoticesByMemberId">
+    DELETE FROM tb_member_dormant_notice
+     WHERE member_id = #{memberId}
+  </delete>
+
+  <!-- ============================================================ -->
+  <!-- 전환 (tb_member → tb_member_dormant)                            -->
+  <!-- ============================================================ -->
+
+  <!--
+    tb_member 의 행을 tb_member_dormant 로 복제.
+    dormant_at = NOW, dormant_reason 은 호출자가 지정 (기본 'INACTIVE_1Y').
+    status 는 '휴면' 의미로 'DORMANT' 상수 — tb_member_dormant 기본값이 'DORMANT' 이지만
+    source row 의 status 를 override 해 넣는다.
+    감사 6컬럼은 created_*/updated_* 새로 생성 시점 기준 — AuditInterceptor 가 주입할 수 없어
+    명시적으로 SYSTEM 고정.
+  -->
+  <insert id="insertDormantFromMember">
+    INSERT INTO tb_member_dormant (
+      member_id, member_seq, site_id,
+      login_id, password, password_changed_at, password_expire_at,
+      role_ids, group_ids,
+      member_name, nickname, email, email_hash, email_verified_yn,
+      phone, phone_hash, birth_date, birth_year, gender,
+      di, di_hash,
+      parent_name, parent_di, parent_di_hash,
+      address_zipcode, address, address_detail,
+      join_type, status,
+      last_login_at, last_login_ip,
+      privacy_agree_yn, terms_agree_yn,
+      marketing_agree_yn, sms_agree_yn, email_agree_yn,
+      dormant_at, dormant_reason,
+      delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    )
+    SELECT
+      m.member_id, m.member_seq, m.site_id,
+      m.login_id, m.password, m.password_changed_at, m.password_expire_at,
+      m.role_ids, m.group_ids,
+      m.member_name, m.nickname, m.email, m.email_hash, m.email_verified_yn,
+      m.phone, m.phone_hash, m.birth_date, m.birth_year, m.gender,
+      m.di, m.di_hash,
+      m.parent_name, m.parent_di, m.parent_di_hash,
+      m.address_zipcode, m.address, m.address_detail,
+      m.join_type, 'DORMANT',
+      m.last_login_at, m.last_login_ip,
+      m.privacy_agree_yn, m.terms_agree_yn,
+      m.marketing_agree_yn, m.sms_agree_yn, m.email_agree_yn,
+      CURRENT_TIMESTAMP(), #{dormantReason},
+      'N',
+      'SYSTEM', '127.0.0.1', CURRENT_TIMESTAMP(),
+      'SYSTEM', '127.0.0.1', CURRENT_TIMESTAMP()
+      FROM tb_member m
+     WHERE m.member_id = #{memberId}
+       AND m.delete_yn = 'N'
+  </insert>
+
+  <delete id="deleteMember">
+    DELETE FROM tb_member
+     WHERE member_id = #{memberId}
+  </delete>
+
+  <!-- ============================================================ -->
+  <!-- 복원 (tb_member_dormant → tb_member)                            -->
+  <!-- ============================================================ -->
+
+  <sql id="dormantCols">
+    d.member_id, d.member_seq, d.site_id,
+    d.login_id, d.password, d.password_changed_at, d.password_expire_at,
+    d.role_ids, d.group_ids,
+    d.member_name, d.nickname, d.email, d.email_hash, d.email_verified_yn,
+    d.phone, d.phone_hash, d.birth_date, d.birth_year, d.gender,
+    d.di, d.di_hash,
+    d.parent_name, d.parent_di, d.parent_di_hash,
+    d.address_zipcode, d.address, d.address_detail,
+    d.join_type, d.status,
+    d.last_login_at, d.last_login_ip,
+    NULL AS last_access_at,
+    NULL AS dormant_scheduled_at,
+    d.privacy_agree_yn, d.terms_agree_yn,
+    d.marketing_agree_yn, d.sms_agree_yn, d.email_agree_yn,
+    d.delete_yn,
+    d.created_by, d.created_ip, d.created_at,
+    d.updated_by, d.updated_ip, d.updated_at
+  </sql>
+
+  <select id="findDormantByLoginIdAndEmailHash"
+          resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="dormantCols"/>
+      FROM tb_member_dormant d
+     WHERE d.login_id   = #{loginId}
+       AND d.email_hash = #{emailHash}
+       AND d.delete_yn  = 'N'
+     LIMIT 1
+  </select>
+
+  <!-- 실명인증 경로(수단 A) — DI 해시 대조. -->
+  <select id="findDormantByLoginIdAndDiHash"
+          resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="dormantCols"/>
+      FROM tb_member_dormant d
+     WHERE d.login_id  = #{loginId}
+       AND d.di_hash   = #{diHash}
+       AND d.delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="findDormantById"
+          resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="dormantCols"/>
+      FROM tb_member_dormant d
+     WHERE d.member_id  = #{memberId}
+       AND d.delete_yn  = 'N'
+  </select>
+
+  <!--
+    휴면 → 활성 이관. status='ACTIVE', last_login_at 은 복원 시점으로 갱신
+    (휴면 판정 시계 초기화).
+  -->
+  <insert id="insertMemberFromDormant">
+    INSERT INTO tb_member (
+      member_id, member_seq, site_id,
+      login_id, password, password_changed_at, password_expire_at,
+      role_ids, group_ids,
+      member_name, nickname, email, email_hash, email_verified_yn,
+      phone, phone_hash, birth_date, birth_year, gender,
+      di, di_hash,
+      parent_name, parent_di, parent_di_hash,
+      address_zipcode, address, address_detail,
+      join_type, status, login_fail_count, locked_until,
+      last_login_at, last_login_ip,
+      privacy_agree_yn, terms_agree_yn,
+      marketing_agree_yn, sms_agree_yn, email_agree_yn,
+      delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    )
+    SELECT
+      d.member_id, d.member_seq, d.site_id,
+      d.login_id, d.password, d.password_changed_at, d.password_expire_at,
+      d.role_ids, d.group_ids,
+      d.member_name, d.nickname, d.email, d.email_hash, d.email_verified_yn,
+      d.phone, d.phone_hash, d.birth_date, d.birth_year, d.gender,
+      d.di, d.di_hash,
+      d.parent_name, d.parent_di, d.parent_di_hash,
+      d.address_zipcode, d.address, d.address_detail,
+      d.join_type, 'ACTIVE', 0, NULL,
+      CURRENT_TIMESTAMP(), NULL,
+      d.privacy_agree_yn, d.terms_agree_yn,
+      d.marketing_agree_yn, d.sms_agree_yn, d.email_agree_yn,
+      'N',
+      'SYSTEM', '127.0.0.1', CURRENT_TIMESTAMP(),
+      'SYSTEM', '127.0.0.1', CURRENT_TIMESTAMP()
+      FROM tb_member_dormant d
+     WHERE d.member_id = #{memberId}
+       AND d.delete_yn = 'N'
+  </insert>
+
+  <delete id="deleteDormant">
+    DELETE FROM tb_member_dormant
+     WHERE member_id = #{memberId}
+  </delete>
+
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_member_dormant
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+  <!-- ====================================================================
+       5년 만기 파기 (PIPA §21)
+  ==================================================================== -->
+  <select id="findExpiredDormantIds" resultType="string">
+    SELECT member_id
+      FROM tb_member_dormant
+     WHERE delete_yn = 'N'
+       AND dormant_at &lt;= DATE_SUB(NOW(), INTERVAL #{retentionDays} DAY)
+     ORDER BY dormant_at ASC
+     LIMIT #{limit}
+  </select>
+
+  <delete id="hardDeleteDormant">
+    DELETE FROM tb_member_dormant
+     WHERE member_id = #{memberId}
+  </delete>
+
+</mapper>

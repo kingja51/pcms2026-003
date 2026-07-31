@@ -12,6 +12,122 @@
 ---
 
 ```
+================ 2026.8.1 01:18:40 =======================
+```
+
+## P5 — 회원 · 인증 연동 🟡 작업 완료, DoD 왕복 검증 대기
+
+**완료**: 2026-08-01 01:18:40
+**목표**: 회원 생명주기가 돈다.
+
+### 산출물
+
+| 구분 | 내용 |
+|---|---|
+| 이식 | java 137 (member·identity·oauth2·system/pii·common/lifecycle), 매퍼 XML 9 |
+| 신규 | `primary/member/otp` 6종 · `DormantRestoreService(+Impl)` · `DormantRestoreUsrController` · `common/crypto/TokenHasher` |
+| 화면 | `dormant-restore`(수단 선택, 재작성) · `dormant-restore-otp`(신규) · `mail/account-dormant-otp`(신규) |
+| 마이그레이션 | `R__v_user_login.sql` · `V2026080101__seed_url_access_p5.sql` |
+| 설정 | `gopcms.member.otp.*` 5종 외부화 · member 체인(Order 20) 복원 |
+| 테스트 | 48건 (기존 35 + `MemberOtpServiceTest` 13) |
+
+### DoD 검증 결과
+
+| 항목 | 결과 |
+|---|---|
+| OTP 부정 시나리오 — 만료·재사용·시도상한·쿨다운·평문미보관 | ✅ 단위 테스트 13건 |
+| 가입→로그인→마이페이지→탈퇴 왕복 | 🟡 미실행 |
+| PII `{AG}` 저장 + 화면 마스킹 | 🟡 미실행 |
+| 소셜 로그인 1종 왕복 | 🟡 미실행 (제공자 콘솔 콜백 등록 선행) |
+| `log_privacy_access` 적재 | 🟡 미실행 |
+| 휴면 해제 2수단 왕복 | 🟡 미실행 (NICE 실계정 / SMTP 필요) |
+| ArchUnit · `_maria.xml` · `${}` · `@Mapper` · `Egov` 접두 | ✅ 10/10 · 0 · 0 · 0 · 0 |
+
+**🟡 이유**: 앱을 띄우지 못했다. DB 자격증명·PII 키가 셸 환경에 없다(`.env` 는
+`.gitignore` 대상). 그래서 **OTP 보안 요구만 DB 없이 검증**했다 —
+매퍼를 mock 으로 두고 서비스가 무엇을 저장하고 무엇을 거부하는지를 직접 본다.
+
+### 휴면 해제 — 001 방식을 폐기하고 새로 만들었다
+
+001 은 **로그인ID + 이름 + 이메일 + 비밀번호 3요소 일치**였다(`DormantRestoreForm`).
+003 은 이 방식을 쓰지 않는다 — 휴면은 "오래 안 들어온 계정" 이고, 그 사용자가
+가장 확실하게 잊은 것이 비밀번호다. 비밀번호를 요구하면 **정작 본인이 못 푸는 화면**이 된다.
+
+실명인증 / 이메일 OTP 택1 로 바꾸고(개발가이드 §10-6) **확인과 역이관을 분리**했다.
+`DormantService.restoreWithCredentials`(확인+역이관 한 덩어리) → `restoreVerified(memberId)`
+(역이관 전용). 두 수단이 각자 확인을 마치고 같은 곳으로 수렴한다.
+
+| 수단 | 확인 방법 |
+|---|---|
+| A. 실명인증 | NICE 세션 결과의 DI 를 `TokenHasher` 로 해시 → `tb_member_dormant.di_hash` 대조 |
+| B. 이메일 OTP | 입력 이메일 해시가 스냅샷과 일치할 때만 발송 → 6자리 코드 검증 |
+
+DI **원문은 조회 조건에도 파라미터에도 넣지 않는다.** DB 에는 `di_hash` 만 있고,
+원문을 흘리면 로그·APM 에 개인식별값이 남는다.
+
+### 계정 열거 차단 — 이번 페이즈에서 가장 신경 쓴 부분
+
+휴면 해제 화면은 **로그인 전에 누구나** 본다. 응답이 갈리면 그 자체가
+"이 아이디는 휴면 계정으로 존재한다" 는 정보다. 세 겹으로 막았다.
+
+1. **응답 내용** — `requestOtp` 는 **어떤 실패에도 예외를 던지지 않는다.**
+   계정 없음·이메일 불일치·쿨다운·메일 발송 실패가 전부 정상 종료다.
+   화면 문구도 조건형("일치하는 계정이 있다면")을 유지한다.
+   ※ 이 무조건성이 계약이라 나중에 `try/catch` 로 분기를 되살리면 안 된다 — 주석에 명시.
+2. **응답 시간** — 존재하는 계정만 해시 계산·DB 조회·메일 발송을 하므로 그냥 두면
+   **빠른 응답 = 계정 없음**이 된다. 400ms 하한으로 빠른 경로를 느린 경로에 맞춘다.
+3. **레이트리밋** — 시간 하한은 완벽하지 않다(메일 서버가 아주 느리면 넘긴다).
+   통계적 차이를 읽으려면 많은 시도가 필요한데, 그 전에 막는다.
+
+**3번은 없던 것을 발견해 넣었다.** `RateLimitFilter` 는 `/admin/login`·`/member/login`·
+`/api/**` 만 보고 있었다. `POST /member/dormant/restore/**` 에 IP 버킷을 적용했다.
+loginId 2차 키는 **의도적으로 두지 않았다** — 로그인과 달리 이 경로에서 계정별 버킷을
+만들면 그 버킷 자체가 계정별 관측 지점이 된다.
+
+### OTP — 검증 가능한 형태로 만들었다
+
+`tb_member_otp` 는 **베이스라인 DDL 에 이미 있었다**(설계 완료분). 구현만 남아 있었다.
+
+지킨 것과 그 이유:
+
+| 요구 | 구현 | 왜 이렇게 |
+|---|---|---|
+| 평문 미보관 | `TokenHasher` HMAC-SHA256 64 hex | DB 유출 시 코드를 되돌릴 수 없어야 한다 |
+| 상수 시간 비교 | `MessageDigest.isEqual` | `String.equals` 는 일치한 접두 길이가 응답 시간에 샌다 |
+| 1회용 | `WHERE verified_at IS NULL` UPDATE 반환 행 수 | 자바 `if` 로는 동시 요청 둘이 함께 통과한다 |
+| 시도 상한 | 카운터를 **행에** 둔다 | 세션에 두면 쿠키를 버리는 것만으로 초기화된다 |
+| 카운터 증가 시점 | 비교 **전** | 뒤에 올리면 예외·롤백으로 유실돼 무제한 대입이 된다 |
+| 난수 | `SecureRandom` | `Math.random()` 은 예측 가능하다 |
+| 이전 코드 | 발급 시 폐기 | 유효한 코드가 둘이면 시도 기회가 배가 된다 |
+
+`TokenHasher` 를 `common/crypto` 에 새로 만든 이유: `PiiKeys` 가 패키지 전용이라
+OTP 서비스에서 직접 못 쓴다. 공개 범위를 넓히는 대신 **암호 코드를 그 패키지에 두는**
+쪽을 골랐다. `EmailHasher` 와 나눈 것은 정규화 규칙이 달라서다 — 이메일은
+trim+lowercase 해야 같은 주소가 같은 해시가 되지만, 토큰은 있는 그대로 해시해야 한다.
+
+### 001 대비 변경
+
+| 항목 | 001 | 003 | 사유 |
+|---|---|---|---|
+| `v_user_login` | MEMBER + STAFF + EMPLOYEE | **MEMBER + STAFF** | 로그인 주체 2종 확정(D7). `tb_employee` 는 조회 전용 |
+| 휴면 해제 | 3요소 일치 | 실명인증 / OTP 택1 | 위 참조 |
+| `DormantScheduler` | 이식 | **미이식** | 배치 자동 실행은 P7. `DormantBatchWorker`(REQUIRES_NEW 단건 격리)는 스케줄러가 아니라 트랜잭션 경계 장치라 이식했다 |
+| `@Mapper` | 9곳 | **`@EgovMapper`** | eGov 호환성 규칙 5 |
+| member 체인 | Order 20 | 동일 + IP 게이트 제외 | 회원은 임의 망에서 접속한다. 관리자 전용 `adminLoginIpGateFilter` 를 걸지 않는다 |
+
+### 미해결
+
+1. **DoD 왕복 6건** — 기동 + 외부 연동(NICE 실계정·SMTP·OAuth2 콜백 등록) 필요
+2. **OTP 정리 배치** — `deleteExpiredBefore` 는 있고 호출할 스케줄러가 P7.
+   그때까지 만료·사용완료 행이 누적된다(행이 작아 급하지 않다)
+3. **member 체인 permitAll 패턴 불일치** — 체인은 `/member/find/**`, 실제는
+   `/member/find-id`(하이픈). DB 규칙으로 동작은 보장했으나 체인 패턴 자체는 그대로다
+4. **`RetentionProperties`·`WithdrawPurgeProperties` 미등록** — 소비자(스케줄러)가 P7 이라
+   현재 기동에는 문제 없다. P7 에서 `@EnableConfigurationProperties` 를 함께 넣어야 한다
+
+---
+
+```
 ================ 2026.7.31 23:52:40 =======================
 ```
 

@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.member.oauth2.mapper.MemberOAuthMapper">
+
+  <sql id="cols">
+    o.member_oauth_id, o.member_id, o.provider, o.provider_user_id,
+    o.email_at_link, o.name_at_link, o.linked_at, o.last_login_at,
+    o.use_yn, o.delete_yn,
+    o.created_by, o.created_ip, o.created_at,
+    o.updated_by, o.updated_ip, o.updated_at
+  </sql>
+
+  <select id="findByProviderUser" resultType="com.gonet.primary.member.oauth2.dto.MemberOAuth">
+    SELECT <include refid="cols"/>
+      FROM tb_member_oauth o
+     WHERE o.provider         = #{provider}
+       AND o.provider_user_id = #{providerUserId}
+       AND o.delete_yn        = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="findAnyByProviderUser" resultType="com.gonet.primary.member.oauth2.dto.MemberOAuth">
+    SELECT <include refid="cols"/>
+      FROM tb_member_oauth o
+     WHERE o.provider         = #{provider}
+       AND o.provider_user_id = #{providerUserId}
+     ORDER BY o.created_at DESC
+     LIMIT 1
+  </select>
+
+  <update id="reactivate">
+    UPDATE tb_member_oauth
+       SET member_id     = #{memberId},
+           email_at_link = #{emailAtLink},
+           name_at_link  = #{nameAtLink},
+           linked_at     = #{at},
+           last_login_at = #{at},
+           use_yn        = 'Y',
+           delete_yn     = 'N',
+           updated_by    = #{updatedBy},
+           updated_ip    = #{updatedIp},
+           updated_at    = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_oauth_id = #{memberOauthId}
+  </update>
+
+  <select id="countByMemberAndProvider" resultType="int">
+    SELECT COUNT(*)
+      FROM tb_member_oauth o
+     WHERE o.member_id  = #{memberId}
+       AND o.provider   = #{provider}
+       AND o.delete_yn  = 'N'
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.member.oauth2.dto.MemberOAuth">
+    INSERT INTO tb_member_oauth (
+      member_oauth_id, member_id, provider, provider_user_id,
+      email_at_link, name_at_link, linked_at, last_login_at,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{memberOauthId}, #{memberId}, #{provider}, #{providerUserId},
+      #{emailAtLink}, #{nameAtLink}, #{linkedAt}, #{lastLoginAt},
+      'Y', 'N',
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="updateLastLogin">
+    UPDATE tb_member_oauth
+       SET last_login_at = #{lastLoginAt},
+           updated_by    = #{updatedBy},
+           updated_ip    = #{updatedIp},
+           updated_at    = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_oauth_id = #{memberOauthId}
+  </update>
+
+  <update id="softDeleteById">
+    UPDATE tb_member_oauth
+       SET delete_yn  = 'Y',
+           use_yn     = 'N',
+           updated_by = #{updatedBy},
+           updated_ip = #{updatedIp},
+           updated_at = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_oauth_id = #{memberOauthId}
+       AND delete_yn       = 'N'
+  </update>
+
+
+  <!-- 관리자 조회 -->
+  <sql id="adminFilter">
+    <where>
+      o.delete_yn = 'N'
+      <if test="search.memberId != null and search.memberId != ''">
+        AND o.member_id = #{search.memberId}
+      </if>
+      <if test="search.provider != null and search.provider != ''">
+        AND o.provider = #{search.provider}
+      </if>
+      <if test="search.useYn != null and search.useYn != ''">
+        AND o.use_yn = #{search.useYn}
+      </if>
+      <if test="search.linkedFrom != null">
+        AND o.linked_at &gt;= #{search.linkedFrom}
+      </if>
+      <if test="search.linkedTo != null">
+        AND o.linked_at &lt; #{search.linkedTo}
+      </if>
+    </where>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.member.oauth2.dto.MemberOAuth">
+    SELECT <include refid="cols"/>
+      FROM tb_member_oauth o
+    <include refid="adminFilter"/>
+     ORDER BY o.linked_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(*) FROM tb_member_oauth o
+    <include refid="adminFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.member.oauth2.dto.MemberOAuth">
+    SELECT <include refid="cols"/>
+      FROM tb_member_oauth o
+     WHERE o.member_oauth_id = #{memberOauthId}
+  </select>
+
+  <select id="findForExport" resultType="com.gonet.primary.member.oauth2.dto.MemberOAuth">
+    SELECT <include refid="cols"/>
+      FROM tb_member_oauth o
+    <include refid="adminFilter"/>
+     ORDER BY o.linked_at DESC
+     LIMIT 50000
+  </select>
+
+</mapper>

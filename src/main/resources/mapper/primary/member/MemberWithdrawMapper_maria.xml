@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.member.mapper.MemberWithdrawMapper">
+
+  <sql id="filter">
+    <where>
+      <if test="search.siteId != null and search.siteId != ''">
+        AND w.site_id = #{search.siteId}
+      </if>
+      <if test="search.withdrawReason != null and search.withdrawReason != ''">
+        AND w.withdraw_status = #{search.withdrawReason}
+      </if>
+      <if test="search.withdrawFrom != null">
+        AND w.withdraw_at &gt;= #{search.withdrawFrom}
+      </if>
+      <if test="search.withdrawTo != null">
+        AND w.withdraw_at &lt; #{search.withdrawTo}
+      </if>
+      <if test="search.expireFrom != null">
+        AND w.retention_expire_at &gt;= #{search.expireFrom}
+      </if>
+      <if test="search.expireTo != null">
+        AND w.retention_expire_at &lt; #{search.expireTo}
+      </if>
+    </where>
+  </sql>
+
+  <sql id="cols">
+    w.member_id, w.member_seq, w.site_id,
+    w.login_id_hash, w.di_hash,
+    w.withdraw_at, w.withdraw_status, w.withdraw_reason,
+    w.retention_expire_at, w.legal_basis,
+    w.created_by, w.created_ip, w.created_at,
+    w.updated_by, w.updated_ip, w.updated_at,
+    s.site_code AS site_code
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.member.dto.MemberWithdraw">
+    SELECT <include refid="cols"/>
+      FROM tb_member_withdraw w
+      LEFT JOIN tb_site s ON s.site_id = w.site_id
+    <include refid="filter"/>
+     ORDER BY w.withdraw_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(*) FROM tb_member_withdraw w
+    <include refid="filter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.member.dto.MemberWithdraw">
+    SELECT <include refid="cols"/>
+      FROM tb_member_withdraw w
+      LEFT JOIN tb_site s ON s.site_id = w.site_id
+     WHERE w.member_id = #{memberId}
+  </select>
+
+  <select id="findForExport" resultType="com.gonet.primary.member.dto.MemberWithdraw">
+    SELECT <include refid="cols"/>
+      FROM tb_member_withdraw w
+      LEFT JOIN tb_site s ON s.site_id = w.site_id
+    <include refid="filter"/>
+     ORDER BY w.withdraw_at DESC
+     LIMIT 50000
+  </select>
+
+</mapper>

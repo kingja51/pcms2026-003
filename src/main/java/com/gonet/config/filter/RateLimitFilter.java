@@ -36,6 +36,9 @@ import java.util.Set;
  *   <li>POST /admin/login · /member/login  : <b>IP 버킷</b>(IP 당 분당 N) AND <b>loginId 버킷</b>(ID 당 분당 M).
  *       분산 IP 공격으로 IP 단일 키가 우회되는 것을 loginId 키가 2차 방어. 둘 중 하나라도 소진되면 429.</li>
  *   <li>/api/**                            : IP 분당 K 회</li>
+ *   <li>POST /member/dormant/restore/** : IP 분당 K 회(API 버킷 공용) — 로그인 전 경로이면서
+ *       계정 존재 여부를 다루고 메일 발송을 유발한다. loginId 2차 키는 <b>두지 않는다</b> —
+ *       계정별 버킷 자체가 관측 지점이 된다</li>
  * </ul>
  *
  * <p>버킷 저장소는 Caffeine 캐시 — {@code expireAfterAccess(15분)} + {@code maximumSize(50_000)}.
@@ -125,11 +128,26 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return;
         }
 
-        if (MATCHER.match("/api/**", uri)) {
+        // ── 휴면 해제 (P5, 2026-08-01) ────────────────────────────────────
+        //
+        // 이 경로는 **로그인 전에 누구나** 접근하면서 계정 존재 여부를 다루고,
+        // 메일 발송까지 유발한다. 레이트리밋이 없으면 두 가지가 열린다:
+        //   ① 계정 열거 — 서비스가 응답 내용·소요시간을 맞춰도, 시도를 무한히
+        //      반복하면 통계적 차이를 읽어낼 수 있다. 시도 자체를 막아야 한다
+        //   ② 메일 폭탄 — OTP 쿨다운은 계정당이라 여러 아이디로 돌리면 우회된다.
+        //      IP 당 제한이 그걸 막는다
+        //
+        // API 버킷을 재사용한다. 로그인처럼 loginId 2차 키를 두지 않는 이유는
+        // 여기서 loginId 로 버킷을 나누면 **그 자체가 계정별 관측 지점**이 되기
+        // 때문이다 — IP 단일 키가 이 경로에는 더 안전하다.
+        boolean dormantRestore = "POST".equalsIgnoreCase(method)
+            && MATCHER.match("/member/dormant/restore/**", uri);
+
+        if (dormantRestore || MATCHER.match("/api/**", uri)) {
             Bucket apiBucket = apiBuckets.get(ip, k -> apiBucket());
             ConsumptionProbe probe = apiBucket.tryConsumeAndReturnRemaining(1);
             if (!probe.isConsumed()) {
-                logRateLimit("API_IP", ip, uri, probe);
+                logRateLimit(dormantRestore ? "DORMANT_RESTORE_IP" : "API_IP", ip, uri, probe);
                 reject(res, probe);
                 return;
             }

@@ -52,7 +52,7 @@
 | **P2** | 보안·인증 기반 | 로그인·인가 동작 | 🟡 2026-07-31 — 화면(P3) 대기로 부분 |
 | **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ✅ 2026-07-31 |
 | **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | 🟡 2026-07-31 — 작업 전건 완료, DoD 3건 기동 검증 대기 |
-| **P5** | 회원 · 인증 연동 | 회원 생명주기 | ⬜ |
+| **P5** | 회원 · 인증 연동 | 회원 생명주기 | 🟡 2026-08-01 — 작업 완료(OTP 정리 배치는 P7), DoD 왕복 검증 대기 |
 | **P6** | 부가 도메인 | 설문·민원·일정·팝업·알림 등 | ⬜ |
 | **P7** | 운영 · 관측 | 로깅·통계·배치 | ⬜ |
 | **P8** | 멀티사이트 데모 · 마감 | 배포 가능 상태 | ⬜ |
@@ -375,28 +375,47 @@
 
 #### 작업
 
-- [ ] `tb_member` + 가입(약관 동의 `tb_member_consent`·유형 선택)·로그인·마이페이지
-- [ ] 비밀번호 정책·변경·찾기, `tb_member_password_history`
-- [ ] 통합 로그인 `v_user_login` VIEW (반복 마이그레이션 `R__` 로 관리)
-- [ ] OAuth2 소셜 로그인 — 네이버·카카오·구글(`tb_member_oauth`), `config/oauth2/`
-- [ ] **NICE 본인인증** — `primary/identity`. **JPMS 플래그 필요**
-      (surefire · `spring-boot:run` · 운영 setenv **모두**. 누락 시 본인인증에서만 500)
-- [ ] 휴면 전환·분리보관 — `tb_member_dormant`, `tb_member_dormant_notice`(사전 안내)
-- [ ] **휴면 해제 본인확인 — 실명인증 / 이메일 OTP 택1** (개발가이드 §10-6)
-      - [ ] 수단 선택 화면 — 두 경로 진입점, 성공 후 처리는 동일(역이관 + `restored_at`)
-      - [ ] **A. 실명인증** — `primary/identity` `NiceCheckService` 연동, **DI 해시(`di_hash`) 대조**
-      - [ ] **B. 이메일 OTP** — **`tb_member_otp` 신규**(마이그레이션 + MariaDB DDL)
-            - [ ] 발송 — 6자리 숫자, 유효 5분, **해시 저장**(평문 금지), 재발송 쿨다운 60초·시간당 상한
-            - [ ] 수신처는 휴면 스냅샷 이메일 — **입력 이메일 해시가 일치할 때만 발송**
-            - [ ] 검증 — **상수 시간 비교**, 시도 5회 초과 시 폐기, 성공 시 **즉시 소비**(1회용)
-            - [ ] 메일 템플릿(`common/mail/MailService` + `tb_mail_template`)
-            - [ ] 만료·사용 완료 OTP 정리(P7 보존 배치에 항목 추가)
-      - [ ] **계정 열거 차단** — 미존재 계정도 동일 응답·동일 소요시간, 발송 성공/실패와 무관하게 동일 화면
-      - [ ] 두 경로 Bucket4j 레이트리밋 + `log_security`·`log_privacy_access` 기록
-      - [ ] 정책값(자릿수·유효시간·시도제한·쿨다운) `application.yml` 외부화 + 주석
-- [ ] 탈퇴 — `tb_member_withdraw`
-- [ ] PII 암호화·마스킹 적용 + `log_privacy_access` 기록 지점 배치
-- [ ] 관리자 — 회원 관리 화면, 마스킹 노출
+- [x] `tb_member` + 가입(약관 동의 `tb_member_consent`·유형 선택)·로그인·마이페이지 (2026-08-01 이식)
+- [x] 비밀번호 정책·변경·찾기, `tb_member_password_history` (2026-08-01 이식)
+- [x] 통합 로그인 `v_user_login` VIEW — `R__v_user_login.sql` (2026-08-01).
+      **001 의 EMPLOYEE UNION 지를 뺐다** — 로그인 주체는 MEMBER·STAFF 2종(D7).
+      R__ 인 이유: 뷰는 정의 자체가 산출물이라 V__ 로 쌓으면 현재 정의를 알려면
+      파일 전체를 시간순으로 읽어야 한다. R__ 는 이 파일 하나가 늘 현재 정의다
+- [x] OAuth2 소셜 로그인 — 네이버·카카오·구글(`tb_member_oauth`), `config/oauth2/` (2026-08-01 이식)
+- [x] **NICE 본인인증** — `primary/identity` (2026-08-01 이식).
+      JPMS 플래그는 **P0 에서 이미 pom 에 있다**(`nice.jvm.args`) — surefire·spring-boot:run
+      적용 확인. 운영 Tomcat setenv 는 배포 시 확인 항목으로 남는다
+- [x] 휴면 전환·분리보관 — `tb_member_dormant`, `tb_member_dormant_notice` (2026-08-01 이식).
+      `DormantBatchWorker`(REQUIRES_NEW 단건 격리)는 이식하고 **`DormantScheduler` 는 제외** —
+      배치 자동 실행은 P7 이다. 워커는 스케줄러가 아니라 트랜잭션 경계 장치다
+- [x] **휴면 해제 본인확인 — 실명인증 / 이메일 OTP 택1** (2026-08-01 **신규 개발**)
+      - [x] 수단 선택 화면 — `front/dormant-restore.html`. 두 경로 모두 성공 시
+            `DormantService.restoreVerified` 로 수렴(역이관 + 안내 메일)
+      - [x] **A. 실명인증** — `NiceCheckUsrController` 세션 결과의 DI 를 `TokenHasher` 로
+            해시해 `tb_member_dormant.di_hash` 와 대조. 매퍼 `findDormantByLoginIdAndDiHash` 신설.
+            DI **원문을 조회 조건·파라미터로 흘리지 않는다**(로그·APM 에 개인식별값이 남는다)
+      - [x] **B. 이메일 OTP** — `primary/member/otp` 신설.
+            `tb_member_otp` 는 **베이스라인 DDL 에 이미 있었다** — 마이그레이션 불요(설계 완료분)
+            - [x] 발송 — 6자리, TTL 5분, `TokenHasher` HMAC 저장, 쿨다운 60초·시간당 5회
+            - [x] 수신처는 **휴면 스냅샷 이메일** — 입력 이메일 해시 일치 시에만 발송.
+                  사용자 입력 주소로 보내지 않는다(대소문자·별칭 차이로 엉뚱한 곳에 갈 수 있다)
+            - [x] 검증 — 상수 시간 비교, 시도 5회 초과 폐기, **소비는 `WHERE verified_at IS NULL`
+                  UPDATE 의 반환 행 수로 판정**(자바 if 로는 동시 요청 둘이 함께 통과한다)
+            - [x] 메일 템플릿 — `mail/account-dormant-otp.html` + `CODE_ACCOUNT_DORMANT_OTP`
+            - [ ] 만료·사용 완료 OTP 정리 — 매퍼 `deleteExpiredBefore` 는 있고
+                  **호출할 배치는 P7**(보존 배치 항목에 추가 필요)
+      - [x] **계정 열거 차단** — `requestOtp` 는 **어떤 실패에도 예외를 던지지 않는다**
+            (계정 없음·이메일 불일치·쿨다운·메일 실패 전부 정상 종료). 소요시간도 400ms
+            하한으로 맞춘다 — 빠른 응답이 곧 "계정 없음" 신호가 되기 때문
+      - [x] Bucket4j 레이트리밋 — `RateLimitFilter` 가 `/member/dormant/restore/**` POST 를
+            **커버하지 않았다**(로그인 2종 + `/api/**` 만). IP 버킷을 적용했다.
+            loginId 2차 키는 두지 않는다 — 계정별 버킷 자체가 관측 지점이 된다
+      - [x] 정책값 `application.yml` 외부화 — `gopcms.member.otp.*` + 값의 근거 주석
+- [x] 탈퇴 — `tb_member_withdraw` (2026-08-01 이식). `common/lifecycle` 3종이 P1 에서
+      누락돼 있어 함께 이식했다(`WithdrawPurgeTarget`·`Properties`·`Executor`)
+- [x] PII 암호화·마스킹 적용 + `log_privacy_access` 기록 지점 배치 (2026-08-01 이식).
+      `primary/system/pii`(파기 로그) 6종도 함께 — `DormantBatchWorker` 가 참조한다
+- [x] 관리자 — 회원 관리 화면, 마스킹 노출 (2026-08-01 이식)
 
 > **이식 주의**: 001의 휴면 해제는 실명인증이 아니라 **로그인ID+이름+이메일+비밀번호 3요소 일치**
 > (`DormantRestoreForm`)다. 003은 위 2수단 택1로 **대체**하므로 001 코드를 그대로 가져오지 않는다.
@@ -405,19 +424,29 @@
 #### DoD
 
 - 가입 → 로그인 → 마이페이지 → 탈퇴 왕복
+  — 🟡 **미실행**. 화면·컨트롤러·매퍼 전량 존재, member 체인(Order 20) 복원 완료
 - DB에 PII 가 `{AG}` 암호문으로 저장 · 화면에서는 마스킹 노출
+  — 🟡 **미실행**. `@Encrypt`·`MaskUtils` 는 P1 산출물이고 회원 DTO 가 이를 쓴다
 - 소셜 로그인 3종 중 최소 1종 왕복
+  — 🟡 **미실행**. 실제 왕복은 각 제공자 콘솔에 콜백 URL 등록이 선행돼야 한다
 - 개인정보 조회 시 `log_privacy_access` 적재 확인
+  — 🟡 **미실행**. `@PrivacyAccess` AOP 는 P1 에서 동작 확인됨
 - **휴면 해제 — 두 수단 각각 왕복**
-  - 실명인증 경로: NICE 인증 → DI 해시 일치 → 일반 계정 전환
-  - 이메일 OTP 경로: 발송 → 메일 수신 → 코드 입력 → 전환
+  — 🟡 **미실행**(둘 다). 실명인증은 NICE 실계정 연동이, OTP 는 SMTP 가 필요하다
 - **OTP 부정 시나리오 차단 확인**
-  - 만료(5분 경과) 코드 거부 · 사용 완료 코드 **재사용 거부**
-  - 시도 5회 초과 시 폐기 · 재발송 쿨다운 동작
-  - DB `tb_member_otp` 에 **평문 코드가 남지 않음** 확인
-  - 미존재 계정 요청 시 존재 계정과 **동일한 응답·화면** 확인
+  - ✅ **만료 거부 · 사용 완료 재사용 거부 · 시도 5회 초과 폐기 · 재발송 쿨다운 ·
+    평문 미보관** — `MemberOtpServiceTest` 13건으로 검증(DB 불요).
+    저장값이 `hasher.hash(code)` 와 같고 평문과 다름을 직접 확인한다
+  - 🟡 **미존재 계정 동일 응답** — 코드상 분기가 없어(예외를 던지지 않는다) 성립하지만,
+    실제 응답 시간 분포는 기동 후 측정해야 확인된다
+  - 🟡 **동시 요청 재사용 차단** — SQL `WHERE verified_at IS NULL` 이 보장한다.
+    단위 테스트는 매퍼가 0을 돌려줄 때 거부하는 것까지만 본다
 
 **범위 밖** — 휴면/탈퇴 **배치 자동 실행**(P7에서 스케줄러와 함께), 알림 발송(P6).
+
+> **🟡 항목은 앱 기동 + 외부 연동이 있어야 끝난다.** 이 세션에서는 DB 자격증명·PII 키가
+> 셸에 없어 기동하지 못했다. OTP 보안 요구만 단위 테스트로 확인했다 —
+> 나머지는 사용자 환경에서 `R__v_user_login` · `V2026080101` 적용 후 실행해야 한다.
 
 ---
 
@@ -591,6 +620,11 @@
 | 2026-07-31 | **사이트별 접근 규칙 `/{sc}`·`/{sc}/**` 를 넣을 수 없다** — `DefaultUsrController` 는 `/{sc}` 를 패턴으로 받지만 `tb_role_url_access` 는 **사이트마다 2행**이 필요하다(001 실측 48개 × 2 = 96행). catch-all `/*` 를 넣으면 미등록 site_code 까지 열린다. `tb_site` 행이 아직 0이라 지금 넣을 대상도 없다 | P4 | 중 | 미정 — 사이트 등록 화면이 규칙까지 함께 생성하는 것이 최종 형태(P8). 그전까지는 사이트를 만들 때 손으로 2행씩 넣어야 하고, **빠뜨리면 그 사이트만 조용히 404/302 가 된다** |
 | 2026-07-31 | **일정(schedule) 템플릿 12종이 컨트롤러 없이 떠 있다** — 템플릿 전량 이식으로 `admin/system/schedule*`·`front/schedule/*` 가 들어왔으나 자바 도메인은 P6 다. 사이트 홈 템플릿 48종도 `scheduleMasters`·`upcomingSchedules` 를 참조한다 | P4 | 낮음 | 확인만 — 참조 전부 `th:if="${... != null and !#lists.isEmpty(...)}"` 로 감싸져 있어 **미주입 시 해당 섹션만 비고 예외는 없다**(실측). P6 에서 `DefaultUsrController.injectLandingData` 에 주입을 되살리면 템플릿 수정 없이 살아난다 |
 | 2026-07-31 | **`/prg` 쉘의 목록 조각이 404 다** — `ProgramUsrController`(primary)는 이식했으나 실제 목록을 반환하는 001 의 `ProgramDataUsrController`(secondary, `/prg/{program}/{siteCode}/list`)는 `tb_lab`·`tb_staff`·`tb_syllabus` 이식 여부가 미결이라 제외했다. 쉘·레이아웃까지만 렌더된다 | P4 | 낮음 | 미정 — secondary 3테이블 결정(§7 상단 행)과 함께 처리한다. 데이터 계층이 들어오면 쉘은 수정 없이 동작한다 |
+| 2026-08-01 | **`common/lifecycle` 3종이 P1 에서 누락됐다** — `WithdrawPurgeTarget`·`WithdrawPurgeProperties`·`WithdrawPurgeExecutor`. `application-local.yml` 의 `gopcms.lifecycle.withdraw-purge.dry-run` 이 이미 이걸 전제하고 있었는데 클래스가 없었다. P5 의 `MemberWithdrawPurgeTarget` 이 인터페이스를 구현하면서 드러났다 | P5 | 중 | ✅ **해결 2026-08-01** — 3종 이식. 참고로 `RetentionProperties`·`WithdrawPurgeProperties` 는 아직 **빈으로 등록되지 않았다**(소비자인 스케줄러가 P7). 실행기는 `AuditLogger` 만 주입받아 현재 기동에 문제 없음 |
+| 2026-08-01 | **레이트리밋이 휴면 해제 경로를 커버하지 않았다** — `RateLimitFilter` 는 `/admin/login`·`/member/login`·`/api/**` 만 본다. 휴면 해제는 **로그인 전 누구나** 접근하면서 계정 존재 여부를 다루고 메일 발송을 유발한다. 제한이 없으면 ① 시도를 무한 반복해 응답 시간 차이로 계정을 열거할 수 있고 ② OTP 쿨다운은 계정당이라 여러 아이디로 돌리면 메일 폭탄이 우회된다 | P5 | **높음** | ✅ **해결 2026-08-01** — `POST /member/dormant/restore/**` 에 IP 버킷 적용(API 버킷 공용). loginId 2차 키는 **의도적으로 두지 않았다** — 계정별 버킷 자체가 관측 지점이 된다 |
+| 2026-08-01 | **member 체인의 permitAll 패턴이 실제 URL 과 어긋난다** — 체인은 `/member/find/**` 인데 컨트롤러는 `/member/find-id`·`/member/find-password`(하이픈)를 매핑한다. 즉 아이디·비밀번호 찾기가 체인 permitAll 에 걸리지 않는다. 001 에서 그대로 넘어온 불일치 | P5 | 중 | **부분 처리 2026-08-01** — `V2026080101` 에 두 경로 `PERMIT_ALL` 규칙을 넣어 동작은 보장했다. **체인 패턴 자체를 고치는 것이 근본적**이지만 P2 산출물 수정이라 별건으로 둔다 |
+| 2026-08-01 | **001 의 휴면 해제 3요소 방식을 폐기했다** — `DormantRestoreForm`·`DormantRestoreUsrController`(구) 미이식, `DormantService.restoreWithCredentials` 삭제. 휴면 계정의 비밀번호는 사용자가 가장 잊기 쉬운 정보라, 그걸 요구하면 **정작 본인이 못 푸는 화면**이 된다 | P5 | 낮음 | ✅ **처리 2026-08-01** — 실명인증 / 이메일 OTP 택1 로 대체(개발가이드 §10-6). 확인과 역이관을 분리해 `restoreVerified(memberId)` 로 수렴시켰다 |
+| 2026-08-01 | **OTP 정리 배치가 없다** — `MemberOtpMapper.deleteExpiredBefore` 는 만들었지만 호출할 스케줄러가 없다. 만료·사용완료 행이 무한 누적된다 | P7 | 중 | 미정 — P7 보존 배치(`gopcms.retention`)에 `tb_member_otp` 버킷을 추가하는 것이 자연스럽다. 지금은 행이 작아 급하지 않다 |
 | 2026-07-31 | **`pageQuery` 가 CSRF 토큰을 페이지 링크에 흘린다** — 신설한 `SiteContextModelAdvice.injectPageQuery` 가 `page` 만 빼고 전 파라미터를 복사했다. Spring Security 는 토큰을 읽은 뒤에도 파라미터 맵에서 지우지 않으므로, POST 가 뷰를 직접 렌더하는 경로(검증 실패 시 폼 재렌더 — `BoardCategoryMngController:79` 등 실재)에서 **모든 페이지 링크 href 에 토큰이 박힌다**. Referer 로 외부 유출 + 브라우저 히스토리 + `log_access` 적재 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. 요청의 `CsrfToken` 에서 실제 파라미터명을 읽어 제외하고, 못 읽으면 기본값 `_csrf` 로 막는다(커스텀 이름 대응). 테스트 2건 추가. **조각 채택 화면이 0곳이라 실제 유출은 없었다** — 65개 목록 전환 전에 잡았다 |
 | 2026-07-31 | **`/fileDown/{id}/thumb` 이 접근통제 없이 열렸다** — `FileServiceImpl.downloadThumbnail` 만 `enforceDownloadAuth` 가 없었다(`download`·`previewInline`·`downloadGroup` 은 전부 있음). 무매칭 DENY 시절엔 도달 불가였으나 P4 의 `/fileDown/**` PERMIT_ALL 규칙이 이 경로를 열어 **MEMBER 전용 첨부의 썸네일이 UUID 만 알면 익명에게 노출**되는 상태가 됐다 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. `enforceDownloadAuth` 추가. **바이러스 게이트(`isDownloadable`)는 넣지 않았다** — 썸네일은 `ThumbnailGenerator` 가 새로 만든 JPG 라 원본 악성코드를 옮기지 않는다는 인터페이스 javadoc 의 **의도된 예외**가 맞다. 그 논리는 악성코드 전파만 다루고 접근통제는 다루지 않는다는 점이 누락 지점이었다 |
 

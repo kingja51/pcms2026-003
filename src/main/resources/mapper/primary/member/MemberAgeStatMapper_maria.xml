@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  MariaDB — 연령대 통계.
+    FLOOR((YEAR(NOW()) - CAST(birth_year AS UNSIGNED)) / 10) * 10
+-->
+<mapper namespace="com.gonet.primary.member.mapper.MemberAgeStatMapper">
+
+  <select id="activeByAgeGroup" resultType="com.gonet.primary.member.dto.AgeGroupStat">
+    SELECT
+      CASE
+        WHEN birth_year IS NULL OR birth_year NOT REGEXP '^[0-9]{4}$' THEN NULL
+        ELSE FLOOR((YEAR(NOW()) - CAST(birth_year AS UNSIGNED)) / 10) * 10
+      END                AS age_group_start,
+      COUNT(*)           AS member_count
+      FROM tb_member
+     WHERE delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY age_group_start
+     ORDER BY age_group_start IS NULL, age_group_start
+  </select>
+
+  <select id="activeAndDormantByAgeGroup" resultType="com.gonet.primary.member.dto.AgeGroupStat">
+    SELECT age_group_start, SUM(member_count) AS member_count FROM (
+      SELECT
+        CASE WHEN birth_year IS NULL OR birth_year NOT REGEXP '^[0-9]{4}$' THEN NULL
+             ELSE FLOOR((YEAR(NOW()) - CAST(birth_year AS UNSIGNED)) / 10) * 10 END AS age_group_start,
+        COUNT(*) AS member_count
+        FROM tb_member
+       WHERE delete_yn = 'N'
+        <if test="siteId != null and siteId != ''">
+          AND site_id = #{siteId}
+        </if>
+       GROUP BY age_group_start
+      UNION ALL
+      SELECT
+        CASE WHEN birth_year IS NULL OR birth_year NOT REGEXP '^[0-9]{4}$' THEN NULL
+             ELSE FLOOR((YEAR(NOW()) - CAST(birth_year AS UNSIGNED)) / 10) * 10 END AS age_group_start,
+        COUNT(*) AS member_count
+        FROM tb_member_dormant
+       WHERE 1=1
+        <if test="siteId != null and siteId != ''">
+          AND site_id = #{siteId}
+        </if>
+       GROUP BY age_group_start
+    ) u
+     GROUP BY age_group_start
+     ORDER BY age_group_start IS NULL, age_group_start
+  </select>
+
+</mapper>

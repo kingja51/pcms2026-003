@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.member.dormant.mapper.DormantAdminMapper">
+
+  <!-- ===== tb_member_dormant ===== -->
+  <sql id="dormantFilter">
+    <where>
+      <if test="search.siteId != null and search.siteId != ''">
+        AND d.site_id = #{search.siteId}
+      </if>
+      <if test="search.emailExact != null and search.emailExact != ''">
+        AND d.email_hash = #{search.emailExact}
+      </if>
+      <if test="search.dormantFrom != null">
+        AND d.dormant_at &gt;= #{search.dormantFrom}
+      </if>
+      <if test="search.dormantTo != null">
+        AND d.dormant_at &lt; #{search.dormantTo}
+      </if>
+    </where>
+  </sql>
+
+  <sql id="dormantCols">
+    d.member_id, d.member_seq, d.site_id, d.login_id,
+    d.member_name, d.nickname, d.email, d.email_hash,
+    d.phone, d.phone_hash, d.birth_date, d.gender,
+    d.join_type, d.status, d.last_login_at, d.last_login_ip,
+    d.dormant_at,
+    d.created_by, d.created_ip, d.created_at,
+    d.updated_by, d.updated_ip, d.updated_at,
+    s.site_code AS site_code, s.site_name AS site_name
+  </sql>
+
+  <select id="findDormantList" resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="dormantCols"/>
+      FROM tb_member_dormant d
+      LEFT JOIN tb_site s ON s.site_id = d.site_id
+    <include refid="dormantFilter"/>
+     ORDER BY d.dormant_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countDormantList" resultType="int">
+    SELECT COUNT(*) FROM tb_member_dormant d
+    <include refid="dormantFilter"/>
+  </select>
+
+  <select id="findDormantById" resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="dormantCols"/>
+      FROM tb_member_dormant d
+      LEFT JOIN tb_site s ON s.site_id = d.site_id
+     WHERE d.member_id = #{memberId}
+  </select>
+
+  <select id="findDormantForExport" resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="dormantCols"/>
+      FROM tb_member_dormant d
+      LEFT JOIN tb_site s ON s.site_id = d.site_id
+    <include refid="dormantFilter"/>
+     ORDER BY d.dormant_at DESC
+     LIMIT 50000
+  </select>
+
+  <!-- ===== tb_member_dormant_notice ===== -->
+  <sql id="noticeFilter">
+    <where>
+      <if test="search.memberId != null and search.memberId != ''">
+        AND member_id = #{search.memberId}
+      </if>
+      <if test="search.stage != null and search.stage != ''">
+        AND stage = #{search.stage}
+      </if>
+      <if test="search.sentFrom != null">
+        AND sent_at &gt;= #{search.sentFrom}
+      </if>
+      <if test="search.sentTo != null">
+        AND sent_at &lt; #{search.sentTo}
+      </if>
+    </where>
+  </sql>
+
+  <sql id="noticeCols">
+    notice_id, member_id, stage, sent_at,
+    created_by, created_ip, created_at
+  </sql>
+
+  <select id="findNoticeList" resultType="com.gonet.primary.member.dormant.dto.DormantNotice">
+    SELECT <include refid="noticeCols"/>
+      FROM tb_member_dormant_notice
+    <include refid="noticeFilter"/>
+     ORDER BY sent_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countNoticeList" resultType="int">
+    SELECT COUNT(*) FROM tb_member_dormant_notice
+    <include refid="noticeFilter"/>
+  </select>
+
+  <select id="findNoticeById" resultType="com.gonet.primary.member.dormant.dto.DormantNotice">
+    SELECT <include refid="noticeCols"/>
+      FROM tb_member_dormant_notice
+     WHERE notice_id = #{noticeId}
+  </select>
+
+  <select id="findNoticeForExport" resultType="com.gonet.primary.member.dormant.dto.DormantNotice">
+    SELECT <include refid="noticeCols"/>
+      FROM tb_member_dormant_notice
+    <include refid="noticeFilter"/>
+     ORDER BY sent_at DESC
+     LIMIT 50000
+  </select>
+
+</mapper>

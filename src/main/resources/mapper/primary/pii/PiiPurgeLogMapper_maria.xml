@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.system.pii.mapper.PiiPurgeLogMapper">
+
+  <insert id="insert" parameterType="com.gonet.primary.system.pii.dto.PiiPurgeLog">
+    INSERT INTO tb_pii_purge_log (
+      pii_purge_log_id,
+      user_type, user_id_hash,
+      purged_at, purge_reason, table_list, legal_basis,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{piiPurgeLogId},
+      #{userType}, #{userIdHash},
+      COALESCE(#{purgedAt}, CURRENT_TIMESTAMP),
+      #{purgeReason}, #{tableList}, #{legalBasis},
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <select id="countSince" resultType="long">
+    SELECT COUNT(1)
+      FROM tb_pii_purge_log
+     WHERE purged_at &gt;= #{since}
+  </select>
+
+  <select id="findRecent" resultType="com.gonet.primary.system.pii.dto.PiiPurgeLog">
+    SELECT pii_purge_log_id, user_type, user_id_hash,
+           purged_at, purge_reason, table_list, legal_basis,
+           created_by, created_ip, created_at,
+           updated_by, updated_ip, updated_at
+      FROM tb_pii_purge_log
+     ORDER BY purged_at DESC
+     LIMIT #{limit}
+  </select>
+
+</mapper>

@@ -1,0 +1,373 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.member.mapper.MemberMapper">
+
+  <sql id="cols">
+    m.member_id, m.member_seq, m.site_id, m.login_id, m.password,
+    m.password_changed_at, m.password_expire_at,
+    m.role_ids, m.group_ids,
+    m.member_name, m.nickname, m.email, m.email_hash, m.email_verified_yn,
+    m.phone, m.phone_hash, m.birth_date, m.birth_year, m.gender,
+    m.di, m.di_hash,
+    m.parent_name, m.parent_di, m.parent_di_hash,
+    m.address_zipcode, m.address, m.address_detail,
+    m.join_type, m.status, m.login_fail_count, m.locked_until,
+    m.last_login_at, m.last_login_ip, m.last_access_at, m.dormant_scheduled_at,
+    m.privacy_agree_yn, m.terms_agree_yn,
+    m.marketing_agree_yn, m.sms_agree_yn, m.email_agree_yn,
+    m.delete_yn,
+    m.created_by, m.created_ip, m.created_at,
+    m.updated_by, m.updated_ip, m.updated_at,
+    s.site_code AS site_code,
+    s.site_name AS site_name
+  </sql>
+
+  <sql id="filter">
+    WHERE m.delete_yn = 'N'
+    <if test="search.status != null and search.status != ''">
+      AND m.status = #{search.status}
+    </if>
+    <if test="search.siteId != null and search.siteId != ''">
+      AND m.site_id = #{search.siteId}
+    </if>
+    <if test="search.joinType != null and search.joinType != ''">
+      AND m.join_type = #{search.joinType}
+    </if>
+    <if test="search.emailExact != null and search.emailExact != ''">
+      AND m.email_hash = #{search.emailExact}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (m.login_id LIKE CONCAT('%', #{search.keyword}, '%')
+        OR m.nickname LIKE CONCAT('%', #{search.keyword}, '%'))
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="cols"/>
+      FROM tb_member m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+    <include refid="filter"/>
+    ORDER BY m.created_at DESC, m.login_id ASC
+    LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_member m
+    <include refid="filter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.member.dto.Member">
+    SELECT <include refid="cols"/>
+      FROM tb_member m
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+     WHERE m.member_id = #{memberId}
+       AND m.delete_yn = 'N'
+  </select>
+
+    <select id="findByLoginId" resultType="com.gonet.primary.member.dto.Member">
+        SELECT <include refid="cols"/>
+        FROM tb_member m
+        LEFT JOIN tb_site s ON s.site_id = m.site_id
+        WHERE m.login_id  = #{loginId}
+        <if test="siteId != null and siteId != ''">
+            AND m.site_id = #{siteId}
+        </if>
+        AND m.delete_yn = 'N'
+    </select>
+
+    <select id="findByEmailHash" resultType="com.gonet.primary.member.dto.Member">
+        SELECT <include refid="cols"/>
+        FROM tb_member m
+        LEFT JOIN tb_site s ON s.site_id = m.site_id
+        WHERE m.email_hash = #{emailHash}
+        <if test="siteId != null and siteId != ''">
+            AND m.site_id = #{siteId}
+        </if>
+        AND m.delete_yn  = 'N'
+        LIMIT 1
+    </select>
+
+    <select id="findByLoginIdAndEmailHash" resultType="com.gonet.primary.member.dto.Member">
+        SELECT <include refid="cols"/>
+        FROM tb_member m
+        LEFT JOIN tb_site s ON s.site_id = m.site_id
+        WHERE m.email_hash = #{emailHash}
+        <if test="siteId != null and siteId != ''">
+            AND m.site_id = #{siteId}
+        </if>
+        AND m.login_id   = #{loginId}
+        AND m.delete_yn  = 'N'
+        LIMIT 1
+    </select>
+
+    <!-- 이름(평문) + email_hash AND 매칭 — /member/find-id 강화 (2026-05-25). -->
+    <select id="findByMemberNameAndEmailHash" resultType="com.gonet.primary.member.dto.Member">
+        SELECT <include refid="cols"/>
+        FROM tb_member m
+        LEFT JOIN tb_site s ON s.site_id = m.site_id
+        WHERE m.email_hash  = #{emailHash}
+          AND m.member_name = #{memberName}
+        <if test="siteId != null and siteId != ''">
+            AND m.site_id = #{siteId}
+        </if>
+          AND m.delete_yn  = 'N'
+        LIMIT 1
+    </select>
+
+    <select id="existsByLoginId" resultType="int">
+        SELECT COUNT(1) FROM tb_member
+        WHERE site_id  = #{siteId}
+        AND login_id = #{loginId}
+        AND delete_yn = 'N'
+        <if test="excludeMemberId != null and excludeMemberId != ''">
+            AND member_id &lt;&gt; #{excludeMemberId}
+        </if>
+    </select>
+
+  <select id="existsByEmailHash" resultType="int">
+    SELECT COUNT(1) FROM tb_member
+     WHERE email_hash = #{emailHash}
+       AND delete_yn  = 'N'
+    <if test="excludeMemberId != null and excludeMemberId != ''">
+      AND member_id &lt;&gt; #{excludeMemberId}
+    </if>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.member.dto.Member">
+    INSERT INTO tb_member (
+      member_id, site_id, login_id, password,
+      password_changed_at, password_expire_at,
+      role_ids, group_ids,
+      member_name, nickname, email, email_hash, email_verified_yn,
+      phone, phone_hash, birth_date, birth_year, gender,
+      di, di_hash,
+      parent_name, parent_di, parent_di_hash,
+      address_zipcode, address, address_detail,
+      join_type, status, login_fail_count,
+      privacy_agree_yn, terms_agree_yn,
+      marketing_agree_yn, sms_agree_yn, email_agree_yn,
+      delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{memberId}, #{siteId}, #{loginId}, #{password},
+      #{passwordChangedAt}, #{passwordExpireAt},
+      #{roleIds}, #{groupIds},
+      #{memberName}, #{nickname}, #{email}, #{emailHash}, COALESCE(#{emailVerifiedYn},'N'),
+      #{phone}, #{phoneHash}, #{birthDate}, #{birthYear}, #{gender},
+      #{di}, #{diHash},
+      #{parentName}, #{parentDi}, #{parentDiHash},
+      #{addressZipcode}, #{address}, #{addressDetail},
+      COALESCE(#{joinType},'EMAIL'), COALESCE(#{status},'ACTIVE'), 0,
+      COALESCE(#{privacyAgreeYn},'N'), COALESCE(#{termsAgreeYn},'N'),
+      COALESCE(#{marketingAgreeYn},'N'), COALESCE(#{smsAgreeYn},'N'), COALESCE(#{emailAgreeYn},'N'),
+      'N',
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP),
+      #{updatedBy}, #{updatedIp}, COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <update id="updateProfile" parameterType="com.gonet.primary.member.dto.Member">
+    UPDATE tb_member
+       SET member_name        = #{memberName},
+           nickname            = #{nickname},
+           email               = #{email},
+           email_hash          = #{emailHash},
+           phone               = #{phone},
+           phone_hash          = #{phoneHash},
+           address_zipcode     = #{addressZipcode},
+           address             = #{address},
+           address_detail      = #{addressDetail},
+           marketing_agree_yn  = COALESCE(#{marketingAgreeYn}, marketing_agree_yn),
+           sms_agree_yn        = COALESCE(#{smsAgreeYn}, sms_agree_yn),
+           email_agree_yn      = COALESCE(#{emailAgreeYn}, email_agree_yn),
+           updated_by          = #{updatedBy},
+           updated_ip          = #{updatedIp},
+           updated_at          = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_id = #{memberId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updatePassword">
+    UPDATE tb_member
+       SET password            = #{password},
+           password_changed_at = #{passwordChangedAt},
+           password_expire_at  = #{passwordExpireAt},
+           login_fail_count    = 0,
+           locked_until        = NULL,
+           updated_by          = #{updatedBy},
+           updated_ip          = #{updatedIp},
+           updated_at          = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_id = #{memberId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="updateLastLogin">
+    UPDATE tb_member
+       SET last_login_at    = #{lastLoginAt},
+           last_login_ip    = #{lastLoginIp},
+           login_fail_count = 0,
+           locked_until     = NULL,
+           updated_by       = #{updatedBy},
+           updated_ip       = #{updatedIp},
+           updated_at       = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_id = #{memberId}
+       AND delete_yn = 'N'
+  </update>
+
+  <!-- Lazy reset 포함 — 과거 만료된 locked_until 상태에서의 실패는 카운터를 1로 리셋하며 자동 해제. -->
+  <update id="incrementLoginFailAndMaybeLock">
+    UPDATE tb_member
+       SET login_fail_count = CASE
+             WHEN locked_until IS NOT NULL AND locked_until &lt; CURRENT_TIMESTAMP
+               THEN 1
+             ELSE COALESCE(login_fail_count, 0) + 1
+           END,
+           locked_until = CASE
+             WHEN locked_until IS NOT NULL AND locked_until &lt; CURRENT_TIMESTAMP
+               THEN NULL
+             WHEN COALESCE(login_fail_count, 0) + 1 &gt;= #{threshold}
+               THEN DATE_ADD(CURRENT_TIMESTAMP, INTERVAL #{lockMinutes} MINUTE)
+             ELSE locked_until
+           END
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+  </update>
+
+  <select id="findLoginFailCountByLoginId" resultType="java.lang.Integer">
+    SELECT COALESCE(login_fail_count, 0)
+      FROM tb_member
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <select id="findLockedUntilByLoginId" resultType="java.time.LocalDateTime">
+    SELECT locked_until
+      FROM tb_member
+     WHERE login_id  = #{loginId}
+       AND delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <update id="unlockMember">
+    UPDATE tb_member
+       SET login_fail_count = 0,
+           locked_until     = NULL,
+           updated_by       = #{updatedBy},
+           updated_ip       = #{updatedIp},
+           updated_at       = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_id = #{memberId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="setCaptchaRequiredByLoginId">
+    UPDATE tb_member
+       SET captcha_required_yn = #{yn}
+     WHERE login_id = #{loginId}
+       AND delete_yn = 'N'
+  </update>
+
+  <select id="findCaptchaRequiredByLoginId" resultType="java.lang.String">
+    SELECT captcha_required_yn
+      FROM tb_member
+     WHERE login_id = #{loginId}
+       AND delete_yn = 'N'
+     LIMIT 1
+  </select>
+
+  <update id="updateStatus">
+    UPDATE tb_member
+       SET status     = #{status},
+           updated_by = #{updatedBy},
+           updated_ip = #{updatedIp},
+           updated_at = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_id = #{memberId}
+       AND delete_yn = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_member
+       SET delete_yn  = 'Y',
+           status     = 'SUSPENDED',
+           updated_by = #{updatedBy},
+           updated_ip = #{updatedIp},
+           updated_at = COALESCE(#{updatedAt}, CURRENT_TIMESTAMP)
+     WHERE member_id = #{memberId}
+       AND delete_yn = 'N'
+  </update>
+
+  <insert id="insertPasswordHistory">
+    INSERT INTO tb_member_password_history
+      (pwd_history_id, member_id, password_hash, changed_at)
+    VALUES
+      (#{pwdHistoryId}, #{memberId}, #{passwordHash}, #{changedAt})
+  </insert>
+
+  <select id="findRecentPasswordHashes" resultType="java.lang.String">
+    SELECT password_hash
+      FROM tb_member_password_history
+     WHERE member_id = #{memberId}
+     ORDER BY changed_at DESC
+     LIMIT #{limit}
+  </select>
+
+    <insert id="insertWithdraw">
+    INSERT INTO tb_member_withdraw (
+      member_id, member_seq, site_id,
+      login_id_hash, di_hash,
+      withdraw_at, withdraw_status, withdraw_reason,
+      retention_expire_at,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{member.memberId}, #{member.memberSeq}, #{member.siteId},
+      SHA2(CONCAT(#{member.siteId}, ':', #{member.loginId}), 256),
+      #{member.diHash},
+      CURRENT_TIMESTAMP, #{status}, #{reason},
+      #{retentionExpireAt},
+      <!-- created_* : 탈퇴 회원의 원 가입 시점 정보를 복사 -->
+      #{member.createdBy}, #{member.createdIp}, #{member.createdAt},
+      <!-- updated_* : AuditInterceptor 가 현재 actor 로 자동 주입 -->
+      #{updatedBy}, #{updatedIp}, CURRENT_TIMESTAMP
+    )
+  </insert>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_member
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+
+    <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+    <delete id="purgeSoftDeletedOlderThan">
+        DELETE FROM tb_member
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= #{cutoff}
+    </delete>
+
+    <select id="countSoftDeletedOlderThan" resultType="int">
+        SELECT COUNT(*) FROM tb_member
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= #{cutoff}
+    </select>
+
+
+
+    <!-- 탈퇴 만료 영구 삭제 — WithdrawPurgeScheduler 가 매일 호출 (retention_expire_at &lt;= now) -->
+    <delete id="purgeExpiredWithdraw">
+        DELETE FROM tb_member_withdraw
+         WHERE retention_expire_at &lt;= #{now}
+    </delete>
+
+    <select id="countExpiredWithdraw" resultType="int">
+        SELECT COUNT(*)
+          FROM tb_member_withdraw
+         WHERE retention_expire_at &lt;= #{now}
+    </select>
+
+</mapper>
