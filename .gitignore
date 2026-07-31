@@ -1,0 +1,52 @@
+# ── 비밀값 (절대 커밋 금지) ────────────────────────────────
+.env
+.env.*
+!.env.example
+deploy/tomcat/pcms.env
+**/pcms.env
+
+# ── 빌드 산출물 ────────────────────────────────────────────
+target/
+build/
+out/
+*.war
+*.jar
+!lib/*.jar
+*.class
+
+# ── Maven ─────────────────────────────────────────────────
+.mvn/wrapper/maven-wrapper.jar
+dependency-reduced-pom.xml
+
+# ── npm / Tailwind ────────────────────────────────────────
+node_modules/
+npm-debug.log*
+# Tailwind CLI 산출물 (생성물이므로 커밋하지 않는다)
+src/main/resources/static/css/app.css
+src/main/resources/static/css/app.css.map
+
+# ── IDE ───────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# ── 로컬 도구 설정 ─────────────────────────────────────────
+.claude/settings.local.json
+
+# ── 런타임 데이터 (업로드·로그) ────────────────────────────
+logs/
+data/
+uploads/
+files/
+
+# ── OS ────────────────────────────────────────────────────
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
