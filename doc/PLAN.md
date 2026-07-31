@@ -53,7 +53,7 @@
 | **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ✅ 2026-07-31 |
 | **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | 🟡 2026-07-31 — 작업 전건 완료, DoD 3건 기동 검증 대기 |
 | **P5** | 회원 · 인증 연동 | 회원 생명주기 | 🟡 2026-08-01 — 작업 완료(OTP 정리 배치는 P7), DoD 왕복 검증 대기 |
-| **P6** | 부가 도메인 | 설문·민원·일정·팝업·알림 등 | ⬜ |
+| **P6** | 부가 도메인 | 설문·민원·일정·팝업·알림 등 | 🟡 2026-08-01 — 작업 완료, DoD 왕복 검증 대기 |
 | **P7** | 운영 · 관측 | 로깅·통계·배치 | ⬜ |
 | **P8** | 멀티사이트 데모 · 마감 | 배포 가능 상태 | ⬜ |
 
@@ -456,24 +456,42 @@
 
 #### 작업
 
-- [ ] **설문** — `tb_survey_master`/`tb_survey`/`question`/`option`/`response`/`answer`,
-      중복응답 차단, 집계 화면
-- [ ] **민원** — `tb_complaint_master`/`category`/`article`/`answer`, 채번, 상태 전이(RECEIVED→ANSWERED)
-- [ ] **일정·휴일** — `tb_schedule_master`, `tb_schedule`, `tb_holiday`, 달력 UI
-- [ ] **팝업·배너** — `tb_popup`, `tb_banner`, location별 노출, 캐시 + CUD 시 evict
-- [ ] **알림** — `tb_notification`, `tb_notification_pref`, `tb_noti_template`, `tb_noti_send`
-- [ ] **메일 템플릿** — `tb_mail_template`, 미리보기(raw hex 허용 구역)
-- [ ] 각 신규 URL 접근 규칙 등록
+- [x] **설문** (2026-08-01 이식) — 중복응답 **2중 차단**:
+      ① `one_response_yn='Y'` 이고 로그인 상태면 `findByMember` 선검사
+      ② UNIQUE 제약의 `DuplicateKeyException` 을 잡아 같은 메시지로 변환.
+      ①만으로는 동시 제출 두 건이 함께 통과한다 — DB 제약이 최종 방어선이다.
+      **익명 설문은 중복 차단이 성립하지 않는다**(memberId 가 null) — 설문 설계자의 선택이다
+- [x] **민원** (2026-08-01 이식) — 채번은 서비스가 발급, 상태 전이 `RECEIVED→IN_PROGRESS→ANSWERED`.
+      최종 답변 저장 시 `ComplaintAnswerSaveForm.finalYn='Y'` 가 `ANSWERED` 로 자동 전환
+- [x] **일정·휴일** (2026-08-01 이식) — 달력/주간 UI.
+      `common/calendar`(`CalendarMonth`·`CalendarWeek`) 2종이 P1 에서 누락돼 함께 이식했다.
+      **`ScheduleServiceImpl` 의 검색 색인 훅 8블록 제거**(D10 — 검색은 외부 엔진)
+- [x] **팝업·배너** — **P4 에서 이미 이식**됨(템플릿 전량 이전 때 java 동반).
+      `@Cacheable(ACTIVE_POPUPS)` + CUD 3곳 `@CacheEvict(allEntries=true)` 확인
+- [x] **알림** — **P4 에서 이미 이식**됨
+- [x] **메일 템플릿** — **P4 에서 이미 이식**됨. P5 에서 `CODE_ACCOUNT_DORMANT_OTP` 추가
+- [x] 각 신규 URL 접근 규칙 등록 — `V2026080102__seed_url_access_p6.sql` 5행.
+      관리자 화면은 P2 의 `/admin/**` 포괄 규칙이 이미 받는다
 
 #### DoD
 
 - 각 도메인 CRUD 왕복
+  — 🟡 **미실행**. 컨트롤러·서비스·매퍼·화면 전량 존재
 - 설문: 발행 → 응답 → 중복 차단 → 집계
+  — 🟡 **코드 검증까지**. 중복 차단 2중(선검사 + `DuplicateKeyException`) 확인.
+    **실제 왕복은 미실행**
 - 민원: 접수 → 채번 → 답변 → 상태 전이
+  — 🟡 **코드 검증까지**. `ComplaintStatus` 전이 + `finalYn` 자동 전환 확인.
+    **실제 왕복은 미실행**
 - ArchUnit 전건 통과
+  — ✅ 10/10 · 전체 테스트 48건 · `@Mapper` 0 · 비-maria XML 0 · `${}` 0 ·
+    **검색엔진 참조 0**(D10 훅 제거 확인)
 
 **범위 밖** — 통계 대시보드(P7), 사이트 데모(P8),
 **검색 전체**(외부 검색엔진을 `contextPath=/search` 로 분리 — 2026-07-31).
+
+> **🟡 항목은 앱을 띄워야 끝난다.** DB 자격증명이 셸에 없어 기동하지 못했다.
+> `V2026080102` 적용 후 사용자 환경에서 실행해야 한다.
 
 ---
 
@@ -625,6 +643,9 @@
 | 2026-08-01 | **member 체인의 permitAll 패턴이 실제 URL 과 어긋난다** — 체인은 `/member/find/**` 인데 컨트롤러는 `/member/find-id`·`/member/find-password`(하이픈)를 매핑한다. 즉 아이디·비밀번호 찾기가 체인 permitAll 에 걸리지 않는다. 001 에서 그대로 넘어온 불일치 | P5 | 중 | **부분 처리 2026-08-01** — `V2026080101` 에 두 경로 `PERMIT_ALL` 규칙을 넣어 동작은 보장했다. **체인 패턴 자체를 고치는 것이 근본적**이지만 P2 산출물 수정이라 별건으로 둔다 |
 | 2026-08-01 | **001 의 휴면 해제 3요소 방식을 폐기했다** — `DormantRestoreForm`·`DormantRestoreUsrController`(구) 미이식, `DormantService.restoreWithCredentials` 삭제. 휴면 계정의 비밀번호는 사용자가 가장 잊기 쉬운 정보라, 그걸 요구하면 **정작 본인이 못 푸는 화면**이 된다 | P5 | 낮음 | ✅ **처리 2026-08-01** — 실명인증 / 이메일 OTP 택1 로 대체(개발가이드 §10-6). 확인과 역이관을 분리해 `restoreVerified(memberId)` 로 수렴시켰다 |
 | 2026-08-01 | **OTP 정리 배치가 없다** — `MemberOtpMapper.deleteExpiredBefore` 는 만들었지만 호출할 스케줄러가 없다. 만료·사용완료 행이 무한 누적된다 | P7 | 중 | 미정 — P7 보존 배치(`gopcms.retention`)에 `tb_member_otp` 버킷을 추가하는 것이 자연스럽다. 지금은 행이 작아 급하지 않다 |
+| 2026-08-01 | **`common/calendar` 2종이 P1 에서 누락됐다** — `CalendarMonth`·`CalendarWeek`. 일정·휴일 컨트롤러가 달력 UI 에 쓴다. `common/lifecycle` 과 같은 계열의 누락이다(P1 이 `common/` 을 전량 이식하지 않았다) | P6 | 중 | ✅ **해결 2026-08-01** — 2종 이식. 이식 직후 **001 `common/` 과 전수 대조**했다 — 패키지·클래스 모두 차이 0. 더 빠진 것은 없다(2026-08-01 실측) |
+| 2026-08-01 | **`ScheduleServiceImpl` 에 검색 색인 훅이 살아 있었다** — D10(검색 외부 분리)으로 `primary/search` 를 이식하지 않았는데, 일정 서비스가 `SearchIndexService` 를 `@Lazy` 주입해 CUD 4곳에서 호출했다. 그대로면 컴파일 불가 | P6 | 중 | ✅ **해결 2026-08-01** — 8블록(import 2·필드·생성자 파라미터·대입·호출 4) **정확한 문자열 매칭으로만** 제거. 001 에서 정규식으로 잘라내다 `BoardReportServiceImpl` 을 망가뜨린 이력이 있어 하나라도 못 찾으면 중단하는 스크립트를 썼다. 미사용이 된 `@Lazy` import 도 제거 |
+| 2026-08-01 | **부가 도메인 4종이 URL 최상위 세그먼트를 차지한다** — `/survey`·`/complaint`·`/schedule`·`/holiday`. `DefaultUsrController` 의 `/{siteCode}/{slug}` 패턴과 형태가 겹친다. Spring 이 리터럴을 우선하므로 가로채이지는 않지만, **같은 이름의 site_code 를 만들면 그 사이트가 열리지 않는다** | P6 | 낮음 | 확인만 — 마이그레이션 주석에 기록했다. 사이트 코드 명명 시 이 네 단어를 피할 것. P8 데모에서 사이트를 만들 때 주의 |
 | 2026-07-31 | **`pageQuery` 가 CSRF 토큰을 페이지 링크에 흘린다** — 신설한 `SiteContextModelAdvice.injectPageQuery` 가 `page` 만 빼고 전 파라미터를 복사했다. Spring Security 는 토큰을 읽은 뒤에도 파라미터 맵에서 지우지 않으므로, POST 가 뷰를 직접 렌더하는 경로(검증 실패 시 폼 재렌더 — `BoardCategoryMngController:79` 등 실재)에서 **모든 페이지 링크 href 에 토큰이 박힌다**. Referer 로 외부 유출 + 브라우저 히스토리 + `log_access` 적재 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. 요청의 `CsrfToken` 에서 실제 파라미터명을 읽어 제외하고, 못 읽으면 기본값 `_csrf` 로 막는다(커스텀 이름 대응). 테스트 2건 추가. **조각 채택 화면이 0곳이라 실제 유출은 없었다** — 65개 목록 전환 전에 잡았다 |
 | 2026-07-31 | **`/fileDown/{id}/thumb` 이 접근통제 없이 열렸다** — `FileServiceImpl.downloadThumbnail` 만 `enforceDownloadAuth` 가 없었다(`download`·`previewInline`·`downloadGroup` 은 전부 있음). 무매칭 DENY 시절엔 도달 불가였으나 P4 의 `/fileDown/**` PERMIT_ALL 규칙이 이 경로를 열어 **MEMBER 전용 첨부의 썸네일이 UUID 만 알면 익명에게 노출**되는 상태가 됐다 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. `enforceDownloadAuth` 추가. **바이러스 게이트(`isDownloadable`)는 넣지 않았다** — 썸네일은 `ThumbnailGenerator` 가 새로 만든 JPG 라 원본 악성코드를 옮기지 않는다는 인터페이스 javadoc 의 **의도된 예외**가 맞다. 그 논리는 악성코드 전파만 다루고 접근통제는 다루지 않는다는 점이 누락 지점이었다 |
 

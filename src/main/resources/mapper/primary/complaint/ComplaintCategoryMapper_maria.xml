@@ -1,0 +1,89 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.complaint.mapper.ComplaintCategoryMapper">
+
+  <resultMap id="categoryMap" type="com.gonet.primary.complaint.dto.ComplaintCategory">
+    <id     property="categoryId"         column="category_id"/>
+    <result property="complaintMasterId"  column="complaint_master_id"/>
+    <result property="categoryCode"       column="category_code"/>
+    <result property="categoryName"       column="category_name"/>
+    <result property="description"        column="description"/>
+    <result property="sortOrder"          column="sort_order"/>
+    <result property="useYn"              column="use_yn"/>
+    <result property="deleteYn"           column="delete_yn"/>
+    <result property="createdBy"          column="created_by"/>
+    <result property="createdIp"          column="created_ip"/>
+    <result property="createdAt"          column="created_at"/>
+    <result property="updatedBy"          column="updated_by"/>
+    <result property="updatedIp"          column="updated_ip"/>
+    <result property="updatedAt"          column="updated_at"/>
+  </resultMap>
+
+  <select id="findByMasterId" resultMap="categoryMap">
+    SELECT category_id, complaint_master_id, category_code, category_name,
+           description, sort_order, use_yn, delete_yn,
+           created_by, created_ip, created_at,
+           updated_by, updated_ip, updated_at
+    FROM tb_complaint_category
+    WHERE complaint_master_id = #{complaintMasterId}
+      AND delete_yn = 'N'
+    ORDER BY sort_order ASC, created_at ASC
+  </select>
+
+  <select id="findById" resultMap="categoryMap">
+    SELECT category_id, complaint_master_id, category_code, category_name,
+           description, sort_order, use_yn, delete_yn,
+           created_by, created_ip, created_at,
+           updated_by, updated_ip, updated_at
+    FROM tb_complaint_category
+    WHERE category_id = #{categoryId}
+      AND delete_yn   = 'N'
+  </select>
+
+  <select id="existsByCode" resultType="boolean">
+    SELECT COUNT(*) > 0
+    FROM tb_complaint_category
+    WHERE complaint_master_id = #{complaintMasterId}
+      AND category_code       = #{categoryCode}
+      AND delete_yn           = 'N'
+    <if test="excludeId != null and excludeId != ''">
+      AND category_id != #{excludeId}
+    </if>
+  </select>
+
+  <insert id="insert">
+    INSERT INTO tb_complaint_category (
+      category_id, complaint_master_id, category_code, category_name,
+      description, sort_order, use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{categoryId}, #{complaintMasterId}, #{categoryCode}, #{categoryName},
+      #{description}, #{sortOrder}, #{useYn}, 'N',
+      #{createdBy}, #{createdIp}, #{createdAt},
+      #{updatedBy}, #{updatedIp}, #{updatedAt}
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE tb_complaint_category SET
+      <if test="categoryName != null and categoryName != ''">category_name=#{categoryName},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      <if test="sortOrder != null">sort_order=#{sortOrder},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=#{updatedAt}
+    WHERE category_id = #{categoryId}
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_complaint_category SET use_yn = #{useYn}
+    WHERE category_id = #{categoryId}
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_complaint_category SET delete_yn = 'Y'
+    WHERE category_id = #{categoryId}
+  </update>
+
+</mapper>
+

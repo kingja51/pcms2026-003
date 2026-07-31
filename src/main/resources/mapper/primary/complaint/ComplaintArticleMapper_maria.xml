@@ -1,0 +1,233 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.complaint.mapper.ComplaintArticleMapper">
+
+  <resultMap id="articleMap" type="com.gonet.primary.complaint.dto.ComplaintArticle">
+    <id     property="articleId"           column="article_id"/>
+    <result property="complaintMasterId"   column="complaint_master_id"/>
+    <result property="categoryId"          column="category_id"/>
+    <result property="categoryName"        column="category_name"/>
+    <result property="fileGroupId"         column="file_group_id"/>
+    <result property="writerAuthType"      column="writer_auth_type"/>
+    <result property="writerMemberId"      column="writer_member_id"/>
+    <result property="writerDiHash"        column="writer_di_hash"/>
+    <result property="writerOauthProvider" column="writer_oauth_provider"/>
+    <result property="writerOauthUidHash"  column="writer_oauth_uid_hash"/>
+    <result property="writerName"          column="writer_name"/>
+    <result property="writerContactEnc"    column="writer_contact_enc"/>
+    <result property="complaintNo"         column="complaint_no"/>
+    <result property="title"               column="title"/>
+    <result property="content"             column="content"/>
+    <result property="clientIp"            column="client_ip"/>
+    <result property="status"              column="status"/>
+    <result property="answerDueAt"         column="answer_due_at"/>
+    <result property="answeredAt"          column="answered_at"/>
+    <result property="closedAt"            column="closed_at"/>
+    <result property="answerCount"         column="answer_count"/>
+    <result property="deleteYn"            column="delete_yn"/>
+    <result property="createdBy"           column="created_by"/>
+    <result property="createdIp"           column="created_ip"/>
+    <result property="createdAt"           column="created_at"/>
+    <result property="updatedBy"           column="updated_by"/>
+    <result property="updatedIp"           column="updated_ip"/>
+    <result property="updatedAt"           column="updated_at"/>
+  </resultMap>
+
+  <!-- 관리자 목록용 (전체 컬럼) -->
+  <sql id="articleColumns">
+    a.article_id, a.complaint_master_id, a.category_id,
+    c.category_name,
+    a.file_group_id,
+    a.writer_auth_type, a.writer_member_id, a.writer_di_hash,
+    a.writer_oauth_provider, a.writer_oauth_uid_hash,
+    a.writer_name, a.writer_contact_enc,
+    a.complaint_no, a.title, a.content, a.client_ip,
+    a.status, a.answer_due_at, a.answered_at, a.closed_at,
+    a.answer_count, a.delete_yn,
+    a.created_by, a.created_ip, a.created_at,
+    a.updated_by, a.updated_ip, a.updated_at
+  </sql>
+
+  <!-- 사용자 목록용 (show_in_list=Y — 순번/제목/등록일만) -->
+  <sql id="articleColumnsForUser">
+    a.article_id, a.complaint_master_id, a.complaint_no,
+    a.title, a.status, a.created_at,
+    NULL AS category_id, NULL AS category_name,
+    NULL AS file_group_id,
+    NULL AS writer_auth_type, NULL AS writer_member_id, NULL AS writer_di_hash,
+    NULL AS writer_oauth_provider, NULL AS writer_oauth_uid_hash,
+    NULL AS writer_name, NULL AS writer_contact_enc,
+    NULL AS content, NULL AS client_ip,
+    NULL AS answer_due_at, NULL AS answered_at, NULL AS closed_at,
+    a.answer_count, a.delete_yn,
+    NULL AS created_by, NULL AS created_ip,
+    NULL AS updated_by, NULL AS updated_ip, NULL AS updated_at
+  </sql>
+
+  <select id="list" resultMap="articleMap">
+    SELECT <include refid="articleColumns"/>
+    FROM tb_complaint_article a
+    LEFT JOIN tb_complaint_category c ON c.category_id = a.category_id
+    WHERE a.complaint_master_id = #{complaintMasterId}
+      AND a.delete_yn = 'N'
+    <if test="categoryId != null and categoryId != ''">
+      AND a.category_id = #{categoryId}
+    </if>
+    <if test="status != null and status != ''">
+      AND a.status = #{status}
+    </if>
+    <if test="writerName != null and writerName != ''">
+      AND a.writer_name LIKE CONCAT('%',#{writerName},'%')
+    </if>
+    <if test="complaintNo != null and complaintNo != ''">
+      AND a.complaint_no LIKE CONCAT('%',#{complaintNo},'%')
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND (a.title LIKE CONCAT('%',#{keyword},'%')
+        OR a.complaint_no LIKE CONCAT('%',#{keyword},'%'))
+    </if>
+    ORDER BY a.created_at DESC
+    LIMIT #{pageSize} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="int">
+    SELECT COUNT(*)
+    FROM tb_complaint_article a
+    WHERE a.complaint_master_id = #{complaintMasterId}
+      AND a.delete_yn = 'N'
+    <if test="categoryId != null and categoryId != ''">
+      AND a.category_id = #{categoryId}
+    </if>
+    <if test="status != null and status != ''">
+      AND a.status = #{status}
+    </if>
+    <if test="writerName != null and writerName != ''">
+      AND a.writer_name LIKE CONCAT('%',#{writerName},'%')
+    </if>
+    <if test="complaintNo != null and complaintNo != ''">
+      AND a.complaint_no LIKE CONCAT('%',#{complaintNo},'%')
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND (a.title LIKE CONCAT('%',#{keyword},'%')
+        OR a.complaint_no LIKE CONCAT('%',#{keyword},'%'))
+    </if>
+  </select>
+
+  <!--
+    사용자 목록.
+    show_in_list='Y' → writerMemberId null → 전체 공개 (모든 사용자 민원 노출)
+    show_in_list='N' → writerMemberId 주입  → 본인 민원만 (전체 컬럼 반환)
+  -->
+  <select id="listForUser" resultMap="articleMap">
+    SELECT <include refid="articleColumns"/>
+    FROM tb_complaint_article a
+    LEFT JOIN tb_complaint_category c ON c.category_id = a.category_id
+    WHERE a.complaint_master_id = #{complaintMasterId}
+      AND a.delete_yn = 'N'
+    <if test="writerMemberId != null and writerMemberId != ''">
+      AND a.writer_member_id = #{writerMemberId}
+    </if>
+    <if test="categoryId != null and categoryId != ''">
+      AND a.category_id = #{categoryId}
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND a.title LIKE CONCAT('%',#{keyword},'%')
+    </if>
+    ORDER BY a.created_at DESC
+    LIMIT #{pageSize} OFFSET #{offset}
+  </select>
+
+  <select id="countForUser" resultType="int">
+    SELECT COUNT(*)
+    FROM tb_complaint_article a
+    WHERE a.complaint_master_id = #{complaintMasterId}
+      AND a.delete_yn = 'N'
+    <if test="writerMemberId != null and writerMemberId != ''">
+      AND a.writer_member_id = #{writerMemberId}
+    </if>
+    <if test="categoryId != null and categoryId != ''">
+      AND a.category_id = #{categoryId}
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND a.title LIKE CONCAT('%',#{keyword},'%')
+    </if>
+  </select>
+
+  <select id="findById" resultMap="articleMap">
+    SELECT <include refid="articleColumns"/>
+    FROM tb_complaint_article a
+    LEFT JOIN tb_complaint_category c ON c.category_id = a.category_id
+    WHERE a.article_id = #{articleId}
+      AND a.delete_yn  = 'N'
+  </select>
+
+  <select id="findByComplaintNo" resultMap="articleMap">
+    SELECT <include refid="articleColumns"/>
+    FROM tb_complaint_article a
+    LEFT JOIN tb_complaint_category c ON c.category_id = a.category_id
+    WHERE a.complaint_master_id = #{complaintMasterId}
+      AND a.complaint_no        = #{complaintNo}
+      AND a.delete_yn           = 'N'
+  </select>
+
+  <!-- 접수번호 채번 — CPL-YYYYMMDD-NNNNNN -->
+  <select id="countTodayByMaster" resultType="int">
+    SELECT COUNT(*)
+    FROM tb_complaint_article
+    WHERE complaint_master_id = #{complaintMasterId}
+      AND complaint_no LIKE CONCAT(#{datePrefix},'%')
+  </select>
+
+  <insert id="insert">
+    INSERT INTO tb_complaint_article (
+      article_id, complaint_master_id, category_id, file_group_id,
+      writer_auth_type, writer_member_id, writer_di_hash,
+      writer_oauth_provider, writer_oauth_uid_hash,
+      writer_name, writer_contact_enc,
+      complaint_no, title, content, client_ip,
+      status, answer_due_at,
+      answer_count, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{articleId}, #{complaintMasterId}, #{categoryId}, #{fileGroupId},
+      #{writerAuthType}, #{writerMemberId}, #{writerDiHash},
+      #{writerOauthProvider}, #{writerOauthUidHash},
+      #{writerName}, #{writerContactEnc},
+      #{complaintNo}, #{title}, #{content}, #{clientIp},
+      #{status}, #{answerDueAt},
+      0, 'N',
+      #{createdBy}, #{createdIp}, #{createdAt},
+      #{updatedBy}, #{updatedIp}, #{updatedAt}
+    )
+  </insert>
+
+  <update id="updateStatus">
+    UPDATE tb_complaint_article SET status = #{status}
+    WHERE article_id = #{articleId}
+  </update>
+
+  <update id="updateAnsweredAt">
+    UPDATE tb_complaint_article SET answered_at = NOW()
+    WHERE article_id = #{articleId} AND answered_at IS NULL
+  </update>
+
+  <update id="updateClosedAt">
+    UPDATE tb_complaint_article SET closed_at = NOW(), status = 'CLOSED'
+    WHERE article_id = #{articleId}
+  </update>
+
+  <update id="incrementAnswerCount">
+    UPDATE tb_complaint_article
+    SET answer_count = answer_count + 1
+    WHERE article_id = #{articleId}
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_complaint_article SET delete_yn = 'Y'
+    WHERE article_id = #{articleId}
+  </update>
+
+</mapper>
+

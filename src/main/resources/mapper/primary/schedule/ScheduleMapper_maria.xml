@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  tb_schedule (detail) mapper.
+
+  2026-04-29 master/detail 분리:
+  - site_id / menu_id 는 tb_schedule_master 에 보관 — 모든 조회 SELECT 가 master JOIN 으로 노출
+  - INSERT 는 schedule_master_id 만 사용 (site_id/menu_id 컬럼 자체가 detail 에 없음)
+  - 검색 필터는 master.site_id / master.menu_id 기준
+-->
+<mapper namespace="com.gonet.primary.schedule.mapper.ScheduleMapper">
+
+  <sql id="scheduleColumns">
+    sc.schedule_id, sc.schedule_master_id,
+    sc.schedule_title, sc.schedule_content, sc.schedule_category,
+    sc.start_at, sc.end_at, sc.location, sc.link_url,
+    sc.all_day_yn, sc.color_code,
+    sc.use_yn, sc.delete_yn,
+    sc.created_by, sc.created_ip, sc.created_at,
+    sc.updated_by, sc.updated_ip, sc.updated_at,
+    m.site_id      AS site_id,
+    m.menu_id      AS menu_id,
+    m.master_title AS master_title,
+    s.site_code    AS site_code,
+    s.site_name    AS site_name
+  </sql>
+
+  <sql id="scheduleFrom">
+      FROM tb_schedule sc
+      JOIN tb_schedule_master m ON m.schedule_master_id = sc.schedule_master_id
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+  </sql>
+
+  <sql id="listFilter">
+    WHERE sc.delete_yn = 'N'
+      AND m.delete_yn  = 'N'
+    <if test="search.scheduleMasterId != null and search.scheduleMasterId != ''">
+      AND sc.schedule_master_id = #{search.scheduleMasterId}
+    </if>
+    <if test="search.scheduleCategory != null and search.scheduleCategory != '' and search.scheduleCategory != 'ALL'">
+      AND sc.schedule_category = #{search.scheduleCategory}
+    </if>
+    <if test="search.useYn != null and search.useYn != '' and search.useYn != 'ALL'">
+      AND sc.use_yn = #{search.useYn}
+    </if>
+    <if test="search.year != null">
+      AND YEAR(sc.start_at) = #{search.year}
+    </if>
+    <if test="search.dateFrom != null">
+      AND sc.end_at &gt;= #{search.dateFrom}
+    </if>
+    <if test="search.dateTo != null">
+      AND sc.start_at &lt;= #{search.dateTo}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND sc.schedule_title LIKE CONCAT('%', #{search.keyword}, '%')
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.schedule.dto.Schedule">
+    SELECT <include refid="scheduleColumns"/>
+    <include refid="scheduleFrom"/>
+    <include refid="listFilter"/>
+    <choose>
+      <when test="search.sortDir != null and search.sortDir.toUpperCase() == 'DESC'">
+        ORDER BY sc.start_at DESC, sc.schedule_title ASC
+      </when>
+      <otherwise>
+        ORDER BY sc.start_at ASC, sc.schedule_title ASC
+      </otherwise>
+    </choose>
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+    <include refid="scheduleFrom"/>
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.schedule.dto.Schedule">
+    SELECT <include refid="scheduleColumns"/>
+    <include refid="scheduleFrom"/>
+     WHERE sc.schedule_id = #{scheduleId}
+       AND sc.delete_yn   = 'N'
+       AND m.delete_yn    = 'N'
+  </select>
+
+  <select id="findOverlapping" resultType="com.gonet.primary.schedule.dto.Schedule">
+    SELECT <include refid="scheduleColumns"/>
+    <include refid="scheduleFrom"/>
+     WHERE sc.delete_yn  = 'N'
+       AND m.delete_yn   = 'N'
+       AND sc.use_yn     = 'Y'
+       AND m.use_yn      = 'Y'
+       AND sc.start_at  &lt;= #{rangeEnd}
+       AND sc.end_at    &gt;= #{rangeStart}
+    <if test="scheduleMasterId != null and scheduleMasterId != ''">
+       AND sc.schedule_master_id = #{scheduleMasterId}
+    </if>
+     ORDER BY sc.start_at ASC, sc.schedule_title ASC
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.schedule.dto.Schedule">
+    INSERT INTO tb_schedule (
+      schedule_id, schedule_master_id,
+      schedule_title, schedule_content, schedule_category,
+      start_at, end_at, location, link_url,
+      all_day_yn, color_code, use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{scheduleId}, #{scheduleMasterId},
+      #{scheduleTitle}, #{scheduleContent}, #{scheduleCategory},
+      #{startAt}, #{endAt}, #{location}, #{linkUrl},
+      #{allDayYn}, #{colorCode}, #{useYn}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.schedule.dto.Schedule">
+    UPDATE tb_schedule SET
+      <if test="scheduleTitle != null and scheduleTitle != ''">schedule_title=#{scheduleTitle},</if>
+      <if test="scheduleContent != null and scheduleContent != ''">schedule_content=#{scheduleContent},</if>
+      <if test="scheduleCategory != null and scheduleCategory != ''">schedule_category=#{scheduleCategory},</if>
+      <if test="startAt != null">start_at=#{startAt},</if>
+      <if test="endAt != null">end_at=#{endAt},</if>
+      <if test="location != null and location != ''">location=#{location},</if>
+      <if test="linkUrl != null and linkUrl != ''">link_url=#{linkUrl},</if>
+      <if test="allDayYn != null and allDayYn != ''">all_day_yn=#{allDayYn},</if>
+      <if test="colorCode != null and colorCode != ''">color_code=#{colorCode},</if>
+      <if test="useYn != null and useYn != ''">use_yn=#{useYn},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE schedule_id       = #{scheduleId}
+       AND delete_yn         = 'N'
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_schedule
+       SET use_yn      = #{useYn},
+           updated_at  = NOW()
+     WHERE schedule_id = #{scheduleId}
+       AND delete_yn   = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_schedule
+       SET delete_yn   = 'Y',
+           use_yn      = 'N',
+           updated_at  = NOW()
+     WHERE schedule_id = #{scheduleId}
+       AND delete_yn   = 'N'
+  </update>
+
+  <!-- 색인 재구축용 — 활성 일정 전체. master 가 살아 있는 것만 (master delete 시 detail 색인도 무의미). -->
+  <select id="findAllForReindex" resultType="com.gonet.primary.schedule.dto.Schedule">
+    SELECT <include refid="scheduleColumns"/>
+    <include refid="scheduleFrom"/>
+     WHERE sc.delete_yn = 'N'
+       AND m.delete_yn  = 'N'
+     ORDER BY sc.created_at ASC
+  </select>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_schedule
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_schedule
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_schedule
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

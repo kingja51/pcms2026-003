@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.holiday.mapper.HolidayMapper">
+
+  <sql id="holidayColumns">
+    h.holiday_id, h.year, h.holiday_date, h.holiday_name, h.holiday_type,
+    h.description, h.use_yn, h.delete_yn,
+    h.created_by, h.created_ip, h.created_at,
+    h.updated_by, h.updated_ip, h.updated_at
+  </sql>
+
+  <sql id="listFilter">
+    WHERE h.delete_yn = 'N'
+    <if test="search.year != null">
+      AND h.year = #{search.year}
+    </if>
+    <if test="search.holidayType != null and search.holidayType != '' and search.holidayType != 'ALL'">
+      AND h.holiday_type = #{search.holidayType}
+    </if>
+    <if test="search.useYn != null and search.useYn != '' and search.useYn != 'ALL'">
+      AND h.use_yn = #{search.useYn}
+    </if>
+    <if test="search.dateFrom != null">
+      AND h.holiday_date &gt;= #{search.dateFrom}
+    </if>
+    <if test="search.dateTo != null">
+      AND h.holiday_date &lt;= #{search.dateTo}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND h.holiday_name LIKE CONCAT('%', #{search.keyword}, '%')
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.holiday.dto.Holiday">
+    SELECT <include refid="holidayColumns"/>
+      FROM tb_holiday h
+    <include refid="listFilter"/>
+    <choose>
+      <when test="search.sortDir != null and search.sortDir.toUpperCase() == 'DESC'">
+        ORDER BY h.holiday_date DESC, h.holiday_name ASC
+      </when>
+      <otherwise>
+        ORDER BY h.holiday_date ASC, h.holiday_name ASC
+      </otherwise>
+    </choose>
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1) FROM tb_holiday h
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.holiday.dto.Holiday">
+    SELECT <include refid="holidayColumns"/>
+      FROM tb_holiday h
+     WHERE h.holiday_id = #{holidayId}
+       AND h.delete_yn  = 'N'
+  </select>
+
+  <select id="findInRange" resultType="com.gonet.primary.holiday.dto.Holiday">
+    <![CDATA[
+    SELECT
+    ]]>
+    <include refid="holidayColumns"/>
+    <![CDATA[
+      FROM tb_holiday h
+     WHERE h.delete_yn   = 'N'
+       AND h.use_yn      = 'Y'
+       AND h.holiday_date BETWEEN #{from} AND #{to}
+     ORDER BY h.holiday_date ASC, h.holiday_name ASC
+    ]]>
+  </select>
+
+  <select id="existsByDate" resultType="int">
+    <![CDATA[
+    SELECT COUNT(1)
+      FROM tb_holiday
+     WHERE holiday_date = #{holidayDate}
+       AND holiday_name = #{holidayName}
+       AND delete_yn    = 'N'
+    ]]>
+    <if test="excludeId != null and excludeId != ''">
+      AND holiday_id &lt;&gt; #{excludeId}
+    </if>
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.holiday.dto.Holiday">
+    INSERT INTO tb_holiday (
+      holiday_id, year, holiday_date, holiday_name, holiday_type,
+      description, use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{holidayId}, #{year}, #{holidayDate}, #{holidayName}, #{holidayType},
+      #{description}, #{useYn}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.holiday.dto.Holiday">
+    UPDATE tb_holiday SET
+      <if test="year != null">year=#{year},</if>
+      <if test="holidayDate != null">holiday_date=#{holidayDate},</if>
+      <if test="holidayName != null and holidayName != ''">holiday_name=#{holidayName},</if>
+      <if test="holidayType != null and holidayType != ''">holiday_type=#{holidayType},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      <if test="useYn != null and useYn != ''">use_yn=#{useYn},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE holiday_id   = #{holidayId}
+       AND delete_yn    = 'N'
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_holiday
+       SET use_yn     = #{useYn},
+           updated_at = NOW()
+     WHERE holiday_id = #{holidayId}
+       AND delete_yn  = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_holiday
+       SET delete_yn  = 'Y',
+           use_yn     = 'N',
+           updated_at = NOW()
+     WHERE holiday_id = #{holidayId}
+       AND delete_yn  = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_holiday
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_holiday
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_holiday
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

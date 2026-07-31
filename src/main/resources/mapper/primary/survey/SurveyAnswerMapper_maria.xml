@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.survey.mapper.SurveyAnswerMapper">
+
+  <insert id="insert" parameterType="com.gonet.primary.survey.dto.SurveyAnswer">
+    INSERT INTO tb_survey_answer (
+      answer_id, response_id, question_id, option_id, answer_text, answer_number,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{answerId}, #{responseId}, #{questionId}, #{optionId}, #{answerText}, #{answerNumber},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <select id="findByResponseId" resultType="com.gonet.primary.survey.dto.SurveyAnswer">
+    SELECT a.answer_id, a.response_id, a.question_id, a.option_id, a.answer_text, a.answer_number,
+           a.created_by, a.created_ip, a.created_at,
+           a.updated_by, a.updated_ip, a.updated_at,
+           q.question_text AS question_text,
+           o.option_text   AS option_text
+      FROM tb_survey_answer a
+      LEFT JOIN tb_survey_question q ON q.question_id = a.question_id
+      LEFT JOIN tb_survey_option   o ON o.option_id   = a.option_id
+     WHERE a.response_id = #{responseId}
+     ORDER BY q.sort_order ASC
+  </select>
+
+  <select id="countByOption" resultType="map">
+    SELECT a.option_id AS optionId, COUNT(1) AS cnt
+      FROM tb_survey_answer a
+     WHERE a.question_id = #{questionId}
+       AND a.option_id  IS NOT NULL
+     GROUP BY a.option_id
+  </select>
+
+  <select id="scaleStats" resultType="map">
+    SELECT COUNT(answer_number)         AS cnt,
+           AVG(answer_number)            AS avgVal,
+           MIN(answer_number)            AS minVal,
+           MAX(answer_number)            AS maxVal
+      FROM tb_survey_answer
+     WHERE question_id = #{questionId}
+       AND answer_number IS NOT NULL
+  </select>
+
+  <select id="countTextAnswers" resultType="long">
+    SELECT COUNT(1) FROM tb_survey_answer
+     WHERE question_id = #{questionId}
+       AND answer_text IS NOT NULL AND answer_text != ''
+  </select>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_survey_answer
+        WHERE answer_id = #{answerId}
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+
+  <!-- §0.40 ContentHistory 패턴 — 조부 survey 의 cutoff 만료 기준 후손 answer 정리.
+       경로: survey → response(자식) → answer(손자). 본 도메인엔 delete_yn 없음. -->
+  <delete id="purgeOfSoftDeletedSurvey">
+    DELETE FROM tb_survey_answer
+     WHERE response_id IN (
+       SELECT r.response_id FROM tb_survey_response r
+        WHERE r.survey_id IN (
+          SELECT s.survey_id FROM tb_survey s
+           WHERE s.delete_yn = 'Y'
+             AND s.updated_at &lt;= #{cutoff}
+        )
+     )
+  </delete>
+
+  <select id="countOfSoftDeletedSurvey" resultType="int">
+    SELECT COUNT(*) FROM tb_survey_answer a
+     WHERE a.response_id IN (
+       SELECT r.response_id FROM tb_survey_response r
+        WHERE r.survey_id IN (
+          SELECT s.survey_id FROM tb_survey s
+           WHERE s.delete_yn = 'Y'
+             AND s.updated_at &lt;= #{cutoff}
+        )
+     )
+  </select>
+
+</mapper>

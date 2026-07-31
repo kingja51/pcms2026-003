@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.complaint.mapper.ComplaintAnswerMapper">
+
+  <resultMap id="answerMap" type="com.gonet.primary.complaint.dto.ComplaintAnswer">
+    <id     property="answerId"      column="answer_id"/>
+    <result property="articleId"     column="article_id"/>
+    <result property="answererId"    column="answerer_id"/>
+    <result property="answererType"  column="answerer_type"/>
+    <result property="answererName"  column="answerer_name"/>
+    <result property="answererDept"  column="answerer_dept"/>
+    <result property="content"       column="content"/>
+    <result property="fileGroupId"   column="file_group_id"/>
+    <result property="isFinal"       column="is_final"/>
+    <result property="deleteYn"      column="delete_yn"/>
+    <result property="createdBy"     column="created_by"/>
+    <result property="createdIp"     column="created_ip"/>
+    <result property="createdAt"     column="created_at"/>
+    <result property="updatedBy"     column="updated_by"/>
+    <result property="updatedIp"     column="updated_ip"/>
+    <result property="updatedAt"     column="updated_at"/>
+  </resultMap>
+
+  <select id="findByArticleId" resultMap="answerMap">
+    SELECT answer_id, article_id,
+           answerer_id, answerer_type, answerer_name, answerer_dept,
+           content, file_group_id, is_final, delete_yn,
+           created_by, created_ip, created_at,
+           updated_by, updated_ip, updated_at
+    FROM tb_complaint_answer
+    WHERE article_id = #{articleId}
+      AND delete_yn  = 'N'
+    ORDER BY created_at ASC
+  </select>
+
+  <select id="findById" resultMap="answerMap">
+    SELECT answer_id, article_id,
+           answerer_id, answerer_type, answerer_name, answerer_dept,
+           content, file_group_id, is_final, delete_yn,
+           created_by, created_ip, created_at,
+           updated_by, updated_ip, updated_at
+    FROM tb_complaint_answer
+    WHERE answer_id = #{answerId}
+      AND delete_yn = 'N'
+  </select>
+
+  <insert id="insert">
+    INSERT INTO tb_complaint_answer (
+      answer_id, article_id,
+      answerer_id, answerer_type, answerer_name, answerer_dept,
+      content, file_group_id, is_final, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{answerId}, #{articleId},
+      #{answererId}, #{answererType}, #{answererName}, #{answererDept},
+      #{content}, #{fileGroupId}, #{isFinal}, 'N',
+      #{createdBy}, #{createdIp}, #{createdAt},
+      #{updatedBy}, #{updatedIp}, #{updatedAt}
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE tb_complaint_answer SET
+      <if test="content != null and content != ''">content=#{content},</if>
+      <if test="isFinal != null and isFinal != ''">is_final=#{isFinal},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=#{updatedAt}
+    WHERE answer_id = #{answerId}
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_complaint_answer SET delete_yn = 'Y'
+    WHERE answer_id = #{answerId}
+  </update>
+
+</mapper>
+

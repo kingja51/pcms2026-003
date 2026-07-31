@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.survey.mapper.SurveyOptionMapper">
+
+  <select id="findByQuestionId" resultType="com.gonet.primary.survey.dto.SurveyOption">
+    SELECT option_id, question_id, option_text, option_value, sort_order, delete_yn,
+           created_by, created_ip, created_at, updated_by, updated_ip, updated_at
+      FROM tb_survey_option
+     WHERE question_id = #{questionId} AND delete_yn = 'N'
+     ORDER BY sort_order ASC, created_at ASC
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.survey.dto.SurveyOption">
+    INSERT INTO tb_survey_option (
+      option_id, question_id, option_text, option_value, sort_order, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{optionId}, #{questionId}, #{optionText}, #{optionValue}, #{sortOrder}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="softDeleteByQuestionId">
+    UPDATE tb_survey_option SET delete_yn = 'Y', updated_at = NOW()
+     WHERE question_id = #{questionId} AND delete_yn = 'N'
+  </update>
+
+  <update id="softDeleteBySurveyId">
+    UPDATE tb_survey_option o
+       JOIN tb_survey_question q ON q.question_id = o.question_id
+        SET o.delete_yn = 'Y', o.updated_at = NOW()
+      WHERE q.survey_id = #{surveyId} AND o.delete_yn = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_survey_option
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_survey_option
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_survey_option
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

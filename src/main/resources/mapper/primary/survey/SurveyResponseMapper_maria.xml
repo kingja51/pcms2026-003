@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.survey.mapper.SurveyResponseMapper">
+
+  <insert id="insert" parameterType="com.gonet.primary.survey.dto.SurveyResponse">
+    INSERT INTO tb_survey_response (
+      response_id, survey_id, member_id, client_ip, submitted_at,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{responseId}, #{surveyId}, #{memberId}, #{clientIp}, NOW(),
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <select id="findById" resultType="com.gonet.primary.survey.dto.SurveyResponse">
+    SELECT r.response_id, r.survey_id, r.member_id, r.client_ip, r.submitted_at,
+           r.created_by, r.created_ip, r.created_at, r.updated_by, r.updated_ip, r.updated_at,
+           m.login_id AS member_login_id, m.member_name AS member_name
+      FROM tb_survey_response r
+      LEFT JOIN tb_member m ON m.member_id = r.member_id
+     WHERE r.response_id = #{responseId}
+  </select>
+
+  <select id="findByMember" resultType="com.gonet.primary.survey.dto.SurveyResponse">
+    SELECT response_id, survey_id, member_id, client_ip, submitted_at,
+           created_by, created_ip, created_at, updated_by, updated_ip, updated_at
+      FROM tb_survey_response
+     WHERE survey_id = #{surveyId} AND member_id = #{memberId}
+     LIMIT 1
+  </select>
+
+  <select id="countBySurvey" resultType="long">
+    SELECT COUNT(1) FROM tb_survey_response WHERE survey_id = #{surveyId}
+  </select>
+
+  <select id="findBySurveyId" resultType="com.gonet.primary.survey.dto.SurveyResponse">
+    SELECT r.response_id, r.survey_id, r.member_id, r.client_ip, r.submitted_at,
+           r.created_by, r.created_ip, r.created_at, r.updated_by, r.updated_ip, r.updated_at,
+           m.login_id AS member_login_id, m.member_name AS member_name
+      FROM tb_survey_response r
+      LEFT JOIN tb_member m ON m.member_id = r.member_id
+     WHERE r.survey_id = #{surveyId}
+     ORDER BY r.submitted_at DESC
+  </select>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_survey_response
+        WHERE response_id = #{responseId}
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+
+  <!-- §0.40 ContentHistory 패턴 — 부모 survey 의 cutoff 만료 기준 자식 response 정리.
+       tb_survey_response 자체엔 delete_yn 없음 (immutable audit). -->
+  <delete id="purgeOfSoftDeletedSurvey">
+    DELETE FROM tb_survey_response
+     WHERE survey_id IN (
+       SELECT s.survey_id FROM tb_survey s
+        WHERE s.delete_yn = 'Y'
+          AND s.updated_at &lt;= #{cutoff}
+     )
+  </delete>
+
+  <select id="countOfSoftDeletedSurvey" resultType="int">
+    SELECT COUNT(*) FROM tb_survey_response r
+     WHERE r.survey_id IN (
+       SELECT s.survey_id FROM tb_survey s
+        WHERE s.delete_yn = 'Y'
+          AND s.updated_at &lt;= #{cutoff}
+     )
+  </select>
+
+</mapper>

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.survey.mapper.SurveyQuestionMapper">
+
+  <sql id="qCols">
+    question_id, survey_id, question_text, question_type, required_yn,
+    scale_min, scale_max, sort_order, delete_yn,
+    created_by, created_ip, created_at,
+    updated_by, updated_ip, updated_at
+  </sql>
+
+  <select id="findBySurveyId" resultType="com.gonet.primary.survey.dto.SurveyQuestion">
+    SELECT <include refid="qCols"/>
+      FROM tb_survey_question
+     WHERE survey_id = #{surveyId} AND delete_yn = 'N'
+     ORDER BY sort_order ASC, created_at ASC
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.survey.dto.SurveyQuestion">
+    SELECT <include refid="qCols"/>
+      FROM tb_survey_question
+     WHERE question_id = #{questionId} AND delete_yn = 'N'
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.survey.dto.SurveyQuestion">
+    INSERT INTO tb_survey_question (
+      question_id, survey_id, question_text, question_type, required_yn,
+      scale_min, scale_max, sort_order, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{questionId}, #{surveyId}, #{questionText}, #{questionType}, #{requiredYn},
+      #{scaleMin}, #{scaleMax}, #{sortOrder}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.survey.dto.SurveyQuestion">
+    UPDATE tb_survey_question SET
+      <if test="questionText != null and questionText != ''">question_text=#{questionText},</if>
+      <if test="questionType != null and questionType != ''">question_type=#{questionType},</if>
+      <if test="requiredYn != null and requiredYn != ''">required_yn=#{requiredYn},</if>
+      <if test="scaleMin != null">scale_min=#{scaleMin},</if>
+      <if test="scaleMax != null">scale_max=#{scaleMax},</if>
+      <if test="sortOrder != null">sort_order=#{sortOrder},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE question_id   = #{questionId} AND delete_yn = 'N'
+  </update>
+
+  <update id="softDeleteBySurveyId">
+    UPDATE tb_survey_question SET delete_yn = 'Y', updated_at = NOW()
+     WHERE survey_id = #{surveyId} AND delete_yn = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_survey_question
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_survey_question
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_survey_question
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

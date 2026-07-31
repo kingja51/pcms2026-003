@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.survey.mapper.SurveyMapper">
+
+  <!--
+    2026-04-30 master/detail 분리 — site_id / menu_id 컬럼은 tb_survey 에서 제거됨.
+    사이트/메뉴 컨텍스트는 tb_survey_master JOIN 으로 노출.
+  -->
+  <sql id="surveyColumns">
+    sv.survey_id, sv.survey_master_id,
+    sv.survey_title, sv.survey_description,
+    sv.start_at, sv.end_at, sv.status,
+    sv.anonymous_yn, sv.one_response_yn, sv.use_yn, sv.delete_yn,
+    sv.created_by, sv.created_ip, sv.created_at,
+    sv.updated_by, sv.updated_ip, sv.updated_at,
+    m.site_id          AS site_id,
+    m.menu_id          AS menu_id,
+    m.master_title     AS master_title,
+    s.site_code        AS site_code,
+    s.site_name        AS site_name,
+    (SELECT COUNT(1) FROM tb_survey_response r WHERE r.survey_id = sv.survey_id) AS response_count
+  </sql>
+
+  <sql id="listFilter">
+    WHERE sv.delete_yn = 'N'
+      AND m.delete_yn  = 'N'
+    <if test="search.surveyMasterId != null and search.surveyMasterId != ''">
+      AND sv.survey_master_id = #{search.surveyMasterId}
+    </if>
+    <if test="search.siteId != null and search.siteId != ''">
+      AND m.site_id = #{search.siteId}
+    </if>
+    <if test="search.status != null and search.status != '' and search.status != 'ALL'">
+      AND sv.status = #{search.status}
+    </if>
+    <if test="search.useYn != null and search.useYn != '' and search.useYn != 'ALL'">
+      AND sv.use_yn = #{search.useYn}
+    </if>
+    <if test="search.keyword != null and search.keyword != ''">
+      AND sv.survey_title LIKE CONCAT('%', #{search.keyword}, '%')
+    </if>
+  </sql>
+
+  <select id="findList" resultType="com.gonet.primary.survey.dto.Survey">
+    SELECT <include refid="surveyColumns"/>
+      FROM tb_survey sv
+      JOIN tb_survey_master m ON m.survey_master_id = sv.survey_master_id
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+    <include refid="listFilter"/>
+    ORDER BY sv.updated_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countList" resultType="int">
+    SELECT COUNT(1)
+      FROM tb_survey sv
+      JOIN tb_survey_master m ON m.survey_master_id = sv.survey_master_id
+    <include refid="listFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.primary.survey.dto.Survey">
+    SELECT <include refid="surveyColumns"/>
+      FROM tb_survey sv
+      JOIN tb_survey_master m ON m.survey_master_id = sv.survey_master_id
+      LEFT JOIN tb_site s ON s.site_id = m.site_id
+     WHERE sv.survey_id = #{surveyId}
+       AND sv.delete_yn = 'N'
+  </select>
+
+  <insert id="insert" parameterType="com.gonet.primary.survey.dto.Survey">
+    INSERT INTO tb_survey (
+      survey_id, survey_master_id, survey_title, survey_description,
+      start_at, end_at, status,
+      anonymous_yn, one_response_yn, use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{surveyId}, #{surveyMasterId}, #{surveyTitle}, #{surveyDescription},
+      #{startAt}, #{endAt}, #{status},
+      #{anonymousYn}, #{oneResponseYn}, #{useYn}, #{deleteYn},
+      #{createdBy}, #{createdIp}, NOW(),
+      #{updatedBy}, #{updatedIp}, NOW()
+    )
+  </insert>
+
+  <update id="update" parameterType="com.gonet.primary.survey.dto.Survey">
+    UPDATE tb_survey SET
+      <if test="surveyMasterId != null and surveyMasterId != ''">survey_master_id=#{surveyMasterId},</if>
+      <if test="surveyTitle != null and surveyTitle != ''">survey_title=#{surveyTitle},</if>
+      <if test="surveyDescription != null and surveyDescription != ''">survey_description=#{surveyDescription},</if>
+      <if test="startAt != null">start_at=#{startAt},</if>
+      <if test="endAt != null">end_at=#{endAt},</if>
+      <if test="status != null and status != ''">status=#{status},</if>
+      <if test="anonymousYn != null and anonymousYn != ''">anonymous_yn=#{anonymousYn},</if>
+      <if test="oneResponseYn != null and oneResponseYn != ''">one_response_yn=#{oneResponseYn},</if>
+      <if test="useYn != null and useYn != ''">use_yn=#{useYn},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=NOW()
+    WHERE survey_id          = #{surveyId}
+       AND delete_yn          = 'N'
+  </update>
+
+  <update id="updateStatus">
+    UPDATE tb_survey SET status = #{status}, updated_at = NOW()
+     WHERE survey_id = #{surveyId} AND delete_yn = 'N'
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_survey SET use_yn = #{useYn}, updated_at = NOW()
+     WHERE survey_id = #{surveyId} AND delete_yn = 'N'
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_survey SET delete_yn = 'Y', use_yn = 'N', updated_at = NOW()
+     WHERE survey_id = #{surveyId} AND delete_yn = 'N'
+  </update>
+
+    <delete id="deleteOldDeleted">
+        DELETE FROM tb_survey
+        WHERE delete_yn = 'Y'
+        AND updated_at &lt;= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    </delete>
+
+
+  <!-- Soft-delete retention — RetentionScheduler 가 cutoff 전달 -->
+  <delete id="purgeSoftDeletedOlderThan">
+    DELETE FROM tb_survey
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </delete>
+
+  <select id="countSoftDeletedOlderThan" resultType="int">
+    SELECT COUNT(*) FROM tb_survey
+     WHERE delete_yn = 'Y'
+       AND updated_at &lt;= #{cutoff}
+  </select>
+
+</mapper>

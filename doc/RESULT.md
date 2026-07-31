@@ -12,6 +12,92 @@
 ---
 
 ```
+================ 2026.8.1 02:05:10 =======================
+```
+
+## P6 — 부가 도메인 🟡 작업 완료, DoD 왕복 검증 대기
+
+**완료**: 2026-08-01 02:05:10
+**목표**: 나머지 도메인을 채운다.
+
+### 산출물
+
+| 구분 | 내용 |
+|---|---|
+| 이식 | java 83 (survey 32 · complaint 26 · schedule 16 · holiday 9) + 매퍼 XML 13 |
+| 보완 | `common/calendar` 2종(P1 누락분) |
+| 제거 | `ScheduleServiceImpl` 검색 색인 훅 8블록 (D10) |
+| 마이그레이션 | `V2026080102__seed_url_access_p6.sql` — 사용자 URL 5행 |
+
+**팝업·배너·알림·메일은 이미 있었다.** P4 에서 템플릿을 전량 이전할 때 java 도 함께
+들어왔다(각 9·9·22·12개). P6 착수 시 실측으로 확인하고 이식 대상에서 뺐다 —
+PLAN 항목은 남아 있었지만 실제로 할 일이 없었다.
+
+### DoD 검증 결과
+
+| 항목 | 결과 |
+|---|---|
+| ArchUnit · `_maria.xml` · `${}` · `@Mapper` · 검색엔진 참조 | ✅ 10/10 · 0 · 0 · 0 · **0** |
+| 각 도메인 CRUD 왕복 | 🟡 미실행 |
+| 설문 발행→응답→중복차단→집계 | 🟡 코드 검증까지 |
+| 민원 접수→채번→답변→상태전이 | 🟡 코드 검증까지 |
+
+앱을 띄우지 못했다(DB 자격증명 부재). 코드로 확인한 것:
+
+- **설문 중복 차단은 2중이다.** ① `one_response_yn='Y'` + 로그인 상태면
+  `findByMember` 선검사 ② UNIQUE 제약의 `DuplicateKeyException` 을 잡아 같은 메시지로
+  변환. **①만으로는 동시 제출 두 건이 함께 통과한다** — DB 제약이 최종 방어선이다.
+  익명 설문(`memberId=null`)은 중복 차단이 성립하지 않는데, 이건 결함이 아니라
+  설문 설계자의 선택이다.
+- **민원 상태 전이**는 `ComplaintStatus`(RECEIVED → IN_PROGRESS → ANSWERED)이고,
+  최종 답변 저장 시 `ComplaintAnswerSaveForm.finalYn='Y'` 가 `ANSWERED` 로 자동 전환한다.
+- **팝업 캐시**는 `@Cacheable(ACTIVE_POPUPS)` + CUD 3곳 `@CacheEvict(allEntries=true)`.
+
+### 검색 색인 훅 제거 — D10 의 잔여 비용
+
+`ScheduleServiceImpl` 이 `SearchIndexService` 를 `@Lazy` 로 주입해 CUD 4곳에서
+색인을 갱신하고 있었다. `primary/search` 를 이식하지 않았으므로 그대로면 컴파일 불가다.
+
+**정확한 문자열 블록 매칭으로만 제거했다** — import 2줄·필드·생성자 파라미터·대입·
+호출 4곳, 총 8블록. 하나라도 못 찾으면 즉시 중단하는 스크립트를 썼다.
+001 에서 정규식으로 잘라내다 `BoardReportServiceImpl` 을 망가뜨린 이력이 있어서다.
+`SearchIndexService` 순환참조 회피용이던 `@Lazy` import 도 미사용이 돼 함께 제거했다.
+
+전 소스 기준 `primary.search`·`SearchIndexService` 참조 **0건**을 확인했다.
+
+### P1 누락분을 또 발견했다
+
+`common/calendar`(`CalendarMonth`·`CalendarWeek`)가 없었다. P5 의 `common/lifecycle`
+3종과 같은 계열이다 — P1 이 `common/` 을 전량 이식하지 않았다.
+
+같은 일이 P7 에서 또 나오지 않도록 **이번에 001 `common/` 과 전수 대조**했다:
+패키지·클래스 모두 차이 **0**. 더 빠진 것은 없다.
+
+### 접근 규칙 설계
+
+관리자 화면 57개 URL 은 P2 의 `/admin/**` 포괄 규칙이 이미 받는다. 사용자 측 5행만 넣었다.
+
+| 패턴 | 정책 | 왜 |
+|---|---|---|
+| `/complaint/**` POST·GET | AUTHENTICATED | 답변을 어디로 보낼지, 본인만 볼 근거를 만들려면 작성자를 특정할 수 있어야 한다 |
+| `/survey/**` ALL | PERMIT_ALL | `anonymous` 분기가 있다. POST 를 잠그면 **익명 설문 자체가 죽는다** |
+| `/schedule/**` GET | PERMIT_ALL | 사용자 측에는 달력·주간·상세 조회만 있다 |
+| `/holiday/**` GET | PERMIT_ALL | 위와 동일 |
+
+**⚠️ 이 네 도메인이 URL 최상위 세그먼트를 차지한다.** `DefaultUsrController` 의
+`/{siteCode}/{slug}` 와 형태가 겹치지만 Spring 이 리터럴을 우선하므로 가로채이지 않는다.
+뒤집어 말하면 **`survey`·`complaint`·`schedule`·`holiday` 를 site_code 로 쓰면 그 사이트가
+열리지 않는다** — P8 데모에서 사이트를 만들 때 피해야 한다. 마이그레이션 주석에 남겼다.
+
+### 미해결
+
+1. **DoD 왕복 3건** — 기동 필요
+2. **일정 스케줄러** — 배치 자동 실행은 P7
+3. 사이트 코드 명명 제약 — 위 4단어 회피(P8 확인 항목)
+
+---
+
+```
 ================ 2026.8.1 01:18:40 =======================
 ```
 

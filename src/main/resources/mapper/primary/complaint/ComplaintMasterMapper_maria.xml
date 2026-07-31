@@ -1,0 +1,181 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.primary.complaint.mapper.ComplaintMasterMapper">
+
+  <resultMap id="masterMap" type="com.gonet.primary.complaint.dto.ComplaintMaster">
+    <id     property="complaintMasterId"  column="complaint_master_id"/>
+    <result property="siteId"             column="site_id"/>
+    <result property="siteCode"           column="site_code"/>
+    <result property="siteName"           column="site_name"/>
+    <result property="masterCode"         column="master_code"/>
+    <result property="masterName"         column="master_name"/>
+    <result property="description"        column="description"/>
+    <result property="menuId"             column="menu_id"/>
+    <result property="noticeHtml"         column="notice_html"/>
+    <result property="allowMemberYn"      column="allow_member_yn"/>
+    <result property="allowOauth2Yn"      column="allow_oauth2_yn"/>
+    <result property="allowNiceYn"        column="allow_nice_yn"/>
+    <result property="captchaYn"          column="captcha_yn"/>
+    <result property="showInList"         column="show_in_list"/>
+    <result property="fileYn"             column="file_yn"/>
+    <result property="fileCountMax"       column="file_count_max"/>
+    <result property="fileSizeMax"        column="file_size_max"/>
+    <result property="answerRequiredYn"   column="answer_required_yn"/>
+    <result property="answerDeadlineDays" column="answer_deadline_days"/>
+    <result property="useYn"              column="use_yn"/>
+    <result property="deleteYn"           column="delete_yn"/>
+    <result property="createdBy"          column="created_by"/>
+    <result property="createdIp"          column="created_ip"/>
+    <result property="createdAt"          column="created_at"/>
+    <result property="updatedBy"          column="updated_by"/>
+    <result property="updatedIp"          column="updated_ip"/>
+    <result property="updatedAt"          column="updated_at"/>
+    <result property="articleCount"       column="article_count"/>
+  </resultMap>
+
+  <sql id="masterColumns">
+    m.complaint_master_id, m.site_id, s.site_code, s.site_name,
+    m.master_code, m.master_name, m.description, m.menu_id, m.notice_html,
+    m.allow_member_yn, m.allow_oauth2_yn, m.allow_nice_yn, m.captcha_yn,
+    m.show_in_list,
+    m.file_yn, m.file_count_max, m.file_size_max,
+    m.answer_required_yn, m.answer_deadline_days,
+    m.use_yn, m.delete_yn,
+    m.created_by, m.created_ip, m.created_at,
+    m.updated_by, m.updated_ip, m.updated_at,
+    (SELECT COUNT(*) FROM tb_complaint_article a
+      WHERE a.complaint_master_id = m.complaint_master_id
+        AND a.delete_yn = 'N') AS article_count
+  </sql>
+
+  <select id="list" resultMap="masterMap">
+    SELECT <include refid="masterColumns"/>
+    FROM tb_complaint_master m
+    INNER JOIN tb_site s ON s.site_id = m.site_id
+    WHERE m.delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+      AND m.site_id = #{siteId}
+    </if>
+    <if test="useYn != null and useYn != ''">
+      AND m.use_yn = #{useYn}
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND (m.master_name LIKE CONCAT('%',#{keyword},'%')
+        OR m.master_code LIKE CONCAT('%',#{keyword},'%'))
+    </if>
+    ORDER BY m.created_at DESC
+    LIMIT #{pageSize} OFFSET #{offset}
+  </select>
+
+  <select id="count" resultType="int">
+    SELECT COUNT(*)
+    FROM tb_complaint_master m
+    WHERE m.delete_yn = 'N'
+    <if test="siteId != null and siteId != ''">
+      AND m.site_id = #{siteId}
+    </if>
+    <if test="useYn != null and useYn != ''">
+      AND m.use_yn = #{useYn}
+    </if>
+    <if test="keyword != null and keyword != ''">
+      AND (m.master_name LIKE CONCAT('%',#{keyword},'%')
+        OR m.master_code LIKE CONCAT('%',#{keyword},'%'))
+    </if>
+  </select>
+
+  <select id="findById" resultMap="masterMap">
+    SELECT <include refid="masterColumns"/>
+    FROM tb_complaint_master m
+    INNER JOIN tb_site s ON s.site_id = m.site_id
+    WHERE m.complaint_master_id = #{complaintMasterId}
+      AND m.delete_yn = 'N'
+  </select>
+
+  <select id="findBySiteCodeAndMasterCode" resultMap="masterMap">
+    SELECT <include refid="masterColumns"/>
+    FROM tb_complaint_master m
+    INNER JOIN tb_site s ON s.site_id = m.site_id
+    WHERE s.site_code   = #{siteCode}
+      AND m.master_code = #{masterCode}
+      AND m.use_yn      = 'Y'
+      AND m.delete_yn   = 'N'
+  </select>
+
+  <select id="findByMasterCode" resultMap="masterMap">
+    SELECT <include refid="masterColumns"/>
+    FROM tb_complaint_master m
+    INNER JOIN tb_site s ON s.site_id = m.site_id
+    WHERE m.master_code = #{masterCode}
+      AND m.use_yn      = 'Y'
+      AND m.delete_yn   = 'N'
+    LIMIT 1
+  </select>
+
+  <select id="existsByCode" resultType="boolean">
+    SELECT COUNT(*) > 0
+    FROM tb_complaint_master
+    WHERE site_id    = #{siteId}
+      AND master_code = #{masterCode}
+      AND delete_yn  = 'N'
+    <if test="excludeId != null and excludeId != ''">
+      AND complaint_master_id != #{excludeId}
+    </if>
+  </select>
+
+  <insert id="insert">
+    INSERT INTO tb_complaint_master (
+      complaint_master_id, site_id, master_code, master_name,
+      description, menu_id, notice_html,
+      allow_member_yn, allow_oauth2_yn, allow_nice_yn, captcha_yn,
+      show_in_list,
+      file_yn, file_count_max, file_size_max,
+      answer_required_yn, answer_deadline_days,
+      use_yn, delete_yn,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    ) VALUES (
+      #{complaintMasterId}, #{siteId}, #{masterCode}, #{masterName},
+      #{description}, #{menuId}, #{noticeHtml},
+      #{allowMemberYn}, #{allowOauth2Yn}, #{allowNiceYn}, #{captchaYn},
+      #{showInList},
+      #{fileYn}, #{fileCountMax}, #{fileSizeMax},
+      #{answerRequiredYn}, #{answerDeadlineDays},
+      #{useYn}, 'N',
+      #{createdBy}, #{createdIp}, #{createdAt},
+      #{updatedBy}, #{updatedIp}, #{updatedAt}
+    )
+  </insert>
+
+  <update id="update">
+    UPDATE tb_complaint_master SET
+      <if test="masterName != null and masterName != ''">master_name=#{masterName},</if>
+      <if test="description != null and description != ''">description=#{description},</if>
+      <if test="menuId != null and menuId != ''">menu_id=#{menuId},</if>
+      <if test="noticeHtml != null and noticeHtml != ''">notice_html=#{noticeHtml},</if>
+      <if test="allowMemberYn != null and allowMemberYn != ''">allow_member_yn=#{allowMemberYn},</if>
+      <if test="allowOauth2Yn != null and allowOauth2Yn != ''">allow_oauth2_yn=#{allowOauth2Yn},</if>
+      <if test="allowNiceYn != null and allowNiceYn != ''">allow_nice_yn=#{allowNiceYn},</if>
+      <if test="captchaYn != null and captchaYn != ''">captcha_yn=#{captchaYn},</if>
+      <if test="showInList != null and showInList != ''">show_in_list=#{showInList},</if>
+      <if test="fileYn != null and fileYn != ''">file_yn=#{fileYn},</if>
+      <if test="fileCountMax != null">file_count_max=#{fileCountMax},</if>
+      <if test="fileSizeMax != null">file_size_max=#{fileSizeMax},</if>
+      <if test="answerRequiredYn != null and answerRequiredYn != ''">answer_required_yn=#{answerRequiredYn},</if>
+      <if test="answerDeadlineDays != null">answer_deadline_days=#{answerDeadlineDays},</if>
+      updated_by=#{updatedBy}, updated_ip=#{updatedIp}, updated_at=#{updatedAt}
+    WHERE complaint_master_id = #{complaintMasterId}
+  </update>
+
+  <update id="updateUseYn">
+    UPDATE tb_complaint_master SET use_yn = #{useYn}
+    WHERE complaint_master_id = #{complaintMasterId}
+  </update>
+
+  <update id="softDelete">
+    UPDATE tb_complaint_master SET delete_yn = 'Y'
+    WHERE complaint_master_id = #{complaintMasterId}
+  </update>
+
+</mapper>
+
