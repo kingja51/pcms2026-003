@@ -12,7 +12,7 @@
 `pcms2026-001`(v0.1.0, 동작하는 참조 구현)의 검증된 자산을 **페이즈 순서에 맞춰 선별 이식**한다.
 백지에서 새로 쓰는 것이 아니라, **이식 대상과 순서를 플랜이 통제**하는 것이 001·002와의 차이다.
 
-> **참조 우선순위**: ① [개발가이드.md](개발가이드.md) → ② `pcms2026-001` 실측 코드·DDL → ③ `gopcms2026` 원본.
+> **참조 우선순위**: ① [개발가이드.md](개발가이드.md) → ② `pcms2026-001` 실측 코드·DDL → ③ `pcms2026-001` 원본.
 > **`pcms2026-002` 는 코드·문서 모두 참조하지 않는다**(정리되지 않은 상태로 폐기).
 
 ### 최종 DoD
@@ -74,7 +74,8 @@
 - [ ] `logback-spring.xml` 이식
 - [ ] **3-DB 구성** — `config/datasource/`: `GopcmsDataSourceProperties`, `DataSourceFactory`,
       `PrimaryDataSourceConfig`, `SecondaryDataSourceConfig`, `LoggingDataSourceConfig`
-- [ ] **MyBatis 구성** — `config/mybatis/`: `MyBatisDefaults`, DB별 `*MyBatisConfig`(SqlSessionFactory·매퍼 스캔·드라이버별 XML 경로)
+- [ ] **MyBatis 구성** — `config/mybatis/`: `MyBatisDefaults`, DB별 `*MyBatisConfig`
+      (SqlSessionFactory·매퍼 스캔·`classpath*:mapper/{db}/**/*_maria.xml`)
 - [ ] 진입점 — `GopcmsApplication`(`main()` + `SpringBootServletInitializer` 이중 진입점)
 - [ ] eGovFrame 설정(`config/egov/`) 이식
 - [ ] **Flyway 도입** — `db/migration/{db}/{vendor}/` 구조, DataSource별 Flyway 빈, `baselineOnMigrate`
@@ -215,7 +216,7 @@
 - [ ] **파일** — `tb_file`, `tb_file_group`. **업로드 6중 방어**(개발가이드 §10-3),
       다운로드 이력, 미리보기, 파일 그룹 UUID 일관성(생성 폼에서 그룹 재사용)
 - [ ] 각 신규 URL 의 `tb_role_url_access` 규칙 등록
-- [ ] 매퍼 3벤더 XML 동시 작성
+- [ ] 매퍼 XML 작성 — **`*_maria.xml` 단일**(MariaDB 전용, 개발가이드 §6-4)
 
 #### DoD
 
@@ -223,7 +224,7 @@
 - 게시판 8유형 중 대표 3유형 작성 → 상세 → 댓글 → 좋아요 → 신고
 - 파일 방어 시나리오 차단 — 확장자 위조, 경로 조작, 허용 외 확장자
 - 배너/팝업 없이도 레이아웃 정상 렌더(빈 컬렉션 안전값)
-- ArchUnit 전건 통과 · 매퍼 3벤더 개수 일치 · `${}` 0건
+- ArchUnit 전건 통과 · 매퍼 XML 전량 `_maria.xml` · `${}` 0건
 
 **범위 밖** — 검색 색인(P6), 회원 전용 권한(P5 이후), 통계(P7).
 
@@ -245,7 +246,7 @@
 - [ ] **휴면 해제 본인확인 — 실명인증 / 이메일 OTP 택1** (개발가이드 §10-6)
       - [ ] 수단 선택 화면 — 두 경로 진입점, 성공 후 처리는 동일(역이관 + `restored_at`)
       - [ ] **A. 실명인증** — `primary/identity` `NiceCheckService` 연동, **DI 해시(`di_hash`) 대조**
-      - [ ] **B. 이메일 OTP** — **`tb_member_otp` 신규**(마이그레이션 + 3벤더 DDL)
+      - [ ] **B. 이메일 OTP** — **`tb_member_otp` 신규**(마이그레이션 + MariaDB DDL)
             - [ ] 발송 — 6자리 숫자, 유효 5분, **해시 저장**(평문 금지), 재발송 쿨다운 60초·시간당 상한
             - [ ] 수신처는 휴면 스냅샷 이메일 — **입력 이메일 해시가 일치할 때만 발송**
             - [ ] 검증 — **상수 시간 비교**, 시도 5회 초과 시 폐기, 성공 시 **즉시 소비**(1회용)
@@ -373,7 +374,7 @@
 1. 작업 후 `./mvnw -o compile` 통과
 2. 도메인 추가 시 `./mvnw test -Dtest=ArchitectureTest` 통과
 3. **신규 URL 추가 시 `tb_role_url_access` 규칙 등록**
-4. **매퍼 수정 시 3벤더 XML 동기 수정** · `${}` 0건
+4. **매퍼 XML 은 `*_maria.xml` 단일** — 다른 접미사 파일 0건 · `${}` 0건
 5. 화면 작업 시 **인라인 핸들러 0건 · raw hex 0건**(개발가이드 §15 grep)
 6. **커밋 전 `.env` 스테이징 여부 확인**
 7. 페이즈 완료 = 체크박스 갱신 + 커밋
@@ -388,7 +389,7 @@
 | # | 항목 | 선택지 | 필요 시점 | 결정 |
 |---|---|---|---|---|
 | D1 | **Flyway 실행 계정** — 앱 계정에 DDL 권한이 없는 기존 방침과 충돌 | ① DDL 권한 전용 flyway 계정 분리 ② 앱 계정에 DDL 부여 ③ 로컬·dev 만 활성, 운영은 DBA 집행 | **P0** | |
-| D2 | **Flyway 적용 범위** | ① 3개 DB 전부 ② primary 만 | **P0** | |
+| D2 | **Flyway 적용 범위** | ① 3개 DB 전부 ② primary 만 | **P0** | ✅ 2026-07-31 — **① 3개 DB 전부**. DataSource별 Flyway 빈 3개 명시 구성 |
 | D3 | **git 원격 저장소** — 사용 여부 및 URL | | **P0** | ✅ 2026-07-31 — `https://github.com/kingja51/pcms2026-003` (public). 기본 브랜치 `main` |
 | D4 | **로컬 DB·데이터 경로** — 001과 공유할지 분리할지(스키마명, 업로드/로그 경로) | | **P0** | ✅ 2026-07-31 — 001과 **분리**. MariaDB 11.8.3 `pcms2026-003-{primary,logging,secondary}` (업로드·로그 경로 미정) |
 | D5 | **Namo CrossEditor 4** 납품 패키지 확보 시점 및 제품 API 확인 | | P3 | |
@@ -403,7 +404,7 @@
 
 | 발견일 | 내용 | 발견 페이즈 | 심각도 | 처리 |
 |---|---|---|---|---|
-| 2026-07-31 | **001 MyBatis 설정이 `_maria.xml` 을 하드코딩**한다(`{Primary,Secondary,Logging}MyBatisConfig` 의 `classpath*:mapper/**/*_maria.xml`). 드라이버 환경변수와 무관하게 maria 만 로드된다 — mysql·postgres XML 84개씩이 실제로는 사용되지 않는 상태. 003 이식 시 벤더 선택 방식을 정해야 한다 | P0 | 중 | 미정 |
+| 2026-07-31 | **001 MyBatis 설정이 `_maria.xml` 을 하드코딩**한다(`{Primary,Secondary,Logging}MyBatisConfig` 의 `classpath*:mapper/**/*_maria.xml`). 드라이버 환경변수와 무관하게 maria 만 로드된다 — mysql·postgres XML 84개씩이 실제로는 사용되지 않는 상태 | P0 | 중 | ✅ **해결 2026-07-31** — 003 은 **maria 단일 확정**. 접미사 `_maria` 는 유지. CLAUDE/AGENTS/README/개발가이드 §2·§3·§6-2·§6-4·§6-5·§15, PLAN 상시게이트 4·P4·§8 반영 |
 | 2026-07-31 | **`sql/` 덤프에 뷰 5개 미반입** — 라이브 `pcms2026_primary` 에 뷰 9개인데 덤프는 4개. 누락: `v_bbs_article_search`·`v_content_published`·`v_file_search`·`v_menu_search`·`v_schedule_search` | P0 | 중 | 미정 |
 | 2026-07-31 | **secondary 덤프 7테이블 누락** — 라이브 10 vs 덤프 3. `tb_g2b_*` 4종 + `tb_lab`·`tb_staff`·`tb_syllabus`. 003 이식 대상인지 미결 | P0 | 중 | 미정 |
 | 2026-07-31 | **`sql/` 구조가 개발가이드 §3 과 불일치** — 가이드는 `sql/{mariadb,mysql,postgres}/`, 실제는 플랫 3파일 MariaDB 전용 | P0 | 중 | 미정 |
@@ -424,7 +425,7 @@
 |---|---|---|
 | **범위 확대**(001·002 재발) | 일정 지연·되돌리기 | §2 진행 규칙, 페이즈별 "범위 밖" 명시, §7 발견 사항 기록 |
 | **인라인 핸들러가 CSP에 조용히 차단** | 확인창 없이 삭제 실행 등 무증상 결함 | P3에서 위임 규약 확정, DoD에 grep 검사 |
-| **매퍼 3벤더 비동기화** | 벤더 전환 시 즉시 장애 | 상시 게이트 4 |
+| **다른 벤더 DB 로 전환 요구** | maria 단일이라 매퍼·DDL 전량 재작성 | 단일 벤더는 의도된 선택(§6-4). 전환 시 별도 페이즈로 다룬다 |
 | **신규 URL 접근 규칙 누락** | 화면이 열리지 않음 | 상시 게이트 3 |
 | **정적 자원 permitAll 누락** | 폰트·CSS 가 조용히 폴백 | P2 작업 항목에 명시, P3 DoD에서 200 확인 |
 | **비밀값 커밋** | 자격증명 유출 | `.env.example` 템플릿 원칙, 상시 게이트 6 |

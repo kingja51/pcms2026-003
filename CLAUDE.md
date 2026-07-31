@@ -12,7 +12,7 @@ Java 21(Virtual Threads) / Spring Boot 3.5.9 / MyBatis 전용(JPA 금지) / Thym
 
 1. **[doc/개발가이드.md](doc/개발가이드.md)** — 이 프로젝트의 정본
 2. **`D:\claude\pcms2026-001`** — 동작하는 참조 구현. **이식 원본**
-3. `D:\claude\gopcms2026` — 최초 원본
+3. `D:\claude\pcms2026-001` — 최초 원본
 
 - **`pcms2026-002` 는 코드·문서 모두 참조하지 않는다.** 정리되지 않은 상태로 폐기됐고, 교훈은 개발가이드 §1-2로 흡수했다.
 - **문서와 실측이 다르면 실측이 맞다.** (예: 001 문서는 PK를 `varchar(36)`이라 적었으나 실제 DDL은 **`varchar(40)`**)
@@ -52,7 +52,7 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 - **컴파일 통과가 1차 검증 기준.**
 - 비밀값 미주입 시 **fail-fast 부팅 실패는 의도된 동작** — `.env.example` 참고.
 - Tailwind는 CLI 빌드 필수(CDN 금지). 오프라인 자바 검증만 `-Dtailwind.skip=true`.
-- 프런트 규약(인라인 핸들러·raw hex·`${}`·매퍼 3벤더) 검사 grep 은 개발가이드 §15.
+- 프런트 규약(인라인 핸들러·raw hex·`${}`) 검사 grep 은 개발가이드 §15.
 
 ## 버전관리
 
@@ -77,7 +77,7 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 
 - **Service**: 인터페이스 + `EgovAbstractServiceImpl` 상속. 클래스 레벨 `@Transactional(readOnly=true, transactionManager=…)` 기본,
   **쓰기 메서드는 반드시 writable override**. 생성자 주입.
-- **Mapper**: `@Mapper` 인터페이스 + 드라이버별 XML(`*_maria.xml`/`*_mysql.xml`/`*_postgres.xml`) — **3중 파일 동기 수정**.
+- **Mapper**: `@Mapper` 인터페이스 + XML **`*_maria.xml` 단일**(MariaDB 전용).
   namespace ↔ FQN 1:1. **전량 `#{}` 바인딩, `${}` 절대 금지**(SQLi). LIKE 와일드카드 이스케이프.
 - **Controller 접미사**: `ApiController`(REST `/api/**`) / `UsrController`(사용자) / `MngController`(관리자 `/admin/**`).
   Mapper 직접 호출 금지 — Service 경유. CUD는 try-catch + log + flash + `HX-Redirect`.
@@ -133,7 +133,7 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 - `spring.datasource`가 아니라 커스텀 DataSource 3개라 **자동설정 불가** — DataSource별 Flyway 빈 명시 구성.
 - **적용된 마이그레이션 파일은 수정하지 않는다**(체크섬 불일치로 기동 실패) — 새 버전을 추가한다.
 - **시드 데이터는 마이그레이션에 넣지 않는다**(데모 데이터가 운영에 딸려 가면 안 됨). 단, 참조 데이터(공통코드·기본 접근규칙)는 포함.
-- 신규 테이블은 UUID v7 PK + 감사컬럼 6종 + **3벤더 DDL 동시 작성**. 상세는 개발가이드 §6.
+- 신규 테이블은 UUID v7 PK + 감사컬럼 6종 + **MariaDB DDL**. 상세는 개발가이드 §6.
 
 ## 배치 / 스케줄러
 

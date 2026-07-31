@@ -17,7 +17,7 @@
 |---|---|
 | 1 | [doc/개발가이드.md](doc/개발가이드.md) — 이 프로젝트 정본 |
 | 2 | `D:\claude\pcms2026-001` — 동작하는 참조 구현(이식 원본) |
-| 3 | `D:\claude\gopcms2026` — 최초 원본 |
+| 3 | `D:\claude\pcms2026-001` — 최초 원본 |
 
 `pcms2026-002` 는 **참조하지 않는다**(정리되지 않은 상태로 폐기, 교훈은 개발가이드 §1-2로 흡수).
 
@@ -27,7 +27,7 @@
 |---|---|
 | 런타임 | Java 21 (Virtual Threads) — **DevTools 금지** |
 | 프레임워크 | Spring Boot 3.5.9, Spring Security 6, eGovFrame 5.0 |
-| 영속 | **MyBatis 전용** (JPA 금지), 드라이버별 XML 매퍼(maria/mysql/postgres) |
+| 영속 | **MyBatis 전용** (JPA 금지), XML 매퍼 `*_maria.xml` 단일(MariaDB 전용) |
 | DB | MariaDB 기준 — **3개 분리**: primary / secondary / logging |
 | 마이그레이션 | **Flyway** |
 | 뷰 | Thymeleaf + htmx + **순수 JavaScript** (JS 프레임워크 금지) |
@@ -62,7 +62,7 @@ pcms2026-003/
 │       └── resources/
 │           ├── application*.yml           # 주석 = 운영 정책 문서
 │           ├── db/migration/{primary,secondary,logging}/{vendor}/
-│           ├── mapper/…                   # 드라이버별 XML
+│           ├── mapper/…                   # *_maria.xml
 │           ├── templates/{fragments,admin,front,mail}/
 │           └── static/{css,js,fonts,img}/
 ├── sql/{mariadb,mysql,postgres}/         # 시드·참고 DDL
@@ -97,7 +97,7 @@ npm run css:watch    # 개발 중 CSS 반복 빌드
 - **컴파일 통과 = 1차 검증 기준.**
 - Tailwind는 CLI 빌드 필수. 오프라인 자바 검증만 `-Dtailwind.skip=true`.
 - 로컬 포트 기본 8080. 점유 시 `--server.port=8090`.
-- 프런트 규약 검사(인라인 핸들러·raw hex·`${}`·매퍼 3벤더 동기화) grep 은 [개발가이드 §15](doc/개발가이드.md#15-검증-게이트).
+- 프런트 규약 검사(인라인 핸들러·raw hex·`${}`·매퍼 파일명) grep 은 [개발가이드 §15](doc/개발가이드.md#15-검증-게이트).
 
 ## 프로파일
 
