@@ -333,7 +333,7 @@ public class BoardArticleServiceImpl extends EgovAbstractServiceImpl implements 
                 + ",\"writerUserId\":" + JsonUtils.quote(existing.getWriterUserId()) + "}")
             .withResult("SUCCESS"));
 
-        // 첨부 파일 일괄 비활성 — 같은 트랜잭션. 물리 삭제는 FilePurgeScheduler 가 180일 후 회수.
+        // 첨부 파일 일괄 비활성 — 같은 트랜잭션. 물리 삭제는 retention(FileRetentionTarget) 이 180일 후 회수.
         cascadeFileGroupSoftDelete(existing.getFileGroupId(), articleId);
     }
 
@@ -710,7 +710,7 @@ public class BoardArticleServiceImpl extends EgovAbstractServiceImpl implements 
      *
      * <p>article delete_yn='Y' 와 같은 트랜잭션에 묶여 정합성 보장.
      * file_group 자체는 그대로 두고 tb_file 행만 비활성 — 그룹 단위 hard 삭제는
-     * FilePurgeScheduler 가 retention(180일) 경과 후 처리.
+     * SoftDeleteRetentionScheduler(FileRetentionTarget) 가 retention(180일) 경과 후 처리.
      *
      * <p>fileGroupId 가 null/blank 이면 첨부 없는 글이라 no-op.
      */

@@ -362,21 +362,27 @@ gopcms:
         max-pool: 4
         queue-capacity: 100
         thread-name-prefix: thumb-
-    # ----------------------------------------------------------------------
-    # 파일 물리 삭제 배치 — 매일 새벽 04시 (Asia/Seoul).
-    # 정책: delete_yn='Y' 이고 updated_at 가 retention-days 이상 경과한 파일을
-    #       uploads / thumbnail / quarantine 세 저장소에서 모두 삭제 + tb_file 행 hard delete.
-    # 6개월 유예는 문제 있는 파일 삭제 조작을 감지하기 위한 감사 창구다.
+    # ── 트리거 통일 (2026-08-01) ──────────────────────────────────────────
+    # 이전에는 자체 cron(04:00) 과 retention(04:30) 두 스케줄러가 같은 정리를 돌렸다.
+    # 문제는 중복 실행이 아니라 **cutoff 와 중단 스위치가 갈렸다**는 점이다:
+    #   · 04:00 은 retention-days(180일)로, 04:30 은 buckets.tb_file 로 잘랐다
+    #   · retention.dry-run=true 로 꺼도 04:00 실행은 막히지 않았다
+    #     → "껐는데 파일이 지워졌다" 가 가능한 구성이었다
     #
-    # 본 자체 cron(04:00) 과 retention(04:30) 두 스케줄러가 같은 서비스를 호출한다.
-    # 동일 cutoff 면 두 번째 실행은 candidates=0 으로 무해. retention bucket(tb_file)과
-    # retention-days 를 일치시킬 것. retention 으로 일원화하려면 enabled=false 권장.
+    # FilePurgeScheduler 를 없애고 FileRetentionTarget 하나로 모았다.
+    # 이제 자동 실행은 gopcms.retention 이 전부 통제한다:
+    #   중단   gopcms.retention.enabled=false
+    #   시각   gopcms.retention.cron
+    #   cutoff gopcms.retention.buckets.tb_file
     # ----------------------------------------------------------------------
     purge:
-      enabled: true
-      cron: "0 0 4 * * *"     # 매일 04:00
-      retention-days: 180     # 약 6개월 — buckets.tb_file (DAYS_180) 과 동일 정책
+      # ⚠️ enabled·retention-days 는 **수동 트리거(runOnce) 전용**이다.
+      #    자동 정리에는 관여하지 않는다 — 위 gopcms.retention 을 볼 것.
+      enabled: true           # runOnce 만 막는다. 자동 정리는 retention.enabled 소관
+      retention-days: 180     # runOnce 의 cutoff. 자동 정리는 buckets.tb_file 을 쓴다
       batch-size: 500         # 한 번 실행 시 최대 처리 건수 (DB 부하 조절)
+      # dry-run 은 자동·수동 양쪽에 걸린다(runForCutoff 안쪽에서 삭제를 막는다).
+      # retention.dry-run 과 둘 중 하나만 true 여도 지워지지 않는 fail-closed 구성.
       dry-run: false          # true 면 로그만 남기고 실제 삭제 안 함 — 초기 검증용
     # ----------------------------------------------------------------------
     # ClamAV 스캔 — 별도 JAR Daemon 으로 분리.

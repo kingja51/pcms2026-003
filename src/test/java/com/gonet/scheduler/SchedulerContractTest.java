@@ -43,14 +43,20 @@ class SchedulerContractTest {
     );
 
     /**
-     * dry-run 이 아직 없는 파괴적 배치 — **의도적으로 목록에서 뺀 것**이다.
+     * 되살아나면 안 되는 스케줄러 — 지운 데는 이유가 있다.
      *
-     * <p>{@code FilePurgeScheduler} 는 디스크 파일까지 지우지만 dry-run 이 없다.
-     * 다만 같은 정리를 {@code FileRetentionTarget} 경유로도 하는데 그 경로에는
-     * {@code SoftDeleteRetentionScheduler} 의 dry-run 이 걸린다 —
-     * **같은 작업에 트리거가 둘**인 것이 먼저 정리할 문제다(PLAN §7).
+     * <p>{@code FilePurgeScheduler} 는 {@code FileRetentionTarget} 과 <b>같은 정리를
+     * 서로 다른 cutoff·중단 스위치로</b> 돌렸다. {@code retention.dry-run=true} 로 꺼도
+     * 04:00 실행은 막히지 않아 "껐는데 파일이 지워졌다" 가 가능했다.
+     * 2026-08-01 에 트리거를 {@code FileRetentionTarget} 하나로 통일했다.
+     *
+     * <p>나머지 둘은 도메인 자체가 없다 — GenAI SDK 미도입, 날씨 미이식.
      */
-    private static final List<String> DRY_RUN_DEFERRED = List.of("FilePurgeScheduler");
+    private static final List<String> MUST_NOT_RETURN = List.of(
+        "FilePurgeScheduler",
+        "GeminiFileRenewScheduler",
+        "WeatherCollectScheduler"
+    );
 
     @Test
     @DisplayName("모든 @Scheduled cron 은 ${...:기본값} 으로 외부화돼 있다")
@@ -104,10 +110,23 @@ class SchedulerContractTest {
     }
 
     @Test
-    @DisplayName("이식 제외 스케줄러가 딸려오지 않았다 — Gemini·날씨는 도메인 자체가 없다")
-    void excludedSchedulersAreAbsent() {
-        assertThat(SCHEDULER_DIR.resolve("GeminiFileRenewScheduler.java")).doesNotExist();
-        assertThat(SCHEDULER_DIR.resolve("WeatherCollectScheduler.java")).doesNotExist();
+    @DisplayName("제외·삭제한 스케줄러가 되살아나지 않았다")
+    void removedSchedulersStayRemoved() {
+        for (String name : MUST_NOT_RETURN) {
+            assertThat(SCHEDULER_DIR.resolve(name + ".java"))
+                .as(name + " 는 되살아나면 안 된다 — javadoc 참조").doesNotExist();
+        }
+    }
+
+    @Test
+    @DisplayName("파일 정리 트리거는 하나뿐이다 — FileRetentionTarget 경유")
+    void filePurgeHasSingleTrigger() {
+        // 스케줄러가 FilePurgeService 를 직접 부르면 트리거가 다시 둘이 된다.
+        for (Path f : schedulerFiles()) {
+            assertThat(read(f))
+                .as(f.getFileName() + " 가 FilePurgeService 를 직접 호출한다")
+                .doesNotContain("FilePurgeService");
+        }
     }
 
     // ------------------------------------------------------------------

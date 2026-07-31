@@ -12,6 +12,85 @@
 ---
 
 ```
+================ 2026.8.1 04:48:10 =======================
+```
+
+## 후속 — 파일 정리 트리거를 `FileRetentionTarget` 으로 통일
+
+**완료**: 2026-08-01 04:48:10
+**배경**: P7 에서 기록한 미해결 1건. 사용자 결정으로 `FileRetentionTarget` 채택.
+
+### P7 기록을 정정한다
+
+P7 에서 "`FileRetentionTarget` 쪽에만 dry-run 이 걸린다" 고 적었는데 **틀렸다.**
+`dry-run` 은 `FilePurgeService.runForCutoff` **안쪽**에 있어 두 경로 모두 지켜진다.
+
+진짜 문제는 다른 것이었다 — **cutoff 와 중단 스위치가 갈렸다**:
+
+| | 시각 | cutoff | 중단 |
+|---|---|---|---|
+| `FilePurgeScheduler` | 04:00 | `file.purge.retention-days`(180일) | `file.purge.enabled` |
+| `FileRetentionTarget` | 04:30 | `retention.buckets.tb_file` | `retention.enabled` |
+
+같은 정리가 하루 두 번, 서로 다른 기준으로 돌았다. 더 나쁜 건
+**`retention.dry-run=true` 로 꺼도 04:00 실행은 막히지 않았다**는 점이다 —
+"껐는데 파일이 지워졌다" 가 가능한 구성이었다.
+
+### 한 일
+
+`FilePurgeScheduler` 를 삭제하고 참조 6곳을 정리했다.
+
+- `FileRetentionTarget` — javadoc 을 "권고" 에서 **단일 트리거 확정**으로. 왜 없앴는지도 남겼다
+- `FilePurgeService` — 클래스 javadoc 의 `{@link FilePurgeScheduler}`(삭제된 클래스)를 교체.
+  `runOnce()` 를 **수동 트리거 전용**으로 명시
+- `runForCutoff` 로그에서 `retentionDays` 제거 — cutoff 는 bucket 이 결정하는데
+  다른 출처의 값을 나란히 찍으면 원인 추적을 방해한다
+- `BoardArticleServiceImpl` 주석, 감사 가이드 화면
+- `application.yml` — `gopcms.file.purge.cron` 제거.
+  `enabled`·`retention-days` 는 **수동 트리거 전용**임을 주석에 명시
+
+### 남은 설정의 의미
+
+| 키 | 이제 무엇을 하나 |
+|---|---|
+| `retention.enabled` | 자동 파일 정리의 **유일한 중단 스위치** |
+| `retention.cron` · `retention.buckets.tb_file` | 시각·cutoff 단일 출처 |
+| `file.purge.dry-run` | 자동·수동 **양쪽**에 걸린다(삭제 직전에서 막는다) |
+| `file.purge.enabled` · `retention-days` | `runOnce()` 수동 트리거 전용 |
+
+`retention.dry-run` 과 `file.purge.dry-run` 은 **둘 중 하나만 true 여도 지워지지 않는다**
+(fail-closed). 안전한 방향이라 그대로 뒀고 관계를 yml 에 적었다.
+
+### 되살아나지 않도록
+
+`SchedulerContractTest` 에 단언 2건을 추가했다(총 5건):
+
+- `FilePurgeScheduler`·`GeminiFileRenewScheduler`·`WeatherCollectScheduler` 파일 부재
+- **어떤 스케줄러도 `FilePurgeService` 를 직접 호출하지 않을 것** — 직접 부르면
+  트리거가 다시 둘이 된다. 파일 부재만으로는 이걸 못 막는다
+
+### 작업 중 낸 회귀 하나
+
+yml 편집 스크립트가 `purge:` 블록을 2칸 더 들여써서 `gopcms.file.purge` 가
+**`gopcms.file.upload.purge`** 로 잘못 중첩됐다. 파싱은 통과하고 테스트도 통과해
+**아무 신호 없이** 파일 정리 설정이 전부 기본값으로 떨어질 뻔했다.
+
+HEAD 와 **키 경로를 평탄화해 전수 대조**해서 잡았다 — 의도한
+`gopcms.file.purge.cron` 제거 1건 외에 추가·변경 0을 확인했다.
+YAML 은 들여쓰기가 곧 구조라 텍스트 편집이 위험하다는 걸 다시 확인한 셈이다.
+
+### 검증
+
+```
+전체 테스트 53건 (SchedulerContractTest 4 → 5)
+스케줄러 6종 → 5종
+스케줄러의 FilePurgeService 직접 호출 0건
+yml 키 대조 — 제거 1(의도) · 추가 0 · 값변경 0
+```
+
+---
+
+```
 ================ 2026.8.1 04:05:30 =======================
 ```
 
@@ -137,8 +216,8 @@ P8 이 디자인 프로젝트가 된다. 다르게 가려면 알려 주면 된�
 ### 미해결
 
 1. **외부 Tomcat 배포 리허설** — war 구조는 확인, 실제 기동은 미실행
-2. **파일 정리 트리거 이중화**(P7 이월) — `FilePurgeScheduler` vs `FileRetentionTarget`
-3. 누적된 기동 검증 — P4~P8 의 DoD 왕복
+2. 누적된 기동 검증 — P4~P8 의 DoD 왕복
+   (파일 정리 트리거 이중화는 2026-08-01 해소 — 위 항목 참조)
 
 ---
 

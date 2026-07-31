@@ -21,7 +21,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 파일 물리 삭제 배치 — {@link FilePurgeScheduler} 가 매일 04:00 호출.
+ * 파일 물리 삭제 배치 — {@link com.gonet.primary.file.retention.FileRetentionTarget} 경유로
+ * {@code SoftDeleteRetentionScheduler} 가 호출한다(2026-08-01 트리거 통일).
  *
  * <p>처리 대상: {@code tb_file.delete_yn='Y'} + {@code updated_at < (now - retentionDays)}.
  * 유예 기간은 "문제 있는 파일을 숨기려고 삭제한 조작" 을 감지하기 위한 감사 창구.
@@ -60,6 +61,14 @@ public class FilePurgeService {
     }
 
     /** 배치 1회 실행 — 스케줄러 또는 수동 호출 가능. 자체 cutoff 사용. */
+    /**
+     * <b>수동 트리거 전용</b> — 자동 스케줄에서는 호출되지 않는다(2026-08-01 통일).
+     *
+     * <p>cutoff 를 {@code gopcms.file.purge.retention-days} 로 자체 계산하므로
+     * retention bucket 과 값이 다를 수 있다. 정기 정리는 {@code FileRetentionTarget}
+     * 경로가 담당하고, 이 메서드는 운영자가 즉시 한 번 돌리고 싶을 때만 쓴다.
+     * {@code gopcms.file.purge.enabled=false} 면 아무것도 하지 않는다.
+     */
     public PurgeResult runOnce() {
         if (!properties.isEnabled()) {
             log.info("===FILE_PURGE skip (disabled by config)");
@@ -78,8 +87,12 @@ public class FilePurgeService {
      * RetentionScheduler 의 bucket cutoff 가 그대로 적용된다. 디스크 파일(upload/quarantine/thumbnail)
      * 까지 통합 정리되어 retention 이 DB row 만 삭제하고 디스크 orphan 을 만드는 회귀를 차단.
      *
-     * <p>{@code enabled=false} 여도 본 메서드는 호출자 의도(retention)를 우선해 동작.
-     * 비활성 게이트는 자체 cron({@link com.gonet.scheduler.FilePurgeScheduler}) 만 막는다.
+     * <p><b>이 메서드가 실제 정리의 단일 진입점이다</b>(2026-08-01 트리거 통일).
+     * {@code FileRetentionTarget} → {@code SoftDeleteRetentionScheduler} 경로로만 불린다.
+     *
+     * <p>{@code gopcms.file.purge.enabled} 는 보지 않는다 — 호출자(retention)의 의도를
+     * 우선한다. 자동 실행을 멈추려면 {@code gopcms.retention.enabled=false} 를 쓴다.
+     * 실제 삭제는 {@code gopcms.file.purge.dry-run} 이 아래에서 한 번 더 막는다.
      */
     public PurgeResult runForCutoff(LocalDateTime cutoff) {
         List<FileItem> candidates;
@@ -91,8 +104,9 @@ public class FilePurgeService {
         }
 
         if (candidates.isEmpty()) {
-            log.info("===FILE_PURGE no candidates (cutoff={}, retentionDays={})",
-                cutoff, properties.getRetentionDays());
+            // cutoff 는 호출자(retention bucket)가 결정한다. retentionDays 는 runOnce
+            // 전용 값이라 여기 찍으면 서로 다른 값이 나란히 보여 원인 추적을 방해한다.
+            log.info("===FILE_PURGE no candidates (cutoff={})", cutoff);
             return new PurgeResult(0, 0, 0);
         }
 

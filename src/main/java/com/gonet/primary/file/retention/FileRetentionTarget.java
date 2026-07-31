@@ -20,10 +20,19 @@ import java.time.LocalDateTime;
  * 파일이 orphan 으로 남는다. 본 target 은 {@link FilePurgeService#runForCutoff} 로 위임하여
  * 디스크 + DB 동시 정리. 같은 cutoff 를 두 번 만나도 두 번째는 candidates 가 0 이라 무해.
  *
- * <p>cutoff 정책 — RetentionScheduler 의 bucket(예: DAYS_30) 이 단일 출처. 기존
- * {@code gopcms.file.purge.retention-days} 는 {@link com.gonet.scheduler.FilePurgeScheduler}
- * 의 자체 cron 에서만 사용. 정책 일원화를 위해 운영에서 FilePurgeScheduler 를 비활성하고
- * retention 으로 통합 운영 권고 (CLAUDE.md §0.36 운영 가이드).
+ * <p><b>파일 정리의 유일한 자동 트리거다</b>(2026-08-01 통일).
+ *
+ * <p>이전에는 {@code FilePurgeScheduler} 가 04:00 에, 이 target 이 04:30 에 각각
+ * 같은 정리를 돌렸다. 문제는 중복 실행이 아니라 <b>cutoff 와 중단 스위치가 갈렸다</b>는
+ * 점이다 — 04:00 은 {@code file.purge.retention-days}(180일) 로, 04:30 은
+ * {@code retention.buckets.tb_file} 로 잘랐고, {@code retention.dry-run=true} 로 꺼도
+ * 04:00 실행은 막히지 않았다. "껐는데 파일이 지워졌다" 가 가능한 구성이었다.
+ *
+ * <p>그래서 스케줄러를 없애고 여기로 모았다. 이제 cutoff 는 bucket 단일 출처이고,
+ * 중단은 {@code gopcms.retention.enabled}(전체) 또는 {@code gopcms.retention.dry-run}
+ * 하나로 통제된다. {@code gopcms.file.purge.dry-run} 도 여전히 유효하다 —
+ * {@link FilePurgeService#runForCutoff} 안쪽에서 실제 삭제를 막는다(둘 중 하나만
+ * true 여도 지워지지 않는 fail-closed 구성).
  */
 @Component
 public class FileRetentionTarget implements RetentionTarget {

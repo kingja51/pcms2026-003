@@ -512,9 +512,9 @@
       1차 이식에서 빠졌다 — `logging/*` 만 훑었는데 뷰어 컨트롤러는 `primary/system/log` 에 있었다
 - [x] **ShedLock** — `config/shedlock/ShedLockConfig`,
       `@EnableSchedulerLock(defaultLockAtMostFor="PT30M")`, logging DB `shedlock` 테이블
-- [x] **스케줄러 6종** (2026-08-01) — cron 전부 `${…:기본값}` 외부화 확인.
-      **8종이 아니라 6종**이다: `GeminiFileRenewScheduler`(GenAI SDK 미도입)·
-      `WeatherCollectScheduler`(날씨 도메인 미이식) 제외
+- [x] **스케줄러 5종** (2026-08-01) — cron 전부 `${…:기본값}` 외부화 확인.
+      **8종이 아니라 5종**이다: `GeminiFileRenewScheduler`(GenAI SDK 미도입)·
+      `WeatherCollectScheduler`(날씨 미이식) 제외 + `FilePurgeScheduler` 삭제(트리거 통일)
       — **`DormantScheduler` 는 cron 이 하드코딩**(`"0 0 1 * * *"`)이고 dry-run 도 없었다.
         CLAUDE.md 규약 위반이라 이식하면서 교정했다
       — `LogRetentionScheduler` 에 dry-run 신설(count 질의 6종 추가)
@@ -548,6 +548,9 @@
 
 > **🟡 항목은 앱을 띄워야 끝난다.** DB 자격증명이 셸에 없어 기동하지 못했다.
 > `V2026080103` 적용 전에는 Actuator 가 전부 막혀 있다.
+>
+> 파일 정리 트리거 이중화는 **2026-08-01 해소**됐다(§7) — `FileRetentionTarget` 단일.
+> 스케줄러는 6종에서 **5종**이 됐다.
 
 ---
 
@@ -689,7 +692,7 @@
 | 2026-08-01 | **부가 도메인 4종이 URL 최상위 세그먼트를 차지한다** — `/survey`·`/complaint`·`/schedule`·`/holiday`. `DefaultUsrController` 의 `/{siteCode}/{slug}` 패턴과 형태가 겹친다. Spring 이 리터럴을 우선하므로 가로채이지는 않지만, **같은 이름의 site_code 를 만들면 그 사이트가 열리지 않는다** | P6 | 낮음 | 확인만 — 마이그레이션 주석에 기록했다. 사이트 코드 명명 시 이 네 단어를 피할 것. P8 데모에서 사이트를 만들 때 주의 |
 | 2026-08-01 | **Actuator 가 전부 막혀 있었다** — `/actuator/**` 접근 규칙이 없어 무매칭 DENY 가 걸린다. `health` 조차 열리지 않으므로 **LB·컨테이너 헬스체크가 계속 실패**했을 상태다. yml 은 `health,info,metrics,prometheus,httpexchanges` 를 노출하고 있어 설정만 보면 열린 것처럼 보인다 | P7 | **높음** | ✅ **해결 2026-08-01** — `V2026080103`. health·info·prometheus 만 PERMIT_ALL, 나머지는 ROLE_ADMIN. `httpexchanges` 는 최근 요청의 URI·헤더를 담아 사실상 접속 로그라 반드시 관리자 전용이어야 한다 |
 | 2026-08-01 | **`DormantScheduler` 의 cron 이 하드코딩돼 있었다** — `@Scheduled(cron = "0 0 1 * * *")`. CLAUDE.md 규약("cron 은 `${…:기본값}` 으로 외부화하고 dry-run 플래그를 둔다") 위반이다. 스케줄러는 평소 조용해서 규약 위반이 화면처럼 티나지 않고, **급히 꺼야 할 때** 배포가 필요하다는 사실이 드러난다 | P7 | 중 | ✅ **해결 2026-08-01** — cron·enabled·dry-run 외부화. 같은 실수를 자동 검출하도록 `SchedulerContractTest` 신설(cron 외부화·파괴적 배치의 dry-run·`@SchedulerLock` 부착·제외 대상 부재 4건) |
-| 2026-08-01 | **파일 정리에 트리거가 둘이다** — `FilePurgeScheduler.runOnce()` 와 `FileRetentionTarget`(→ `SoftDeleteRetentionScheduler`) 이 같은 정리를 한다. 후자에는 dry-run 이 걸리지만 전자에는 없어서, **어느 경로로 도는지에 따라 dry-run 이 먹기도 하고 안 먹기도 한다** | P7 | 중 | 미정 — `FilePurgeScheduler` 에 dry-run 을 덧대는 것보다 **트리거를 하나로 합치는 편**이 맞다. 디스크 파일 삭제까지 포함하므로 어느 쪽을 남길지는 결정이 필요하다 |
+| 2026-08-01 | **파일 정리에 트리거가 둘이었다** — `FilePurgeScheduler`(04:00) 와 `FileRetentionTarget`→`SoftDeleteRetentionScheduler`(04:30) 가 같은 정리를 돌렸다. ⚠️ **P7 기록 정정**: 처음에 "후자에만 dry-run 이 걸린다" 고 적었는데 틀렸다. `dry-run` 은 `FilePurgeService.runForCutoff` **안쪽**에 있어 양쪽 다 지켜진다. 진짜 문제는 **cutoff 와 중단 스위치가 갈렸다**는 것이다 — 04:00 은 `file.purge.retention-days`(180일)로, 04:30 은 `retention.buckets.tb_file` 로 잘랐고, `retention.dry-run=true` 로 꺼도 04:00 실행은 막히지 않았다. **"껐는데 파일이 지워졌다" 가 가능한 구성** | P7 | 중 | ✅ **해결 2026-08-01 — `FileRetentionTarget` 으로 통일**(사용자 결정). `FilePurgeScheduler` 삭제. 이제 cutoff 는 bucket 단일 출처, 중단은 `retention.enabled`/`retention.dry-run` 으로 통제된다. `file.purge.enabled`·`retention-days` 는 수동 트리거(`runOnce`) 전용으로 의미를 좁히고 yml 주석에 명시. `SchedulerContractTest` 에 **되살아남 방지 단언 2건** 추가(파일 부재 + 스케줄러가 `FilePurgeService` 를 직접 호출하지 않을 것) |
 | 2026-08-01 | **로그 뷰어·통계 컨트롤러가 1차 이식에서 빠졌다** — `logging/*` 패키지만 훑었는데 실제 화면 컨트롤러는 `primary/system/{log,stat}` 에 있었다. 템플릿(`admin/system/log`·`access-stat`)은 P4 에서 이미 들어와 있어 **화면만 있고 컨트롤러가 없는** 상태였다 | P7 | 낮음 | ✅ **해결 2026-08-01** — `primary/system/{log,stat}` 5종 + `logging/viewer` 4종 보완 이식. 패키지 이름만 보고 범위를 정하면 놓친다는 사례 |
 | 2026-08-01 | **`tb_template.layout_path` 컬럼이 없는데 매퍼 17곳이 그것을 SELECT 한다** — 003 베이스라인 DDL 은 `default_layout_id` FK → `tb_layout` **3단 구조**로 바뀌었는데, 이식한 코드는 001 형태(단일 문자열 컬럼) 그대로다. 신설된 `tb_layout`·`tb_theme` 를 읽는 코드는 **0건**이다. `SiteContextService.getContextByCode()` 가 SQL 오류로 죽어 **모든 사용자 사이트 페이지가 렌더되지 않는다**. `file_group_id` 도 같은 상태다(TemplateMapper 가 SELECT, DDL 에 없음) | P8 | **높음** | ✅ **해결 2026-08-01 — A안 채택(D13, 사용자 결정).** `V2026080104` 가 `layout_path`(NOT NULL, backfill 후 승격)·`file_group_id` 를 복원한다. **`default_layout_id` 도 nullable 로 완화**했다 — `TemplateMapper.insert` 가 그 컬럼을 넣지 않아(DTO 에 필드 자체가 없다) NOT NULL 이면 템플릿 신규 등록이 매번 실패한다. 이걸 빠뜨리면 A안이 반쪽이 된다. FK 는 유지 — B안 전환 시 되돌리기 쉽다 |
 | 2026-08-01 | **`spring-boot:repackage` 가 실행되지만 무해하다** — 빌드 로그에 goal 이 찍혀 CLAUDE.md 의 "repackage 안 함" 규약 위반처럼 보인다. 실측하니 `<skip>true</skip>` 로 무력화돼 있고 산출물은 표준 war 다(BOOT-INF 0 · lib-provided 0 · 런처 0 · `WEB-INF/classes`+`lib` 1,713) | P8 | 낮음 | ✅ 확인만 — 수정 불요. 로그만 보고 위반으로 오인하지 않도록 기록해 둔다 |
