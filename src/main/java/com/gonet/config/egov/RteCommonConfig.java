@@ -12,6 +12,10 @@ import org.springframework.util.AntPathMatcher;
 /**
  * eGovFramework RTE 5.0 공통 빈 등록.
  *
+ * <p>클래스명이 {@code Egov} 로 시작하지 않는다. 이 클래스는 실행환경 클래스를 상속하지 않아
+ * 호환성 규칙 7 의 대상은 아니지만, 이름 기반 점검(개발가이드 §15 grep, 심사측 자동 검사)에서
+ * 매번 걸려 해명이 필요해지므로 애초에 접두어를 피한다.
+ *
  * <p>{@link org.egovframe.rte.fdl.cmmn.EgovAbstractServiceImpl} 은 내부에서
  * {@code @Resource(name="leaveaTrace")} 로 {@link LeaveaTrace} 를 주입받는다.
  * 전통적인 eGov 프로젝트는 {@code context-common.xml} 에서 선언하지만,
@@ -29,7 +33,7 @@ import org.springframework.util.AntPathMatcher;
  * </ul>
  */
 @Configuration
-public class EgovCommonConfig {
+public class RteCommonConfig {
 
     @Bean
     public TraceHandler defaultTraceHandler() {

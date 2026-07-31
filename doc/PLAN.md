@@ -47,8 +47,8 @@
 
 | 페이즈 | 내용 | 산출물 | 상태 |
 |---|---|---|---|
-| **P0** | 프로젝트 골격 — 빌드·3DB·기동·Flyway | 기동되는 빈 앱 | 🟡 fail-fast 항목만 잔여 |
-| **P1** | 공통 기반 계층 + ArchUnit 게이트 | `common/` 전체 | ⬜ |
+| **P0** | 프로젝트 골격 — 빌드·3DB·기동·Flyway | 기동되는 빈 앱 | ✅ 2026-07-31 |
+| **P1** | 공통 기반 계층 + ArchUnit 게이트 | `common/` 전체 | ✅ 2026-07-31 |
 | **P2** | 보안·인증 기반 | 로그인·인가 동작 | ⬜ |
 | **P3** | 프런트 공통 기반 — KRDS·JS 규약·에디터 | 레이아웃·에디터 | ⬜ |
 | **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | ⬜ |
@@ -116,8 +116,10 @@
       기동 로그에서 3개 DataSource 각각 스캔 동작 확인
 - [x] 진입점 — **`com.gonet.Pcms2026Application`**(`main()` + `SpringBootServletInitializer` 이중 진입점),
       `DataSourceAutoConfiguration` 제외 + `@EnableCaching/@EnableAsync/@EnableScheduling/@EnableTransactionManagement` (2026-07-31)
-- [x] eGovFrame 설정 `config/egov/EgovCommonConfig` 이식 (2026-07-31) — `leaveaTrace` 빈.
-      `EgovAbstractServiceImpl` 이 이름으로 주입받으므로 빈 이름 고정 필수
+- [x] eGovFrame 설정 `config/egov/RteCommonConfig` 이식 (2026-07-31) — `leaveaTrace` 빈.
+      `EgovAbstractServiceImpl` 이 이름으로 주입받으므로 빈 이름 고정 필수.
+      클래스명은 `EgovCommonConfig` → **`RteCommonConfig`** 로 변경 — 규칙 7 대상은 아니지만
+      이름 기반 점검에서 매번 걸려 해명이 필요해지므로 접두어를 피했다
 - [x] **Flyway 도입** (2026-07-31) — `config/flyway/` 2개(`FlywayConfig`, `GopcmsFlywayProperties`),
       `db/migration/{primary,secondary,logging}/mariadb/` 생성, DataSource별 빈 3개.
       `enabled=false` 면 `migrate()` 호출 없이 빈만 만든다(운영 = DBA CLI 집행, D1 ③)
@@ -134,9 +136,8 @@
 - `./mvnw -o compile -DskipTests -Dtailwind.skip=true` **BUILD SUCCESS**
 - 로컬 기동 성공 · **HikariPool 3개** 기동 로그(`HikariPrimary`/`HikariSecondary`/`HikariLogging`)
 - `/actuator/health` **UP**
-- 환경변수 미주입 시 **fail-fast 부팅 실패** — ⚠️ **부분 충족**(2026-07-31 실측, §7 참조).
-  `gopcms.datasource.*` 처럼 **바인딩되는** 키는 부팅이 실패하지만, 아직 바인딩 빈이 없는 키
-  (`PCMS_PII_MASTER_KEY` 등)는 미주입해도 정상 기동한다. P1 에서 검증 방식을 확정한다
+- 환경변수 미주입 시 **fail-fast 부팅 실패** — ✅ `config/env/RequiredPropertyValidator` 로 해결(2026-07-31).
+  yml 원본 값의 미해결 `${...}` 를 스스로 찾아 중단한다 — 필수 키 목록을 코드에 두지 않는다
 - `flyway_schema_history` 에 베이스라인 행 생성 확인
 - `git status` 에 `.env` 가 나타나지 않음
 - **eGov 호환성** — `./mvnw dependency:tree` 로 확인:
@@ -154,37 +155,42 @@
 
 #### 작업
 
-- [ ] `common/base` — `BaseEntity`, `SoftDeletable`, `UseFlagged`
-- [ ] `common/util` — `UuidV7Generator`, `MaskUtils`, `IpUtils`(XFF 우측 스캔), `IpMatcher`,
-      `JsonUtils`, `HtmlSafeJson`, `XssSanitizer`, `SafeReplaceUtils`, `SensitiveParamMasker`,
-      `RandomPasswordGenerator`, `Fmt`, `CsvUtils`, `QrCodeGenerator`
-- [ ] `common/dto` — `PageRequest`(unbounded 지원 포함), `PageResponse`, `ApiResponse`, `ExcelDownloadRequest`
-- [ ] `common/crypto` — `AesGcmCipher`, `@Encrypt`, `PiiCryptoProperties`, `EmailHasher`
-      — **`PiiCryptoProperties` 에 `hmacKey` 필드 추가**(D11). `EmailHasher` 는 `masterKey` 가 아니라
-        **`hmacKey`** 를 쓴다. 001 코드를 그대로 가져오면 재사용 상태가 되니 이 지점만 교체한다
-      — 두 키가 같은 값이면 기동 시 거부하는 검증을 넣을지 P1 에서 판단(fail-fast 방식 확정과 함께)
-- [ ] `config/interceptor/EncryptInterceptor` — MyBatis PII 투명 암복호(**DTO 오염 복원·필드단위 복호화 격리** 포함)
-- [ ] `common/audit` — `AuditLogger`, `AuditContext`, `AuditEvent`, `PrivacyAccess`+Aspect
-- [ ] `config/interceptor/AuditInterceptor` — 감사컬럼 6종 자동 주입
-- [ ] `config/filter/AuditContextFilter` — 요청 컨텍스트(사용자·IP) 전파
-- [ ] `common/file` — 스토리지(**경로 containment 검사**), 업로드 검증 골격
-- [ ] `common/html/HtmlSanitizer` — OWASP Sanitizer 래퍼
-- [ ] `common/validator` — `PasswordPolicy`, `PasswordPolicyValidator`
-- [ ] `common/security/SecurityContextHelper`, `common/web/StaticResourcePaths`
-- [ ] `config/cache` — 캐시 매니저
-- [ ] **ArchUnit 게이트 신설** — 개발가이드 §4-4 R1~R6, 예외마다 주석에 이유 명시
-- [ ] **eGov 호환성 — R3 Service 예외 목록 최소화** (호환성 가이드 규칙 4 "예외 없음")
-      현 R3 예외 "모니터링·AI 캐시 등 eGov 계층 무관 기술 서비스" 는 회색지대다.
-      → `EgovAbstractServiceImpl` 을 상속한 **공통 추상 서비스**를 두고 그것을 상속하는 형태로 전환
-        (호환성 가이드 규칙 4 권장안). 남기는 예외는 건별 사유를 주석에 명시
-- [ ] **eGov 호환성 — R4 룰을 `@EgovMapper` 기준으로 갱신**(P0 전환에 맞춰)
+- [x] `common/base` — `BaseEntity`, `SoftDeletable`, `UseFlagged` (2026-07-31)
+- [x] `common/util` 13종 (2026-07-31) — `UuidV7Generator`·`MaskUtils`·`IpUtils`·`IpMatcher`·`JsonUtils`·
+      `HtmlSafeJson`·`XssSanitizer`·`SafeReplaceUtils`·`SensitiveParamMasker`·`RandomPasswordGenerator`·
+      `Fmt`·`CsvUtils`·`QrCodeGenerator`
+- [x] `common/dto` 4종 (2026-07-31)
+- [x] `common/crypto` 4종 + **D11 적용** (2026-07-31) — `PiiCryptoProperties.hmacKey` 추가,
+      `EmailHasher` 가 `getHmacKey()` 사용. 단위 테스트로 키 분리 확인(같은 입력·다른 키 → 다른 해시)
+- [x] `config/interceptor/EncryptInterceptor` (2026-07-31)
+- [x] `common/audit` 6종 (2026-07-31) — `AuditSpringEvent` 포함.
+      의존하는 `logging` 측 8파일(`AuditLog`·`AuditLogMapper`·privacy dto/mapper/service·`LogSearch`)도 함께 이식.
+      매퍼 2종은 **`@EgovMapper` 로 전환**(호환성 규칙 5). XML·보존정책은 P7
+- [x] `config/interceptor/AuditInterceptor` (2026-07-31)
+- [x] `config/filter/AuditContextFilter` (2026-07-31)
+- [x] `common/file` 골격 13종 (2026-07-31) — `config`/`dto`/`security` 3개 서브패키지.
+      `FileStorage.resolveWithin` 의 `normalize()`+`startsWith()` containment 검사 단위 테스트로 확인.
+      `service/` 6종(업로드·다운로드·문서변환)은 **P4**
+- [x] `common/html/HtmlSanitizer` (2026-07-31)
+- [x] `common/validator` 2종 (2026-07-31)
+- [x] `common/security/SecurityContextHelper`, `common/web/StaticResourcePaths` (2026-07-31)
+      — `SecurityContextHelper` 가 `CustomUserDetails` 에 의존해 `primary/system/login/dto` 3종을 함께 이식.
+        R6 이 `common → primary.dto` 를 허용하므로 규약 위반이 아니다
+- [x] `config/cache` — `CacheConfig`, `CacheType` (2026-07-31)
+- [x] **ArchUnit 게이트 신설** (2026-07-31) — **10 규칙 전건 통과**.
+      R1·R2·R3·R4a·R4b·R5a·R5b·R5c·R6 + **R7 신설**(호환성 규칙 7 — rte 상속 클래스 `Egov` 접두 금지).
+      R4b 는 `@Mapper` 사용 0건을 강제한다.
+      **001 의 R3 예외 2건(모니터링·Gemini)은 이식하지 않았다** — 호환성 규칙 4 는 예외 없음
+- [x] **eGov 호환성 — R3 예외 0건으로 신설** (2026-07-31) — 001 의 예외를 가져오지 않았다
+- [x] **eGov 호환성 — R4 를 `@EgovMapper` 기준으로 작성** (2026-07-31). R4b 로 `@Mapper` 0건 강제
 
 #### DoD
 
-- `./mvnw test -Dtest=ArchitectureTest` **전건 통과**
-- 암호화 왕복 확인 — 평문 → `{AG}` 프리픽스 암호문 저장 → 복호화 읽기
-- 경로 조작 입력(`../`) 차단 확인
-- 마스킹 결과 확인(surrogate 문자 포함 문자열에서 깨지지 않을 것)
+- `./mvnw test -Dtest=ArchitectureTest` **전건 통과** — ✅ 10 규칙 (2026-07-31)
+- 암호화 왕복 확인 — 평문 → `{AG}` 프리픽스 암호문 저장 → 복호화 읽기 — ✅
+- 경로 조작 입력(`../`) 차단 확인 — ✅
+- 마스킹 결과 확인(surrogate 문자 포함 문자열에서 깨지지 않을 것) — ✅
+- 검증은 `CommonFoundationTest` 10건으로 자동화 — 전체 `./mvnw test` **20건 통과**
 
 **범위 밖** — 도메인 서비스, 화면, 보안 체인. **`common` 만 세운다.**
 

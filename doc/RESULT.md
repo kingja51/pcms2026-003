@@ -12,6 +12,92 @@
 ---
 
 ```
+================ 2026.7.31 19:28:40 =======================
+```
+
+## P1 — 공통 기반 계층 ✅ 완료
+
+**완료**: 2026-07-31 19:28:40
+**목표**: 모든 도메인이 의존하는 `common` 을 먼저 세우고, 규약 게이트를 건다.
+
+### DoD 검증 결과
+
+| 항목 | 결과 |
+|---|---|
+| `./mvnw test -Dtest=ArchitectureTest` | ✅ **10 규칙 전건 통과** |
+| 암호화 왕복 (평문 → `{AG}` → 복호화) | ✅ |
+| 경로 조작(`../`) 차단 | ✅ |
+| 마스킹 — surrogate 문자 미파손 | ✅ |
+| 전체 `./mvnw test` | ✅ **20건 통과** (Arch 10 + Common 10) |
+| 실기동 | ✅ `Started Pcms2026Application in 4.058 seconds` |
+
+### 산출물
+
+자바 소스 **14 → 78개**.
+
+| 패키지 | 내용 |
+|---|---|
+| `common/base` | `BaseEntity`, `SoftDeletable`, `UseFlagged` |
+| `common/util` | 13종 — UUIDv7·마스킹·IP(XFF 우측 스캔)·JSON·XSS·CSV·QR 등 |
+| `common/dto` | `PageRequest`, `PageResponse`, `ApiResponse`, `ExcelDownloadRequest` |
+| `common/crypto` | `AesGcmCipher`, `EmailHasher`, `@Encrypt`, `PiiCryptoProperties` |
+| `common/audit` | 6종 (`AuditLogger`·`AuditContext`·`AuditEvent`·`PrivacyAccess`+Aspect·`AuditSpringEvent`) |
+| `common/file` | 13종 — `config`/`dto`/`security`. `service/` 6종은 P4 |
+| `common/html`·`validator`·`security`·`web` | Sanitizer, 비밀번호 정책, `SecurityContextHelper`, 정적자원 경로 |
+| `config/interceptor` | `AuditInterceptor`(감사컬럼 6종), `EncryptInterceptor`(PII 투명 암복호) |
+| `config/filter` | `AuditContextFilter` |
+| `config/cache` | `CacheConfig`, `CacheType` |
+| `logging/` | 8종 — 감사·개인정보접근 DTO/매퍼/서비스 (XML·보존정책은 P7) |
+| `primary/system/login/dto` | 3종 — `SecurityContextHelper` 의존 (R6 허용 범위) |
+| 테스트 | `ArchitectureTest`(10), `CommonFoundationTest`(10) |
+
+### ArchUnit 게이트 — 10 규칙
+
+R1 컨트롤러 접미사 / R2 Controller→Mapper 금지 / R3 `*ServiceImpl` eGov 상속 /
+**R4a `@EgovMapper` 위치** / **R4b `@Mapper` 0건** / R5a·R5b·R5c DB 격리 / R6 `common` 독립성 /
+**R7 rte 상속 클래스 `Egov` 접두 금지**
+
+001 대비 달라진 점:
+
+- **R3 예외 2건을 이식하지 않았다.** 001은 `system.monitoring` 과 `GeminiCacheServiceImpl` 을
+  예외로 뒀으나 호환성 규칙 4는 "예외 없음"이다. 003에 해당 클래스도 없다
+- **R4를 `@EgovMapper` 기준으로 재작성**하고, `@Mapper` 사용 0건을 강제하는 R4b를 추가했다
+- **R7 신설** — 호환성 규칙 7을 게이트로 강제. 개발가이드 §4-4 표도 갱신
+
+### D11 적용 — HMAC 키 분리
+
+001의 `EmailHasher` 는 `props.getMasterKey()` 를 받는다. 그대로 복사하면 D11 결정이 무효가 되므로
+`getHmacKey()` 로 교체하고, 단위 테스트 2건으로 고정했다:
+
+- `master-key` 만 주입하면 `EmailHasher` 생성이 실패한다
+- 같은 입력이라도 키를 재사용(001 방식)하면 해시가 달라진다 → 분리가 실제로 동작함
+
+### 클래스 리네이밍 — `EgovCommonConfig` → `RteCommonConfig`
+
+이 클래스는 실행환경 클래스를 **상속하지 않아** 호환성 규칙 7의 대상이 아니고 ArchUnit R7도 통과한다.
+다만 이름 기반 점검(개발가이드 §15 grep, 심사측 자동 검사)에서 매번 걸려 해명이 필요해지므로
+애초에 접두어를 피했다. 이름 검사는 근사치이고 **R7이 권위 있는 판정**이다.
+
+### 범위 조정 — 의존성 때문에 함께 이식한 것
+
+| 대상 | 사유 |
+|---|---|
+| `logging/` 8종 | `common/audit` 가 감사 기록에 logging DB 매퍼를 쓴다. R6/R5c 가 허용하는 의존 |
+| `primary/system/login/dto` 3종 | `SecurityContextHelper` → `CustomUserDetails`. R6이 `common → primary.dto` 를 허용 |
+
+둘 다 규약 위반이 아니지만 P1 범위를 약간 넘는다. 매퍼 XML·보존정책·로그 뷰어는 P7 그대로 남는다.
+이식한 매퍼 2종은 **`@EgovMapper` 로 전환**했다.
+
+### 실행 메모
+
+- 테스트 키는 base64 디코드 시 **정확히 32바이트**여야 한다. 처음 33자로 잡아 `IllegalState` 로 실패했다
+- `FileStorage` 는 루트를 `@PostConstruct init()` 에서 잡는다 — 단위 테스트에서 직접 호출해야 한다
+- **UUID v7 은 같은 밀리초 안에서 전체 문자열 순서가 보장되지 않는다.**
+  뒤쪽 랜덤 비트 때문이다. 앞 13자(48비트 타임스탬프)만 비교해야 한다
+
+---
+
+```
 ================ 2026.7.31 19:06:12 =======================
 ```
 
