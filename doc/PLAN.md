@@ -64,7 +64,7 @@
 
 #### 작업
 
-- [ ] `git init` + `.gitignore` — `.env`, `target/`, `node_modules/`, `.idea/`, 빌드 산출물
+- [x] `git init` + `.gitignore` — `.env`, `target/`, `node_modules/`, `.idea/`, 빌드 산출물
 - [ ] 빌드 정의 이식 — `pom.xml`(artifactId/name/finalName `pcms2026-003`), `lombok.config`, `package.json`, `mvnw`, `.mvn/`
 - [ ] `lib/` 로컬 의존 jar 배치(NiceID 등) + pom system-scope 확인
 - [ ] `.env.example` 작성 — **키 이름 + `__CHANGE_ME__`**. 비밀 아닌 값(경로·드라이버·localhost URL)만 예시값
@@ -388,8 +388,8 @@
 |---|---|---|---|---|
 | D1 | **Flyway 실행 계정** — 앱 계정에 DDL 권한이 없는 기존 방침과 충돌 | ① DDL 권한 전용 flyway 계정 분리 ② 앱 계정에 DDL 부여 ③ 로컬·dev 만 활성, 운영은 DBA 집행 | **P0** | |
 | D2 | **Flyway 적용 범위** | ① 3개 DB 전부 ② primary 만 | **P0** | |
-| D3 | **git 원격 저장소** — 사용 여부 및 URL | | **P0** | |
-| D4 | **로컬 DB·데이터 경로** — 001과 공유할지 분리할지(스키마명, 업로드/로그 경로) | | **P0** | |
+| D3 | **git 원격 저장소** — 사용 여부 및 URL | | **P0** | ✅ 2026-07-31 — `https://github.com/kingja51/pcms2026-003` (public). 기본 브랜치 `main` |
+| D4 | **로컬 DB·데이터 경로** — 001과 공유할지 분리할지(스키마명, 업로드/로그 경로) | | **P0** | ✅ 2026-07-31 — 001과 **분리**. MariaDB 11.8.3 `pcms2026-003-{primary,logging,secondary}` (업로드·로그 경로 미정) |
 | D5 | **Namo CrossEditor 4** 납품 패키지 확보 시점 및 제품 API 확인 | | P3 | |
 | D6 | 사이트 데모 시각 언어(KRDS / IBM Carbon / 기타) | | P8 | |
 
