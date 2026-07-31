@@ -11,7 +11,7 @@ CREATE TABLE `log_access` (
   `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
   `menu_id` varchar(40) DEFAULT NULL COMMENT '요청 시점의 메뉴 ID (request_uri 의 ?menuId= 파싱 회피용)',
   `actor_user_id` varchar(40) DEFAULT NULL COMMENT '비로그인 NULL',
-  `actor_user_type` varchar(20) DEFAULT NULL COMMENT 'MEMBER|EMPLOYEE|ADMIN|ANONYMOUS',
+  `actor_user_type` varchar(20) DEFAULT NULL COMMENT 'MEMBER|ADMIN|ANONYMOUS',
   `actor_login_id` varchar(50) DEFAULT NULL,
   `request_uri` varchar(500) NOT NULL,
   `http_method` varchar(10) NOT NULL,
@@ -117,7 +117,7 @@ CREATE TABLE `log_file_download` (
   `file_group_id` varchar(40) DEFAULT NULL COMMENT 'tb_file_group.file_group_id (GROUP_ZIP)',
   `download_type` varchar(20) NOT NULL COMMENT 'SINGLE=일반 단일, ADMIN=관리자 상태무관, GROUP_ZIP=그룹 ZIP' CHECK (`download_type` in ('SINGLE','GROUP_ZIP','ADMIN')),
   `actor_user_id` varchar(40) DEFAULT NULL COMMENT 'UUID v7 PK (SYSTEM/ANONYMOUS 포함)',
-  `actor_user_type` varchar(20) DEFAULT NULL COMMENT 'MEMBER|EMPLOYEE|ADMIN|ANONYMOUS',
+  `actor_user_type` varchar(20) DEFAULT NULL COMMENT 'MEMBER|ADMIN|ANONYMOUS',
   `actor_login_id` varchar(50) DEFAULT NULL COMMENT '로그인 ID (마스킹 없이 원본)',
   `original_name` varchar(512) DEFAULT NULL,
   `extension` varchar(20) DEFAULT NULL,
@@ -145,7 +145,7 @@ DROP TABLE IF EXISTS `log_login`;
 CREATE TABLE `log_login` (
   `log_login_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '로그인로그 ID',
   `user_id` varchar(40) DEFAULT NULL COMMENT '사용자 ID (성공 시)',
-  `user_type` varchar(20) DEFAULT NULL COMMENT '사용자 유형 (MEMBER/EMPLOYEE/ADMIN)',
+  `user_type` varchar(20) DEFAULT NULL COMMENT '사용자 유형 (MEMBER/ADMIN)',
   `login_id` varchar(50) DEFAULT NULL COMMENT '입력 로그인 ID',
   `client_ip` varchar(50) DEFAULT NULL COMMENT '클라이언트 IP',
   `user_agent` varchar(500) DEFAULT NULL COMMENT 'User-Agent',
@@ -169,7 +169,7 @@ DROP TABLE IF EXISTS `log_privacy_access`;
 CREATE TABLE `log_privacy_access` (
   `log_privacy_access_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '로그 PK',
   `actor_user_id` varchar(40) NOT NULL COMMENT '접속자 UUID v7 PK',
-  `actor_user_type` varchar(20) NOT NULL COMMENT 'ADMIN | EMPLOYEE | MEMBER | SYSTEM',
+  `actor_user_type` varchar(20) NOT NULL COMMENT 'ADMIN | MEMBER | SYSTEM',
   `actor_login_id` varchar(50) DEFAULT NULL COMMENT '접속자 사번/loginId (사람이 읽기용)',
   `client_ip` varchar(45) NOT NULL COMMENT '접속자 IP (IPv6 45자)',
   `user_agent` varchar(500) DEFAULT NULL COMMENT 'User-Agent',
@@ -245,7 +245,7 @@ CREATE TABLE `stat_access_daily` (
   `stat_date` date NOT NULL COMMENT '집계 일자 (어제 기준)',
   `site_id` varchar(40) DEFAULT NULL,
   `site_code` varchar(30) DEFAULT NULL,
-  `user_type` varchar(20) DEFAULT NULL COMMENT 'ANONYMOUS|MEMBER|EMPLOYEE|ADMIN — NULL=전체',
+  `user_type` varchar(20) DEFAULT NULL COMMENT 'ANONYMOUS|MEMBER|ADMIN — NULL=전체',
   `bucket_hour` tinyint(4) DEFAULT NULL COMMENT '0~23 — NULL=하루 전체',
   `pv` bigint(20) NOT NULL DEFAULT 0 COMMENT 'page view (요청 수)',
   `uv` bigint(20) NOT NULL DEFAULT 0 COMMENT 'unique visitor (DISTINCT client_ip)',
@@ -318,22 +318,5 @@ CREATE TABLE `stat_daily_visit` (
   PRIMARY KEY (`stat_date`,`site_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='일별 방문 통계';
 
-/*Table structure for table `stat_search_keyword` */
-
-DROP TABLE IF EXISTS `stat_search_keyword`;
-
-CREATE TABLE `stat_search_keyword` (
-  `stat_date` date NOT NULL COMMENT '통계 일자',
-  `site_id` varchar(40) NOT NULL COMMENT '사이트 ID',
-  `keyword` varchar(200) NOT NULL COMMENT '검색어',
-  `search_count` bigint(20) unsigned NOT NULL DEFAULT 0 COMMENT '검색 횟수',
-  `result_count_avg` int(11) DEFAULT NULL COMMENT '평균 결과 건수',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`stat_date`,`site_id`,`keyword`),
-  KEY `idx_stat_search_count` (`stat_date`,`search_count`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='검색어 일별 통계';
+/* 2026-07-31 삭제 — stat_search_keyword. 검색을 외부 검색엔진(contextPath=/search)으로
+   분리해 앱이 검색어를 수집하지 않는다(D10). 검색어 통계는 검색엔진 쪽에서 낸다. */

@@ -8,6 +8,8 @@ PCMS 2026-003 — eGovFrame 5.0 호환 멀티사이트 웹 CMS.
 Java 21(Virtual Threads) / Spring Boot 3.5.9 / MyBatis 전용(JPA 금지) / Thymeleaf + htmx + Tailwind v4 CLI / Spring Security 6.
 `war` 패키징(외부 Tomcat 10.1.x + 임베디드 로컬 이중 진입점). DB는 MariaDB 기준 **3개 분리**(primary/secondary/logging).
 
+**전자정부 표준프레임워크 호환성 확인을 받는다** — 아래 "eGov 호환성 (자동 점검됨)" 항목은 임의로 바꾸지 않는다.
+
 ## 참조 우선순위 (중요)
 
 1. **[doc/개발가이드.md](doc/개발가이드.md)** — 이 프로젝트의 정본
@@ -28,6 +30,7 @@ Java 21(Virtual Threads) / Spring Boot 3.5.9 / MyBatis 전용(JPA 금지) / Thym
 5. **질문은 최소로.** 합리적 기본값이 있으면 그대로 진행하고 가정을 명시한다. 되돌리기 어렵거나 위험한 것만 묻는다.
 6. **이식은 실측 그대로.** "개선"은 별도 항목으로 분리한다 — 이식과 리팩터링을 섞으면 문제 원인을 가릴 수 없다.
 7. 작업 시작 전 [PLAN.md](doc/PLAN.md)의 현재 페이즈를 확인하고, 완료 시 체크박스를 갱신한다.
+8. **이식 시 `Egov` 접두 클래스명은 리네이밍한다** — 호환성 규칙 7. 001의 `EgovXxx`를 그대로 복사하면 위반.
 
 ## 정본 문서
 
@@ -53,6 +56,7 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 - 비밀값 미주입 시 **fail-fast 부팅 실패는 의도된 동작** — `.env.example` 참고.
 - Tailwind는 CLI 빌드 필수(CDN 금지). 오프라인 자바 검증만 `-Dtailwind.skip=true`.
 - 프런트 규약(인라인 핸들러·raw hex·`${}`) 검사 grep 은 개발가이드 §15.
+- **eGov 호환성 검사 grep**(`@Mapper` 잔존·`Egov` 접두 클래스·실행환경 버전)도 개발가이드 §15.
 
 ## 버전관리
 
@@ -72,18 +76,41 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 - **패키지**: `com.gonet.{config, common, primary, secondary, logging, scheduler}`.
   도메인은 `primary/<domain>/{controller,service,mapper,dto}` 수직 슬라이스.
 - **PK**: UUID v7 **`varchar(40)`**. 전 테이블 감사컬럼 6종(created_by/ip/at + updated_by/ip/at), soft-delete `delete_yn`.
+- **검색은 이 애플리케이션 밖이다**(2026-07-31) — 외부 검색엔진을 `contextPath=/search` 로 붙인다.
+  `tb_search_*` 7종 삭제. **색인 훅·검색어 수집·금지어·동의어·추천어·재색인을 구현하지 않는다.**
 
 ## 반드시 지킬 규약
 
-- **Service**: 인터페이스 + `EgovAbstractServiceImpl` 상속. 클래스 레벨 `@Transactional(readOnly=true, transactionManager=…)` 기본,
+- **Service**: 인터페이스 + `EgovAbstractServiceImpl` 상속(**호환성 규칙 5 — 예외 없음**).
+  직접 상속이 곤란하면 `EgovAbstractServiceImpl` 을 상속한 **공통 추상 서비스**를 경유한다(간접 상속도 인정됨).
+  클래스 레벨 `@Transactional(readOnly=true, transactionManager=…)` 기본,
   **쓰기 메서드는 반드시 writable override**. 생성자 주입.
-- **Mapper**: `@Mapper` 인터페이스 + XML **`*_maria.xml` 단일**(MariaDB 전용).
+- **Mapper**: **`@EgovMapper`** 인터페이스 + XML **`*_maria.xml` 단일**(MariaDB 전용).
+  **MyBatis `@Mapper`·`@MapperScan` 금지** — `@Mapper` 는 실행환경 v4.3 이하 표기라 5.0 기준 위반이다.
+  스캔은 **DataSource 3개별 `MapperConfigurer` 빈**(호환성 규칙 5).
   namespace ↔ FQN 1:1. **전량 `#{}` 바인딩, `${}` 절대 금지**(SQLi). LIKE 와일드카드 이스케이프.
 - **Controller 접미사**: `ApiController`(REST `/api/**`) / `UsrController`(사용자) / `MngController`(관리자 `/admin/**`).
   Mapper 직접 호출 금지 — Service 경유. CUD는 try-catch + log + flash + `HX-Redirect`.
 - **새 URL 추가 시 `tb_role_url_access` 접근 규칙 등록 필수** — 무매칭 DENY라 빠뜨리면 화면이 안 열린다.
 - **공통 자원 재사용 우선** — `common/`(페이징·마스킹·감사·암호화·파일) 활용, 도메인 중복 구현 금지. Lombok 전면 사용.
 - **`application.yml` 주석 = 운영 정책 문서** — 변경 전 해당 키 주석 확인, 변경 시 주석도 갱신.
+
+## eGov 호환성 (자동 점검됨)
+
+근거: 「전자정부 표준프레임워크 호환성 가이드」(2026-06-22) 규칙 1~7. 상세는 개발가이드 §2 "호환성 인증 요건".
+
+- **실행환경 필수 4종**을 `org.egovframe.rte` 에서 **동일 버전(5.0.0)** 으로 적용:
+  `egovframe-rte-ptl-mvc` · `-fdl-cmmn` · `-psl-dataaccess` · `-fdl-logging`.
+  rte jar 는 **변경 금지**(원본 해시 동일). 확장은 상속으로만.
+- **Spring 버전 상한**: 5.0 기준선 Spring Boot **3.5.6**(Spring 6.2.11 / Security 6.5.5 / MyBatis 3.5.19).
+  현 지정 **3.5.9** 는 패치 상향이라 허용. **3.6.x / 4.x 로 올리면 즉시 위반.** Java 21은 "JDK 17+" 충족.
+- **Mapper 는 `@EgovMapper` + `MapperConfigurer`** — MyBatis `@Mapper`/`@MapperScan` 금지.
+- **Service 는 `EgovAbstractServiceImpl` 상속 + 인터페이스 구현** — 예외 없음.
+- **Controller 는 DAO·NoSQL·MQ·Cache 직접 호출 금지** — 주입된 Service 경유.
+- **rte 클래스를 상속한 클래스는 이름이 `Egov` 로 시작 금지**, `org.egovframe.rte` 패키지에 정의 금지.
+- **primary·secondary·logging 세 계층 모두** 같은 버전·아키텍처·명명규칙(규칙 8).
+- **Flyway 는 충돌 없음** — 단 `@Service`/`@Repository` 로 감싸지 말 것(규칙 4·5 오탐).
+  `@Configuration` 안의 `Flyway` 빈 정의로만 유지한다.
 
 ## 트랜잭션 함정 (실제 장애 이력)
 
@@ -120,6 +147,10 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
   세션 `PCMS_SID`, `changeSessionId()`, `maximumSessions(1)`.
 - 인가는 DB 기반 RBAC — `tb_role_url_access` + `DynamicAuthorizationManager`(priority ASC, **무매칭 DENY**).
 - 회원 인가: `tb_member_role` 미사용 — `AUTHENTICATED` + `user_type=MEMBER`. 통합 로그인 `v_user_login` VIEW.
+- **로그인 주체는 `MEMBER`·`STAFF`(관리자) 2종뿐** — 직원(`EMPLOYEE`)은 제외(2026-07-31).
+  `tb_employee` 는 **조회 전용**이며 로그인·권한을 부여하지 않는다.
+- **PII 이름 정책**: `tb_admin.admin_name` **평문** / `tb_admin_withdraw.admin_name`·`tb_member_withdraw.member_name` **마스킹 저장**
+  (탈퇴 테이블은 ID·입증정보가 부족해 이름을 남기되 마스킹한다).
 - 파일 업로드 6중 방어(확장자/Tika 매직바이트/격리/재인코딩/FIM/ClamAV) + 경로 containment 검사.
 - CSRF(XSRF-TOKEN 쿠키), CSP nonce(+HTML `no-store`), OWASP Sanitizer, 로그인 잠금(5회/30분), Bucket4j.
 - **JSON 직렬화 시 HTML 이스케이프**(`HtmlSafeJson`) — 001에서 검색어 저장형 XSS 실제 발생.
@@ -137,8 +168,12 @@ npm run css:watch                                      # 개발 중 CSS 반복 �
 
 ## 배치 / 스케줄러
 
-`com.gonet.scheduler`, ShedLock(logging DB `shedlock`). 잡 9종과 cron 은 개발가이드 §12 표 참조.
+`com.gonet.scheduler`, ShedLock(logging DB `shedlock`). 잡 8종과 cron 은 개발가이드 §12 표 참조.
 cron 은 `${…:기본값}` 으로 외부화하고 **dry-run 플래그**를 둔다.
+
+- **Google GenAI Java SDK(`com.google.genai:google-genai`) 는 도입하지 않는다**(2026-07-31).
+  001 의 `GeminiFileRenewScheduler`·`GeminiFileService` 계열은 **이식 대상에서 제외**.
+  AI 기능은 추후 **context 방식으로 별도 개발**한다.
 
 ## 참고
 

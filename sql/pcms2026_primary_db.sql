@@ -18,7 +18,7 @@ CREATE TABLE `tb_admin` (
   `role_ids` text DEFAULT NULL COMMENT '역할 ID CSV (계층 확장 denormalized)',
   `role_codes` text DEFAULT NULL COMMENT 'ROLE 코드',
   `group_ids` text DEFAULT NULL COMMENT '그룹 ID CSV (복수 그룹)',
-  `admin_name` varchar(512) NOT NULL COMMENT '{AG} AES-256-GCM 관리자 이름',
+  `admin_name` varchar(150) NOT NULL COMMENT '관리자 이름(평문)',
   `email` varchar(512) NOT NULL COMMENT '{AG} AES-256-GCM 이메일',
   `email_hash` char(64) NOT NULL COMMENT 'HMAC-SHA256(email) 검색/중복확인용',
   `phone` varchar(512) DEFAULT NULL COMMENT '{AG} AES-256-GCM 전화번호',
@@ -162,6 +162,7 @@ CREATE TABLE `tb_admin_withdraw` (
   `admin_seq` bigint(20) NOT NULL COMMENT '원 관리자 일련번호',
   `admin_group_id` varchar(40) DEFAULT NULL,
   `login_id` varchar(50) NOT NULL COMMENT '로그인 ID (감사 추적용 평문 유지)',
+  `admin_name` varchar(150) NOT NULL COMMENT '관리자 이름(마스킹)',
   `email_hash` char(64) NOT NULL COMMENT '이메일 해시',
   `department_name` varchar(100) DEFAULT NULL COMMENT '부서',
   `withdraw_at` datetime NOT NULL COMMENT '탈퇴 처리 일시',
@@ -321,7 +322,7 @@ CREATE TABLE `tb_bbs_article` (
   `category_id` varchar(40) DEFAULT NULL,
   `file_group_id` varchar(40) NOT NULL COMMENT '파일그룹 ID (UUID v7, FK tb_file_group)',
   `writer_user_id` varchar(40) DEFAULT NULL,
-  `writer_user_type` varchar(20) DEFAULT NULL CHECK (`writer_user_type` in ('MEMBER','EMPLOYEE','ADMIN','STAFF','GUEST')),
+  `writer_user_type` varchar(20) DEFAULT NULL CHECK (`writer_user_type` in ('MEMBER','ADMIN','STAFF','GUEST')),
   `writer_name` varchar(100) NOT NULL,
   `writer_password` varchar(100) DEFAULT NULL COMMENT '비로그인 게시글 BCrypt(12)',
   `title` varchar(300) NOT NULL,
@@ -385,7 +386,7 @@ CREATE TABLE `tb_bbs_comment` (
   `article_id` varchar(40) NOT NULL COMMENT 'ID (UUID v7)',
   `parent_comment_id` varchar(40) DEFAULT NULL,
   `writer_user_id` varchar(40) DEFAULT NULL,
-  `writer_user_type` varchar(20) DEFAULT NULL CHECK (`writer_user_type` in ('MEMBER','EMPLOYEE','ADMIN','STAFF','GUEST')),
+  `writer_user_type` varchar(20) DEFAULT NULL CHECK (`writer_user_type` in ('MEMBER','ADMIN','STAFF','GUEST')),
   `writer_name` varchar(100) NOT NULL,
   `writer_password` varchar(100) DEFAULT NULL,
   `content` text NOT NULL,
@@ -417,7 +418,7 @@ CREATE TABLE `tb_bbs_like` (
   `target_type` varchar(20) NOT NULL,
   `target_id` varchar(40) DEFAULT NULL,
   `user_id` varchar(40) DEFAULT NULL,
-  `user_type` varchar(20) NOT NULL CHECK (`user_type` in ('MEMBER','EMPLOYEE','ADMIN','STAFF')),
+  `user_type` varchar(20) NOT NULL CHECK (`user_type` in ('MEMBER','ADMIN','STAFF')),
   `source_url` varchar(1000) DEFAULT NULL COMMENT '좋아요가 클릭된 페이지의 URL 경로 (예: /bbs/airbnb/free/123 또는 /airbnb/host-guide)',
   `menu_id` varchar(40) DEFAULT NULL,
   `delete_yn` char(1) NOT NULL DEFAULT 'N' CHECK (`delete_yn` in ('Y','N')),
@@ -455,9 +456,9 @@ CREATE TABLE `tb_bbs_master` (
   `notice_top_yn` char(1) NOT NULL DEFAULT 'Y' CHECK (`notice_top_yn` in ('Y','N')),
   `html_yn` char(1) NOT NULL DEFAULT 'N' COMMENT 'content HTML 사용 여부 (Y=화이트리스트 sanitize 후 utext / N=평문 text)',
   `captcha_yn` char(1) NOT NULL DEFAULT 'N' COMMENT 'captcha 사용' CHECK (`captcha_yn` in ('Y','N')),
-  `read_auth` varchar(50) NOT NULL DEFAULT 'ALL' COMMENT 'ALL | MEMBER | EMPLOYEE | ADMIN — 향후 RBAC 확장',
-  `download_auth` varchar(20) NOT NULL DEFAULT 'ROLE_MEMBER' COMMENT '첨부 다운로드 권한 — ANONYMOUS|ROLE_MEMBER|ROLE_EMPLOYEE|ROLE_STAFF|OWNER_PRIVACY|ROLE_MANAGER|ROLE_ADMIN',
-  `write_auth` varchar(50) NOT NULL DEFAULT 'MEMBER' COMMENT 'GUEST | MEMBER | EMPLOYEE | ADMIN',
+  `read_auth` varchar(50) NOT NULL DEFAULT 'ALL' COMMENT 'ALL | MEMBER | ADMIN — 향후 RBAC 확장',
+  `download_auth` varchar(20) NOT NULL DEFAULT 'ROLE_MEMBER' COMMENT '첨부 다운로드 권한 — ANONYMOUS|ROLE_MEMBER|ROLE_STAFF|OWNER_PRIVACY|ROLE_MANAGER|ROLE_ADMIN',
+  `write_auth` varchar(50) NOT NULL DEFAULT 'MEMBER' COMMENT 'GUEST | MEMBER | ADMIN',
   `use_yn` char(1) NOT NULL DEFAULT 'Y' CHECK (`use_yn` in ('Y','N')),
   `description` varchar(500) DEFAULT NULL COMMENT '관리자 메모',
   `grouped_board_ids` varchar(1000) DEFAULT NULL COMMENT '통합 게시판 모드. 구분자 콤마,NULL = 일반 게시판',
@@ -472,7 +473,7 @@ CREATE TABLE `tb_bbs_master` (
   UNIQUE KEY `uk_bbs_code` (`site_id`,`bbs_code`),
   KEY `idx_bbs_master_site_use` (`site_id`,`use_yn`,`delete_yn`),
   KEY `idx_bbs_master_menu` (`menu_id`),
-  CONSTRAINT `chk_bbs_master_download_auth` CHECK (`download_auth` in ('ANONYMOUS','ROLE_MEMBER','ROLE_EMPLOYEE','ROLE_STAFF','OWNER_PRIVACY','ROLE_MANAGER','ROLE_ADMIN')),
+  CONSTRAINT `chk_bbs_master_download_auth` CHECK (`download_auth` in ('ANONYMOUS','ROLE_MEMBER','ROLE_STAFF','OWNER_PRIVACY','ROLE_MANAGER','ROLE_ADMIN')),
   CONSTRAINT `chk_bbs_master_html_yn` CHECK (`html_yn` in ('Y','N')),
   CONSTRAINT `chk_bbs_master_captcha_yn` CHECK (`captcha_yn` in ('Y','N')),
   CONSTRAINT `chk_bbs_master_bbs_type` CHECK (`bbs_type` in ('NOTICE','BODO','FREE','FAQ','QNA','GALLERY','FILE','PDF','YOUTUBE'))
@@ -487,7 +488,7 @@ CREATE TABLE `tb_bbs_report` (
   `target_type` varchar(20) NOT NULL,
   `target_id` varchar(40) DEFAULT NULL,
   `reporter_user_id` varchar(40) DEFAULT NULL,
-  `reporter_user_type` varchar(20) NOT NULL CHECK (`reporter_user_type` in ('MEMBER','EMPLOYEE','ADMIN','STAFF')),
+  `reporter_user_type` varchar(20) NOT NULL CHECK (`reporter_user_type` in ('MEMBER','ADMIN','STAFF')),
   `source_url` varchar(1000) DEFAULT NULL COMMENT '신고가 접수된 페이지의 URL 경로',
   `menu_id` varchar(40) DEFAULT NULL,
   `reason_code` varchar(30) NOT NULL CHECK (`reason_code` in ('SPAM','OFFENSIVE','ILLEGAL','COPYRIGHT','PRIVACY','OTHER')),
@@ -565,10 +566,10 @@ DROP TABLE IF EXISTS `tb_complaint_answer`;
 CREATE TABLE `tb_complaint_answer` (
   `answer_id` varchar(40) NOT NULL COMMENT '답변 ID (UUID v7)',
   `article_id` varchar(40) NOT NULL COMMENT '민원 게시글 FK',
-  `answerer_id` varchar(40) NOT NULL COMMENT '답변자 user_id (tb_admin 또는 tb_employee)',
-  `answerer_type` varchar(10) NOT NULL COMMENT '답변자 유형' CHECK (`answerer_type` in ('ADMIN','EMPLOYEE','STAFF')),
+  `answerer_id` varchar(40) NOT NULL COMMENT '답변자 user_id (tb_admin)',
+  `answerer_type` varchar(10) NOT NULL COMMENT '답변자 유형' CHECK (`answerer_type` in ('ADMIN','STAFF')),
   `answerer_name` varchar(100) NOT NULL COMMENT '답변자 표시 이름',
-  `answerer_dept` varchar(100) DEFAULT NULL COMMENT '부서명 (직원인 경우 선택)',
+  `answerer_dept` varchar(100) DEFAULT NULL COMMENT '부서명 (선택)',
   `content` mediumtext NOT NULL COMMENT '답변 내용 (XSS sanitize 후 저장)',
   `file_group_id` varchar(40) DEFAULT NULL COMMENT '답변 첨부파일 그룹',
   `is_final` char(1) NOT NULL DEFAULT 'N' COMMENT 'Y: 최종 답변 → article.status=ANSWERED 자동 전환' CHECK (`is_final` in ('Y','N')),
@@ -784,73 +785,8 @@ CREATE TABLE `tb_department` (
   CONSTRAINT `fk_department_parent` FOREIGN KEY (`parent_department_id`) REFERENCES `tb_department` (`department_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='부서';
 
-/*Table structure for table `tb_election_voter` */
-
-DROP TABLE IF EXISTS `tb_election_voter`;
-
-CREATE TABLE `tb_election_voter` (
-  `voter_id` varchar(40) NOT NULL COMMENT '선거인 ID (UUID v7)',
-  `voter_seq` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '선거인 일련번호 (화면 순번)',
-  `election_id` varchar(40) DEFAULT NULL COMMENT '선거 ID — tb_election 도입 시 FK',
-  `site_id` varchar(40) DEFAULT NULL COMMENT '사이트 ID (멀티사이트 분리)',
-  `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
-  `voter_name` varchar(512) NOT NULL COMMENT '{AG} AES-256-GCM 성명',
-  `birth_date` varchar(512) NOT NULL COMMENT '{AG} AES-256-GCM 생년월일 (YYYYMMDD)',
-  `resident_no_suffix` varchar(512) NOT NULL COMMENT '{AG} AES-256-GCM 주민번호 뒤3자리',
-  `voter_name_hash` char(64) NOT NULL COMMENT 'HMAC-SHA256(voter_name) 검색용',
-  `birth_date_hash` char(64) NOT NULL COMMENT 'HMAC-SHA256(birth_date) 검색용',
-  `resident_no_suffix_hash` char(64) NOT NULL COMMENT 'HMAC-SHA256(resident_no_suffix) 검색용',
-  `gender` char(1) NOT NULL COMMENT '성별 (M=남, F=여)' CHECK (`gender` in ('M','F')),
-  `voting_district` varchar(50) NOT NULL COMMENT '투표구 (예: 제1투표구)',
-  `polling_place` varchar(200) NOT NULL COMMENT '투표장소 (예: 지오넷제1투표소)',
-  `polling_location` varchar(255) DEFAULT NULL COMMENT '투표장소 위치 (예: 인앤인1동 102호)',
-  `legal_dong_code` varchar(10) DEFAULT NULL COMMENT '법정동 코드 (행정안전부)',
-  `legal_dong_name` varchar(100) DEFAULT NULL COMMENT '법정동 명',
-  `register_no` varchar(20) DEFAULT NULL COMMENT '등재번호 (선관위 명부)',
-  `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제 여부' CHECK (`delete_yn` in ('Y','N')),
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`voter_id`),
-  UNIQUE KEY `uk_voter_seq` (`voter_seq`),
-  KEY `idx_voter_name_hash` (`voter_name_hash`),
-  KEY `idx_voter_birth_hash` (`birth_date_hash`),
-  KEY `idx_voter_rrn_hash` (`resident_no_suffix_hash`),
-  KEY `idx_voter_election` (`election_id`,`delete_yn`),
-  KEY `idx_voter_district` (`election_id`,`voting_district`,`delete_yn`),
-  KEY `idx_voter_polling` (`election_id`,`polling_place`,`delete_yn`),
-  KEY `idx_voter_register` (`register_no`),
-  KEY `idx_voter_dong_code` (`legal_dong_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='선거인명부';
-
-/*Table structure for table `tb_election_voter_import_job` */
-
-DROP TABLE IF EXISTS `tb_election_voter_import_job`;
-
-CREATE TABLE `tb_election_voter_import_job` (
-  `job_id` varchar(40) NOT NULL COMMENT 'ID (UUID v7)',
-  `election_id` varchar(40) DEFAULT NULL,
-  `file_name` varchar(255) DEFAULT NULL,
-  `file_size_bytes` bigint(20) DEFAULT NULL,
-  `total_rows` int(11) DEFAULT 0,
-  `processed_rows` int(11) DEFAULT 0,
-  `success_rows` int(11) DEFAULT 0,
-  `fail_rows` int(11) DEFAULT 0,
-  `STATUS` varchar(20) NOT NULL DEFAULT 'PENDING',
-  `error_log_path` varchar(500) DEFAULT NULL,
-  `started_at` timestamp NULL DEFAULT NULL,
-  `finished_at` timestamp NULL DEFAULT NULL,
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`job_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci;
+/* 2026-07-31 이동 — tb_election_voter / tb_election_voter_import_job 은
+   secondary DB(개별프로그램)로 옮겼다. sql/pcms2026_secound_db.sql 참조. */
 
 /*Table structure for table `tb_employee` */
 
@@ -858,13 +794,6 @@ DROP TABLE IF EXISTS `tb_employee`;
 
 CREATE TABLE `tb_employee` (
   `employee_id` varchar(40) NOT NULL COMMENT '직원 ID (UUID v7)',
-  `employee_seq` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '직원 일련번호 (VIEW uniq_id)',
-  `login_id` varchar(50) NOT NULL COMMENT '로그인 ID',
-  `PASSWORD` varchar(100) NOT NULL COMMENT '비밀번호 (BCrypt)',
-  `password_changed_at` datetime NOT NULL COMMENT '비밀번호 변경 일시',
-  `password_expire_at` datetime DEFAULT NULL COMMENT '비밀번호 만료 일시',
-  `role_ids` text DEFAULT NULL COMMENT '역할 ID CSV (계층 확장)',
-  `group_ids` text DEFAULT NULL COMMENT '부서/그룹 ID CSV',
   `employee_no` varchar(50) DEFAULT NULL COMMENT '사번',
   `employee_name` varchar(512) NOT NULL COMMENT '{AG} AES-256-GCM 이름',
   `email` varchar(512) NOT NULL COMMENT '{AG} AES-256-GCM 이메일',
@@ -874,19 +803,7 @@ CREATE TABLE `tb_employee` (
   `department_name` varchar(100) DEFAULT NULL COMMENT '부서 명',
   `POSITION` varchar(100) DEFAULT NULL COMMENT '직위',
   `hire_date` date DEFAULT NULL COMMENT '입사일',
-  `resign_date` date DEFAULT NULL COMMENT '퇴사일',
-  `two_factor_enabled_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '2FA 활성화 여부' CHECK (`two_factor_enabled_yn` in ('Y','N')),
-  `two_factor_secret` varchar(512) DEFAULT NULL COMMENT '{AG} TOTP Secret',
-  `ip_whitelist` varchar(2000) DEFAULT NULL COMMENT '허용 IP CIDR CSV',
-  `allowed_time_from` time DEFAULT NULL COMMENT '허용 시작 시각',
-  `allowed_time_to` time DEFAULT NULL COMMENT '허용 종료 시각',
-  `STATUS` varchar(20) NOT NULL DEFAULT 'ACTIVE' COMMENT '상태' CHECK (`STATUS` in ('ACTIVE','LOCKED','INACTIVE','SUSPENDED','RESIGNED')),
-  `login_fail_count` int(11) NOT NULL DEFAULT 0 COMMENT '로그인 실패 횟수' CHECK (`login_fail_count` >= 0),
-  `locked_until` datetime DEFAULT NULL COMMENT '잠금 해제 예정 일시',
-  `captcha_required_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '5회 실패 잠금 해제 후 CAPTCHA 강제 여부 — 다음 성공 시 자동 N',
-  `last_login_at` datetime DEFAULT NULL COMMENT '최종 로그인 일시',
-  `last_login_ip` varchar(50) DEFAULT NULL COMMENT '최종 로그인 IP',
-  `last_access_at` datetime DEFAULT NULL COMMENT '최종 접속 일시',
+  `resign_date` date DEFAULT NULL COMMENT '퇴사일 (NULL=재직)',
   `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제 여부' CHECK (`delete_yn` in ('Y','N')),
   `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
   `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
@@ -895,83 +812,15 @@ CREATE TABLE `tb_employee` (
   `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
   `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
   PRIMARY KEY (`employee_id`),
-  UNIQUE KEY `uk_employee_seq` (`employee_seq`),
-  UNIQUE KEY `uk_employee_login` (`login_id`),
   UNIQUE KEY `uk_employee_no` (`employee_no`),
   KEY `idx_employee_email_hash` (`email_hash`),
   KEY `idx_employee_dept` (`department_id`),
-  KEY `idx_employee_status` (`STATUS`,`delete_yn`),
-  CONSTRAINT `chk_employee_captcha_required_yn` CHECK (`captcha_required_yn` in ('Y','N'))
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='직원 (내부 로그인)';
+  KEY `idx_employee_active` (`delete_yn`,`resign_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='직원 (부서·직원 확인 전용 — 로그인·권한 완전 배제)';
 
-/*Table structure for table `tb_employee_password_history` */
-
-DROP TABLE IF EXISTS `tb_employee_password_history`;
-
-CREATE TABLE `tb_employee_password_history` (
-  `pwd_history_id` varchar(40) NOT NULL COMMENT 'ID (UUID v7)',
-  `employee_id` varchar(40) NOT NULL COMMENT '직원 ID (FK)',
-  `password_hash` varchar(100) NOT NULL COMMENT 'BCrypt 해시 스냅샷',
-  `changed_at` datetime NOT NULL DEFAULT current_timestamp() COMMENT '변경 일시',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  PRIMARY KEY (`pwd_history_id`),
-  KEY `idx_emp_pwd_hist_emp` (`employee_id`,`changed_at` DESC),
-  CONSTRAINT `fk_emp_pwd_hist_emp` FOREIGN KEY (`employee_id`) REFERENCES `tb_employee` (`employee_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='직원 비밀번호 이력 (재사용 금지 검증용)';
-
-/*Table structure for table `tb_employee_role` */
-
-DROP TABLE IF EXISTS `tb_employee_role`;
-
-CREATE TABLE `tb_employee_role` (
-  `employee_role_id` varchar(40) NOT NULL COMMENT 'ID (UUID v7)',
-  `employee_id` varchar(40) NOT NULL COMMENT '직원 ID',
-  `role_id` varchar(40) NOT NULL COMMENT '역할 ID',
-  `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제 여부' CHECK (`delete_yn` in ('Y','N')),
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`employee_role_id`),
-  UNIQUE KEY `uk_employee_role` (`employee_id`,`role_id`),
-  KEY `idx_emp_role_role` (`role_id`),
-  CONSTRAINT `fk_emp_role_emp` FOREIGN KEY (`employee_id`) REFERENCES `tb_employee` (`employee_id`),
-  CONSTRAINT `fk_emp_role_role` FOREIGN KEY (`role_id`) REFERENCES `tb_role` (`role_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='직원-역할 매핑';
-
-/*Table structure for table `tb_employee_withdraw` */
-
-DROP TABLE IF EXISTS `tb_employee_withdraw`;
-
-CREATE TABLE `tb_employee_withdraw` (
-  `employee_id` varchar(40) NOT NULL COMMENT 'ID (UUID v7)',
-  `employee_seq` bigint(20) NOT NULL COMMENT '원 직원 일련번호',
-  `login_id` varchar(50) NOT NULL COMMENT '로그인 ID',
-  `employee_no` varchar(50) DEFAULT NULL COMMENT '사번',
-  `email_hash` char(64) NOT NULL COMMENT '이메일 해시',
-  `department_id` varchar(40) DEFAULT NULL,
-  `POSITION` varchar(100) DEFAULT NULL COMMENT '직위',
-  `hire_date` date DEFAULT NULL COMMENT '입사일',
-  `resign_date` date DEFAULT NULL COMMENT '퇴사일',
-  `withdraw_at` datetime NOT NULL COMMENT '탈퇴 처리 일시',
-  `withdraw_reason` varchar(50) NOT NULL COMMENT '탈퇴 사유',
-  `retention_expire_at` datetime NOT NULL COMMENT '보관 만료 일시',
-  `withdrawn_by` varchar(40) DEFAULT NULL,
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`employee_id`),
-  KEY `idx_emp_withdraw_seq` (`employee_seq`),
-  KEY `idx_emp_withdraw_login` (`login_id`),
-  KEY `idx_emp_withdraw_expire` (`retention_expire_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='탈퇴 직원';
+/* 2026-07-31 삭제 — 직원은 로그인·권한 주체가 아니다(프로그램 내 직원 확인 용도만).
+   tb_employee_role / tb_employee_password_history / tb_employee_withdraw 제거.
+   v_user_login 의 EMPLOYEE union 절도 함께 제거했다. */
 
 /*Table structure for table `tb_file` */
 
@@ -1014,11 +863,11 @@ DROP TABLE IF EXISTS `tb_file_group`;
 
 CREATE TABLE `tb_file_group` (
   `file_group_id` varchar(40) NOT NULL COMMENT '파일그룹 ID (UUID v7)',
-  `entity_type` varchar(50) NOT NULL COMMENT '엔티티 타입 (BBS/CNT/MBR/GEMINI_SEARCH/...)',
+  `entity_type` varchar(50) NOT NULL COMMENT '엔티티 타입 (BBS/CNT/MBR/...)',
   `entity_id` varchar(40) DEFAULT NULL,
   `site_id` varchar(40) DEFAULT NULL COMMENT '사이트 ID',
   `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
-  `download_auth` varchar(20) NOT NULL DEFAULT 'ROLE_MEMBER' COMMENT '다운로드 권한 — ANONYMOUS|ROLE_MEMBER|ROLE_EMPLOYEE|ROLE_STAFF|OWNER_PRIVACY|ROLE_MANAGER|ROLE_ADMIN',
+  `download_auth` varchar(20) NOT NULL DEFAULT 'ROLE_MEMBER' COMMENT '다운로드 권한 — ANONYMOUS|ROLE_MEMBER|ROLE_STAFF|OWNER_PRIVACY|ROLE_MANAGER|ROLE_ADMIN',
   `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제 여부' CHECK (`delete_yn` in ('Y','N')),
   `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
   `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
@@ -1028,7 +877,7 @@ CREATE TABLE `tb_file_group` (
   `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
   PRIMARY KEY (`file_group_id`),
   KEY `idx_filegroup_entity` (`entity_type`,`entity_id`),
-  CONSTRAINT `chk_file_group_download_auth` CHECK (`download_auth` in ('ANONYMOUS','ROLE_MEMBER','ROLE_EMPLOYEE','ROLE_STAFF','OWNER_PRIVACY','ROLE_MANAGER','ROLE_ADMIN'))
+  CONSTRAINT `chk_file_group_download_auth` CHECK (`download_auth` in ('ANONYMOUS','ROLE_MEMBER','ROLE_STAFF','OWNER_PRIVACY','ROLE_MANAGER','ROLE_ADMIN'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='파일 그룹';
 
 /*Table structure for table `tb_holiday` */
@@ -1338,6 +1187,7 @@ CREATE TABLE `tb_member_withdraw` (
   `site_id` varchar(40) DEFAULT NULL COMMENT '사이트 ID',
   `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
   `login_id_hash` char(64) NOT NULL COMMENT 'HMAC-SHA256(login_id) 부정가입 추적',
+  `member_name` varchar(150) NOT NULL COMMENT '회원 이름(마스킹)',
   `di_hash` varchar(64) DEFAULT NULL COMMENT '본인 재가입 탐지용 DI 해시',
   `withdraw_at` datetime NOT NULL COMMENT '탈퇴 일시',
   `withdraw_reason` varchar(500) DEFAULT NULL COMMENT '탈퇴 사유',
@@ -1448,7 +1298,7 @@ DROP TABLE IF EXISTS `tb_notification`;
 
 CREATE TABLE `tb_notification` (
   `notification_id` varchar(40) NOT NULL COMMENT '알림 PK (UUID v7)',
-  `recipient_user_id` varchar(40) NOT NULL COMMENT '수신자 user_seq — 회원/직원/관리자 공통',
+  `recipient_user_id` varchar(40) NOT NULL COMMENT '수신자 user_seq — 회원/관리자 공통',
   `notification_type` varchar(40) NOT NULL COMMENT 'BOARD_REPORT / BOARD_COMMENT / SURVEY_RESPONSE / SYSTEM / DORMANT_WARN / FILE_INFECTED 등',
   `title` varchar(200) NOT NULL COMMENT '알림 제목 — 인박스 list 노출',
   `BODY` varchar(2000) DEFAULT NULL COMMENT '알림 본문 — 옵션, 인박스 detail 노출',
@@ -1476,7 +1326,7 @@ DROP TABLE IF EXISTS `tb_notification_pref`;
 
 CREATE TABLE `tb_notification_pref` (
   `pref_id` varchar(40) NOT NULL COMMENT 'PK (UUID v7)',
-  `user_id` varchar(40) NOT NULL COMMENT 'v_user_login.user_id (회원/직원/관리자 공통)',
+  `user_id` varchar(40) NOT NULL COMMENT 'v_user_login.user_id (회원/관리자 공통)',
   `notification_type` varchar(40) NOT NULL COMMENT 'NotificationType enum 값 또는 ALL (전체 기본값)',
   `channel_inapp_yn` char(1) NOT NULL DEFAULT 'Y' COMMENT 'in-app 인박스 채널',
   `channel_email_yn` char(1) NOT NULL DEFAULT 'Y' COMMENT 'email 채널',
@@ -1497,7 +1347,7 @@ DROP TABLE IF EXISTS `tb_pii_purge_log`;
 
 CREATE TABLE `tb_pii_purge_log` (
   `pii_purge_log_id` varchar(40) NOT NULL COMMENT 'ID (UUID v7)',
-  `user_type` varchar(20) NOT NULL COMMENT '사용자 유형' CHECK (`user_type` in ('MEMBER','EMPLOYEE','ADMIN','STAFF')),
+  `user_type` varchar(20) NOT NULL COMMENT '사용자 유형' CHECK (`user_type` in ('MEMBER','ADMIN','STAFF')),
   `user_id_hash` char(64) NOT NULL COMMENT '사용자 ID 해시 (추적 가능하나 역추적 불가)',
   `purged_at` datetime NOT NULL COMMENT '파기 일시',
   `purge_reason` varchar(100) NOT NULL COMMENT '파기 사유',
@@ -1635,7 +1485,7 @@ CREATE TABLE `tb_role_url_access` (
   `access_type` varchar(20) NOT NULL COMMENT '접근 유형' CHECK (`access_type` in ('PERMIT_ALL','AUTHENTICATED','ANONYMOUS','ROLE','AUTH','IP_ONLY','DENY')),
   `required_roles` text DEFAULT NULL COMMENT 'ROLE 타입용 role_id CSV (하나라도 매칭)',
   `required_auths` text DEFAULT NULL COMMENT 'AUTH 타입용 auth_id CSV',
-  `allowed_user_types` varchar(100) DEFAULT NULL COMMENT '허용 user_type CSV (MEMBER,EMPLOYEE,ADMIN)',
+  `allowed_user_types` varchar(100) DEFAULT NULL COMMENT '허용 user_type CSV (MEMBER,ADMIN)',
   `allowed_ips` text DEFAULT NULL COMMENT 'IP_ONLY 타입용 CIDR CSV',
   `require_csrf_yn` char(1) NOT NULL DEFAULT 'Y' COMMENT 'CSRF 체크 요구' CHECK (`require_csrf_yn` in ('Y','N')),
   `require_2fa_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '2FA 추가 요구' CHECK (`require_2fa_yn` in ('Y','N')),
@@ -1715,216 +1565,9 @@ CREATE TABLE `tb_schedule_master` (
   KEY `idx_schedule_master_menu` (`menu_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='일정 마스터 — site/menu + 그룹 헤더 (얇은 owner)';
 
-/*Table structure for table `tb_search_forbidden_word` */
-
-DROP TABLE IF EXISTS `tb_search_forbidden_word`;
-
-CREATE TABLE `tb_search_forbidden_word` (
-  `forbidden_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `site_id` varchar(40) DEFAULT NULL COMMENT 'NULL = 전역 차단',
-  `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
-  `keyword` varchar(100) NOT NULL COMMENT '금지어 (trim)',
-  `match_type` varchar(20) NOT NULL DEFAULT 'CONTAINS' COMMENT 'EXACT/CONTAINS/PREFIX',
-  `reason` varchar(500) DEFAULT NULL COMMENT '운영자 메모 (차단 사유)',
-  `use_yn` char(1) NOT NULL DEFAULT 'Y',
-  `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제여부 Y삭제',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`forbidden_id`),
-  UNIQUE KEY `uk_search_forbidden` (`site_id`,`keyword`,`match_type`),
-  KEY `idx_search_forbidden_active` (`site_id`,`use_yn`,`delete_yn`),
-  CONSTRAINT `chk_forbidden_match_type` CHECK (`match_type` in ('EXACT','CONTAINS','PREFIX')),
-  CONSTRAINT `chk_forbidden_use_yn` CHECK (`use_yn` in ('Y','N')),
-  CONSTRAINT `chk_forbidden_delete_yn` CHECK (`delete_yn` in ('Y','N'))
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='검색 금지어 마스터 (사이트별/전역, 운영자 수동 등록)';
-
-/*Table structure for table `tb_search_gemini_file` */
-
-DROP TABLE IF EXISTS `tb_search_gemini_file`;
-
-CREATE TABLE `tb_search_gemini_file` (
-  `gemini_file_id` varchar(40) NOT NULL COMMENT 'PK (UUID v7)',
-  `file_id` varchar(40) NOT NULL COMMENT 'FK → tb_file.file_id',
-  `dept_id` varchar(40) DEFAULT NULL COMMENT 'NULL=ALL(전체공개), 값=tb_department FK (해당부서+하위만 검색)',
-  `category_code` varchar(20) DEFAULT NULL COMMENT '문서 카테고리 (DOC_CATEGORY 공통코드)',
-  `display_name` varchar(500) DEFAULT NULL COMMENT '표시용 파일명',
-  `description` varchar(2000) DEFAULT NULL COMMENT '파일 설명',
-  `gemini_name` varchar(200) DEFAULT NULL COMMENT 'Gemini API name (files/abc123)',
-  `gemini_uri` varchar(500) DEFAULT NULL COMMENT 'Gemini API URI',
-  `gemini_state` varchar(20) DEFAULT NULL COMMENT 'PROCESSING | ACTIVE | FAILED',
-  `gemini_mime_type` varchar(100) DEFAULT NULL COMMENT 'Gemini 업로드 mimeType',
-  `gemini_expires_at` timestamp NULL DEFAULT NULL COMMENT 'Gemini 파일 만료 시각 (48 h)',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  `deleted_at` timestamp NULL DEFAULT NULL COMMENT '소프트 삭제',
-  PRIMARY KEY (`gemini_file_id`),
-  KEY `idx_gemini_file` (`file_id`),
-  KEY `idx_gemini_deleted` (`deleted_at`),
-  KEY `idx_gemini_dept` (`dept_id`),
-  KEY `idx_gemini_category` (`category_code`),
-  CONSTRAINT `fk_gemini_dept` FOREIGN KEY (`dept_id`) REFERENCES `tb_department` (`department_id`),
-  CONSTRAINT `fk_gemini_file` FOREIGN KEY (`file_id`) REFERENCES `tb_file` (`file_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='Gemini Files API 문서검색 RAG 메타 관리';
-
-/*Table structure for table `tb_search_gemini_keyword` */
-
-DROP TABLE IF EXISTS `tb_search_gemini_keyword`;
-
-CREATE TABLE `tb_search_gemini_keyword` (
-  `keyword_id` varchar(40) NOT NULL COMMENT 'PK (UUID v7)',
-  `question` text NOT NULL COMMENT '검색어 / 사용자 질의 원문',
-  `answer` longtext DEFAULT NULL COMMENT '검색결과 / 최종 답변 (마크다운)',
-  `api_model` varchar(100) NOT NULL COMMENT 'Gemini 모델 ID (예: gemini-2.0-flash)',
-  `input_tokens` int(11) NOT NULL DEFAULT 0 COMMENT '입력 토큰 합계 (prompt)',
-  `output_tokens` int(11) NOT NULL DEFAULT 0 COMMENT '출력 토큰 합계 (candidates)',
-  `cached_tokens` int(11) NOT NULL DEFAULT 0 COMMENT '캐시된 입력 토큰 (Context Caching 적용분)',
-  `total_tokens` int(11) NOT NULL DEFAULT 0 COMMENT '총 토큰 = input + output',
-  `price_per_million_usd` decimal(10,6) NOT NULL DEFAULT 0.250000 COMMENT '1백만 토큰당 가격 USD (INSERT 당시 값 보존)',
-  `input_cost_usd` decimal(12,8) NOT NULL DEFAULT 0.00000000 COMMENT 'input 토큰 비용 USD',
-  `output_cost_usd` decimal(12,8) NOT NULL DEFAULT 0.00000000 COMMENT 'output 토큰 비용 USD',
-  `total_cost_usd` decimal(12,8) NOT NULL DEFAULT 0.00000000 COMMENT '총 비용 USD = input + output',
-  `selected_file_ids` text DEFAULT NULL COMMENT '선택된 geminiFileId CSV',
-  `selected_file_count` int(11) NOT NULL DEFAULT 0 COMMENT '선택된 파일 개수',
-  `cache_used` char(1) NOT NULL DEFAULT 'N' COMMENT 'Context Caching 사용 여부 Y/N',
-  `api_call_count` int(11) NOT NULL DEFAULT 0 COMMENT 'generateContent 호출 횟수 (RAG 5회 등)',
-  `elapsed_ms` int(11) NOT NULL DEFAULT 0 COMMENT 'AI 처리 응답 시간 (ms)',
-  `result_status` varchar(20) NOT NULL DEFAULT 'SUCCESS' COMMENT 'SUCCESS / FAIL / PARTIAL',
-  `error_message` varchar(2000) DEFAULT NULL COMMENT '실패 시 사유',
-  `user_id` varchar(40) DEFAULT NULL COMMENT '질의자 (사용자 UUID)',
-  `user_type` varchar(20) DEFAULT NULL COMMENT 'STAFF / EMPLOYEE / MEMBER',
-  `user_dept_id` varchar(40) DEFAULT NULL COMMENT '질의자 부서 ID',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`keyword_id`),
-  KEY `idx_gkeyword_user` (`user_id`,`created_at`),
-  KEY `idx_gkeyword_dept` (`user_dept_id`,`created_at`),
-  KEY `idx_gkeyword_model` (`api_model`,`created_at`),
-  KEY `idx_gkeyword_created` (`created_at`),
-  KEY `idx_gkeyword_status` (`result_status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='Gemini AI 질의 로그 + 비용 추적';
-
-/*Table structure for table `tb_search_index` */
-
-DROP TABLE IF EXISTS `tb_search_index`;
-
-CREATE TABLE `tb_search_index` (
-  `index_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `entity_type` varchar(20) NOT NULL COMMENT 'BBS_ARTICLE/BBS_COMMENT/CONTENT/MENU/FILE/SCHEDULE',
-  `entity_id` varchar(40) DEFAULT NULL COMMENT '대상 엔티티 PK',
-  `site_id` varchar(40) DEFAULT NULL COMMENT '사이트 ID',
-  `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
-  `bbs_master_id` varchar(40) DEFAULT NULL COMMENT '게시판마스터 ID',
-  `category_id` varchar(40) DEFAULT NULL COMMENT '카테고리 ID',
-  `title` varchar(500) NOT NULL COMMENT '제목 (PII 마스킹 적용)',
-  `content_text` mediumtext NOT NULL COMMENT 'HTML strip + PII 마스킹 + 불용어 필터 plain text',
-  `writer_name` varchar(100) DEFAULT NULL COMMENT '작성자 표시명 (PII 마스킹 적용)',
-  `search_tokens` text DEFAULT NULL,
-  `status` varchar(20) NOT NULL DEFAULT 'PUBLISHED' COMMENT '원본 status — PUBLISHED 만 검색 노출',
-  `url` varchar(500) NOT NULL COMMENT '클릭 시 이동 URL',
-  `thumb_file_id` varchar(40) DEFAULT NULL COMMENT '썸네일 file_id',
-  `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제여부 Y삭제',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`index_id`),
-  UNIQUE KEY `uk_search_entity` (`entity_type`,`entity_id`),
-  KEY `idx_search_site_status` (`site_id`,`status`,`delete_yn`,`updated_at` DESC),
-  KEY `idx_search_bbs` (`bbs_master_id`,`status`,`delete_yn`),
-  KEY `idx_search_title` (`title`),
-  FULLTEXT KEY `ftx_search_tokens` (`search_tokens`),
-  CONSTRAINT `chk_search_index_entity_type` CHECK (`entity_type` in ('BBS_ARTICLE','BBS_COMMENT','CONTENT','MENU','FILE','SCHEDULE')),
-  CONSTRAINT `chk_search_index_delete_yn` CHECK (`delete_yn` in ('Y','N'))
-) ENGINE=InnoDB AUTO_INCREMENT=763 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='통합 검색 인덱스 — article/content 등 다도메인 (MariaDB LIKE 기반)';
-
-/*Table structure for table `tb_search_keyword` */
-
-DROP TABLE IF EXISTS `tb_search_keyword`;
-
-CREATE TABLE `tb_search_keyword` (
-  `keyword_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT 'PK',
-  `site_id` varchar(40) DEFAULT NULL COMMENT 'NULL = 전역 통계',
-  `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
-  `keyword` varchar(100) NOT NULL COMMENT '정규화된 키워드 (trim)',
-  `hit_count` bigint(20) NOT NULL DEFAULT 0 COMMENT '누적 검색 횟수',
-  `last_hit_at` timestamp NULL DEFAULT current_timestamp(),
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`keyword_id`),
-  UNIQUE KEY `uk_search_keyword` (`site_id`,`keyword`),
-  KEY `idx_search_keyword_hit` (`site_id`,`hit_count` DESC,`last_hit_at` DESC)
-) ENGINE=InnoDB AUTO_INCREMENT=118 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='인기검색어 누적 (검색 발생 시 UPSERT)';
-
-/*Table structure for table `tb_search_recommend` */
-
-DROP TABLE IF EXISTS `tb_search_recommend`;
-
-CREATE TABLE `tb_search_recommend` (
-  `recommend_id` varchar(40) NOT NULL COMMENT 'UUID v7 (REC- prefix)',
-  `site_id` varchar(40) DEFAULT NULL COMMENT 'NULL = 전역 추천',
-  `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
-  `keyword` varchar(100) NOT NULL,
-  `sort_order` int(11) NOT NULL DEFAULT 0 COMMENT 'ASC 노출',
-  `description` varchar(500) DEFAULT NULL,
-  `use_yn` char(1) NOT NULL DEFAULT 'Y',
-  `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제여부 Y삭제',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`recommend_id`),
-  KEY `idx_search_recommend_active` (`site_id`,`use_yn`,`delete_yn`,`sort_order`),
-  CONSTRAINT `chk_recommend_use_yn` CHECK (`use_yn` in ('Y','N')),
-  CONSTRAINT `chk_recommend_delete_yn` CHECK (`delete_yn` in ('Y','N'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='추천검색어 마스터 (운영자 수동 등록, 사이트별/전역)';
-
-/*Table structure for table `tb_search_synonym` */
-
-DROP TABLE IF EXISTS `tb_search_synonym`;
-
-CREATE TABLE `tb_search_synonym` (
-  `synonym_id` bigint(20) NOT NULL AUTO_INCREMENT,
-  `site_id` varchar(40) DEFAULT NULL COMMENT 'NULL = 전역',
-  `site_code` varchar(30) DEFAULT NULL COMMENT '집계 편의용 — site_code 캐시',
-  `canonical` varchar(100) NOT NULL COMMENT '대표어',
-  `synonyms` text NOT NULL COMMENT '동의어 목록 (줄바꿈 또는 콤마 구분)',
-  `bidirectional_yn` char(1) NOT NULL DEFAULT 'Y' COMMENT 'Y=양방향, N=단방향',
-  `description` varchar(500) DEFAULT NULL COMMENT '운영자 메모',
-  `use_yn` char(1) NOT NULL DEFAULT 'Y',
-  `delete_yn` char(1) NOT NULL DEFAULT 'N' COMMENT '삭제여부 Y삭제',
-  `created_by` varchar(40) DEFAULT NULL COMMENT '생성자 ID',
-  `created_ip` varchar(50) DEFAULT NULL COMMENT '생성자 IP',
-  `created_at` timestamp NULL DEFAULT current_timestamp() COMMENT '생성 일시',
-  `updated_by` varchar(40) DEFAULT NULL COMMENT '수정자 ID',
-  `updated_ip` varchar(50) DEFAULT NULL COMMENT '수정자 IP',
-  `updated_at` timestamp NULL DEFAULT current_timestamp() COMMENT '수정 일시',
-  PRIMARY KEY (`synonym_id`),
-  UNIQUE KEY `uk_search_synonym` (`site_id`,`canonical`),
-  KEY `idx_search_synonym_active` (`site_id`,`use_yn`,`delete_yn`),
-  CONSTRAINT `chk_synonym_bidir` CHECK (`bidirectional_yn` in ('Y','N')),
-  CONSTRAINT `chk_synonym_use_yn` CHECK (`use_yn` in ('Y','N')),
-  CONSTRAINT `chk_synonym_delete_yn` CHECK (`delete_yn` in ('Y','N'))
-) ENGINE=InnoDB AUTO_INCREMENT=21 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_uca1400_ai_ci COMMENT='검색 동의어/유의어 사전 (운영자 수동 등록)';
+/* 2026-07-31 삭제 — 검색은 외부 검색엔진(contextPath=/search)으로 분리한다.
+   tb_search_index / tb_search_keyword / tb_search_synonym / tb_search_forbidden_word /
+   tb_search_recommend / tb_search_gemini_file / tb_search_gemini_keyword 7종 제거. */
 
 
 
@@ -2196,4 +1839,4 @@ select  `a`.`admin_id` AS `admin_id`,  `a`.`admin_seq` AS `uniq_id`,  `a`.`login
 
 
 CREATE   VIEW `v_user_login` AS 
-select  'MEMBER' AS `user_type`,  `m`.`member_id` AS `user_id`,  `m`.`member_seq` AS `uniq_id`,  `m`.`site_id` AS `site_id`,  NULL AS `group_id`,  `m`.`login_id` AS `login_id`,  `m`.`PASSWORD` AS `password`,  `m`.`STATUS` AS `status`,  `m`.`login_fail_count` AS `login_fail_count`,  `m`.`locked_until` AS `locked_until`,  `m`.`last_login_at` AS `last_login_at`,  `m`.`password_changed_at` AS `password_changed_at`,  `m`.`password_expire_at` AS `password_expire_at`,  'N' AS `two_factor_enabled_yn`,  NULL AS `two_factor_secret`,  NULL AS `ip_whitelist`,  NULL AS `allowed_time_from`,  NULL AS `allowed_time_to`,  `m`.`role_ids` AS `role_ids`,  'ROLE_MEMBER' AS `role_codes`,  `m`.`group_ids` AS `group_ids`,  '' AS `department_id`,  '' AS `department_name`,  `m`.`delete_yn` AS `delete_yn` from `tb_member` `m` where `m`.`delete_yn` = 'N' union all select  'EMPLOYEE' AS `user_type`,  `e`.`employee_id` AS `user_id`,  `e`.`employee_seq` AS `uniq_id`,  NULL AS `site_id`,  NULL AS `group_id`,  `e`.`login_id` AS `login_id`,  `e`.`PASSWORD` AS `password`,  `e`.`STATUS` AS `status`,  `e`.`login_fail_count` AS `login_fail_count`,  `e`.`locked_until` AS `locked_until`,  `e`.`last_login_at` AS `last_login_at`,  `e`.`password_changed_at` AS `password_changed_at`,  `e`.`password_expire_at` AS `password_expire_at`,  `e`.`two_factor_enabled_yn` AS `two_factor_enabled_yn`,  `e`.`two_factor_secret` AS `two_factor_secret`,  `e`.`ip_whitelist` AS `ip_whitelist`,  `e`.`allowed_time_from` AS `allowed_time_from`,  `e`.`allowed_time_to` AS `allowed_time_to`,  `e`.`role_ids` AS `role_ids`,  'ROLE_EMPLOYEE' AS `role_codes`,  `e`.`group_ids` AS `group_ids`,  `e`.`department_id` AS `department_id`,  `e`.`department_name` AS `department_name`,  `e`.`delete_yn` AS `delete_yn`  from `tb_employee` `e`  where `e`.`delete_yn` = 'N' union all select  'STAFF' AS `user_type`,  `a`.`admin_id` AS `user_id`,  `a`.`admin_seq` AS `uniq_id`,  NULL AS `site_id`,  `a`.`admin_group_id` AS `group_id`,  `a`.`login_id` AS `login_id`,  `a`.`PASSWORD` AS `password`,  `a`.`STATUS` AS `status`,  `a`.`login_fail_count` AS `login_fail_count`,  `a`.`locked_until` AS `locked_until`,  `a`.`last_login_at` AS `last_login_at`,  `a`.`password_changed_at` AS `password_changed_at`,  `a`.`password_expire_at` AS `password_expire_at`,  `a`.`two_factor_enabled_yn` AS `two_factor_enabled_yn`,  `a`.`two_factor_secret` AS `two_factor_secret`,  `a`.`ip_whitelist` AS `ip_whitelist`,  `a`.`allowed_time_from` AS `allowed_time_from`,  `a`.`allowed_time_to` AS `allowed_time_to`,  `a`.`role_ids` AS `role_ids`,  `a`.`role_codes` AS `role_codes`,  `a`.`group_ids` AS `group_ids`,  `a`.`department_id` AS `department_id`,  `a`.`department_name` AS `department_name`,  `a`.`delete_yn` AS `delete_yn`  from `tb_admin` `a`  where `a`.`delete_yn` = 'N';
+select  'MEMBER' AS `user_type`,  `m`.`member_id` AS `user_id`,  `m`.`member_seq` AS `uniq_id`,  `m`.`site_id` AS `site_id`,  NULL AS `group_id`,  `m`.`login_id` AS `login_id`,  `m`.`PASSWORD` AS `password`,  `m`.`STATUS` AS `status`,  `m`.`login_fail_count` AS `login_fail_count`,  `m`.`locked_until` AS `locked_until`,  `m`.`last_login_at` AS `last_login_at`,  `m`.`password_changed_at` AS `password_changed_at`,  `m`.`password_expire_at` AS `password_expire_at`,  'N' AS `two_factor_enabled_yn`,  NULL AS `two_factor_secret`,  NULL AS `ip_whitelist`,  NULL AS `allowed_time_from`,  NULL AS `allowed_time_to`,  `m`.`role_ids` AS `role_ids`,  'ROLE_MEMBER' AS `role_codes`,  `m`.`group_ids` AS `group_ids`,  '' AS `department_id`,  '' AS `department_name`,  `m`.`delete_yn` AS `delete_yn` from `tb_member` `m` where `m`.`delete_yn` = 'N' union all select  'STAFF' AS `user_type`,  `a`.`admin_id` AS `user_id`,  `a`.`admin_seq` AS `uniq_id`,  NULL AS `site_id`,  `a`.`admin_group_id` AS `group_id`,  `a`.`login_id` AS `login_id`,  `a`.`PASSWORD` AS `password`,  `a`.`STATUS` AS `status`,  `a`.`login_fail_count` AS `login_fail_count`,  `a`.`locked_until` AS `locked_until`,  `a`.`last_login_at` AS `last_login_at`,  `a`.`password_changed_at` AS `password_changed_at`,  `a`.`password_expire_at` AS `password_expire_at`,  `a`.`two_factor_enabled_yn` AS `two_factor_enabled_yn`,  `a`.`two_factor_secret` AS `two_factor_secret`,  `a`.`ip_whitelist` AS `ip_whitelist`,  `a`.`allowed_time_from` AS `allowed_time_from`,  `a`.`allowed_time_to` AS `allowed_time_to`,  `a`.`role_ids` AS `role_ids`,  `a`.`role_codes` AS `role_codes`,  `a`.`group_ids` AS `group_ids`,  `a`.`department_id` AS `department_id`,  `a`.`department_name` AS `department_name`,  `a`.`delete_yn` AS `delete_yn`  from `tb_admin` `a`  where `a`.`delete_yn` = 'N';
