@@ -54,7 +54,7 @@
 | **P4** | 핵심 CMS — 사이트·메뉴·콘텐츠·게시판·파일 | CMS 본체 | 🟡 2026-07-31 — 작업 전건 완료, DoD 3건 기동 검증 대기 |
 | **P5** | 회원 · 인증 연동 | 회원 생명주기 | 🟡 2026-08-01 — 작업 완료(OTP 정리 배치는 P7), DoD 왕복 검증 대기 |
 | **P6** | 부가 도메인 | 설문·민원·일정·팝업·알림 등 | 🟡 2026-08-01 — 작업 완료, DoD 왕복 검증 대기 |
-| **P7** | 운영 · 관측 | 로깅·통계·배치 | ⬜ |
+| **P7** | 운영 · 관측 | 로깅·통계·배치 | 🟡 2026-08-01 — 작업 완료, DoD 발화 검증 대기 |
 | **P8** | 멀티사이트 데모 · 마감 | 배포 가능 상태 | ⬜ |
 
 ---
@@ -501,29 +501,53 @@
 
 #### 작업
 
-- [ ] **접속 로그** — `AccessLogFilter` → `log_access`
-- [ ] **오류 로그** — `ErrorLoggingExceptionResolver` → `log_error`
-- [ ] **보안·로그인 로그** — `log_security`, `log_login`
-- [ ] **감사 로그** — `log_audit` (P1 `AuditLogger` 연동 완성)
-- [ ] **파일 다운로드 이력** — `log_file_download`
-- [ ] **통계** — `stat_access_daily`, `stat_access_uri_daily`, `stat_daily_visit`,
-      `stat_content_view` + 대시보드
-      (**검색어 통계 제외** — `stat_search_keyword` 삭제, 검색엔진 쪽에서 낸다)
-- [ ] **로그 뷰어** — 관리자 조회 화면
-- [ ] **ShedLock** — `config/shedlock/`, logging DB `shedlock` 테이블, `defaultLockAtMostFor`
-- [ ] **스케줄러 8종** — 개발가이드 §12 표 전체. cron 외부화 + **dry-run 플래그**
-- [ ] **보존 정책** — 로그 보존, soft-delete 정리, 파일 퍼지, 탈퇴 파기(`tb_pii_purge_log`),
-      **만료·사용 완료 OTP 정리**(`tb_member_otp` — P5에서 도입)
-- [ ] Actuator — 공개는 `health`·`info`·`prometheus` 만, 나머지 `ROLE_ADMIN`
+- [x] **접속 로그** — `AccessLogFilter`(@Order LOWEST-50) → `log_access` (2026-08-01 이식)
+- [x] **오류 로그** — `ErrorLoggingExceptionResolver`(@Order HIGHEST) → `log_error` (2026-08-01 이식)
+- [x] **보안·로그인 로그** — `log_security`, `log_login` — P1·P2 에서 이미 이식됨
+- [x] **감사 로그** — `log_audit` — P1 `AuditLogger` 이식 완료
+- [x] **파일 다운로드 이력** — `log_file_download` — P4 에서 이미 이식됨
+- [x] **통계** — `logging/access` 집계 + `primary/system/stat` 조회 화면 (2026-08-01 이식).
+      검색어 통계는 제외(D10)
+- [x] **로그 뷰어** — `primary/system/log/LogMngController` + `logging/viewer` (2026-08-01).
+      1차 이식에서 빠졌다 — `logging/*` 만 훑었는데 뷰어 컨트롤러는 `primary/system/log` 에 있었다
+- [x] **ShedLock** — `config/shedlock/ShedLockConfig`,
+      `@EnableSchedulerLock(defaultLockAtMostFor="PT30M")`, logging DB `shedlock` 테이블
+- [x] **스케줄러 6종** (2026-08-01) — cron 전부 `${…:기본값}` 외부화 확인.
+      **8종이 아니라 6종**이다: `GeminiFileRenewScheduler`(GenAI SDK 미도입)·
+      `WeatherCollectScheduler`(날씨 도메인 미이식) 제외
+      — **`DormantScheduler` 는 cron 이 하드코딩**(`"0 0 1 * * *"`)이고 dry-run 도 없었다.
+        CLAUDE.md 규약 위반이라 이식하면서 교정했다
+      — `LogRetentionScheduler` 에 dry-run 신설(count 질의 6종 추가)
+      — `SchedulerContractTest` 4건으로 규약을 자동 검사한다(cron 외부화·dry-run·
+        `@SchedulerLock`·제외 대상 부재)
+- [x] **보존 정책** — 로그 보존·soft-delete 정리·파일 퍼지·탈퇴 파기 이식 완료.
+      **만료 OTP 정리** — `MemberOtpRetentionTarget` 신설로 P5 이월분을 닫았다.
+      새 스케줄러를 만들지 않고 `RetentionTarget` SPI 에 붙여
+      dry-run·감사·ShedLock 을 그대로 쓴다
+- [x] Actuator — `V2026080103` 로 규칙 등록.
+      **현재 `/actuator/**` 규칙이 없어 health 조차 무매칭 DENY 였다** —
+      LB 헬스체크가 계속 실패했을 상태다
 
 #### DoD
 
 - 접속 로그 적재 → 집계 배치 실행 → `stat_*` 반영 확인
+  — 🟡 **미실행**. 필터·집계 서비스·조회 화면 전량 존재
 - 배치 **dry-run 발화** + ShedLock 락 행 생성 확인
+  — 🟡 **미실행**. 규약(cron 외부화·dry-run 존재·`@SchedulerLock` 부착)은
+    `SchedulerContractTest` 4건으로 자동 검사한다. **실제 발화는 미확인**
 - 로그 기록이 본 트랜잭션 롤백과 무관하게 남는 것 확인(`REQUIRES_NEW`)
+  — 🟡 **미실행**. `AuditLogger`·`SecurityLogger`·`PrivacyAccessLogger` 가
+    `REQUIRES_NEW` 로 선언된 것은 코드로 확인
 - Actuator 비공개 엔드포인트가 익명에 차단
+  — 🟡 **미실행**. `V2026080103` 적용 후 확인해야 한다.
+    적용 **전에는 health 를 포함해 전부 차단**된 상태다
+- ArchUnit · 전체 테스트
+  — ✅ 10/10 · **52건**(`SchedulerContractTest` 4건 신규)
 
 **범위 밖** — 외부 모니터링(APM·알림) 연동.
+
+> **🟡 항목은 앱을 띄워야 끝난다.** DB 자격증명이 셸에 없어 기동하지 못했다.
+> `V2026080103` 적용 전에는 Actuator 가 전부 막혀 있다.
 
 ---
 
@@ -646,6 +670,10 @@
 | 2026-08-01 | **`common/calendar` 2종이 P1 에서 누락됐다** — `CalendarMonth`·`CalendarWeek`. 일정·휴일 컨트롤러가 달력 UI 에 쓴다. `common/lifecycle` 과 같은 계열의 누락이다(P1 이 `common/` 을 전량 이식하지 않았다) | P6 | 중 | ✅ **해결 2026-08-01** — 2종 이식. 이식 직후 **001 `common/` 과 전수 대조**했다 — 패키지·클래스 모두 차이 0. 더 빠진 것은 없다(2026-08-01 실측) |
 | 2026-08-01 | **`ScheduleServiceImpl` 에 검색 색인 훅이 살아 있었다** — D10(검색 외부 분리)으로 `primary/search` 를 이식하지 않았는데, 일정 서비스가 `SearchIndexService` 를 `@Lazy` 주입해 CUD 4곳에서 호출했다. 그대로면 컴파일 불가 | P6 | 중 | ✅ **해결 2026-08-01** — 8블록(import 2·필드·생성자 파라미터·대입·호출 4) **정확한 문자열 매칭으로만** 제거. 001 에서 정규식으로 잘라내다 `BoardReportServiceImpl` 을 망가뜨린 이력이 있어 하나라도 못 찾으면 중단하는 스크립트를 썼다. 미사용이 된 `@Lazy` import 도 제거 |
 | 2026-08-01 | **부가 도메인 4종이 URL 최상위 세그먼트를 차지한다** — `/survey`·`/complaint`·`/schedule`·`/holiday`. `DefaultUsrController` 의 `/{siteCode}/{slug}` 패턴과 형태가 겹친다. Spring 이 리터럴을 우선하므로 가로채이지는 않지만, **같은 이름의 site_code 를 만들면 그 사이트가 열리지 않는다** | P6 | 낮음 | 확인만 — 마이그레이션 주석에 기록했다. 사이트 코드 명명 시 이 네 단어를 피할 것. P8 데모에서 사이트를 만들 때 주의 |
+| 2026-08-01 | **Actuator 가 전부 막혀 있었다** — `/actuator/**` 접근 규칙이 없어 무매칭 DENY 가 걸린다. `health` 조차 열리지 않으므로 **LB·컨테이너 헬스체크가 계속 실패**했을 상태다. yml 은 `health,info,metrics,prometheus,httpexchanges` 를 노출하고 있어 설정만 보면 열린 것처럼 보인다 | P7 | **높음** | ✅ **해결 2026-08-01** — `V2026080103`. health·info·prometheus 만 PERMIT_ALL, 나머지는 ROLE_ADMIN. `httpexchanges` 는 최근 요청의 URI·헤더를 담아 사실상 접속 로그라 반드시 관리자 전용이어야 한다 |
+| 2026-08-01 | **`DormantScheduler` 의 cron 이 하드코딩돼 있었다** — `@Scheduled(cron = "0 0 1 * * *")`. CLAUDE.md 규약("cron 은 `${…:기본값}` 으로 외부화하고 dry-run 플래그를 둔다") 위반이다. 스케줄러는 평소 조용해서 규약 위반이 화면처럼 티나지 않고, **급히 꺼야 할 때** 배포가 필요하다는 사실이 드러난다 | P7 | 중 | ✅ **해결 2026-08-01** — cron·enabled·dry-run 외부화. 같은 실수를 자동 검출하도록 `SchedulerContractTest` 신설(cron 외부화·파괴적 배치의 dry-run·`@SchedulerLock` 부착·제외 대상 부재 4건) |
+| 2026-08-01 | **파일 정리에 트리거가 둘이다** — `FilePurgeScheduler.runOnce()` 와 `FileRetentionTarget`(→ `SoftDeleteRetentionScheduler`) 이 같은 정리를 한다. 후자에는 dry-run 이 걸리지만 전자에는 없어서, **어느 경로로 도는지에 따라 dry-run 이 먹기도 하고 안 먹기도 한다** | P7 | 중 | 미정 — `FilePurgeScheduler` 에 dry-run 을 덧대는 것보다 **트리거를 하나로 합치는 편**이 맞다. 디스크 파일 삭제까지 포함하므로 어느 쪽을 남길지는 결정이 필요하다 |
+| 2026-08-01 | **로그 뷰어·통계 컨트롤러가 1차 이식에서 빠졌다** — `logging/*` 패키지만 훑었는데 실제 화면 컨트롤러는 `primary/system/{log,stat}` 에 있었다. 템플릿(`admin/system/log`·`access-stat`)은 P4 에서 이미 들어와 있어 **화면만 있고 컨트롤러가 없는** 상태였다 | P7 | 낮음 | ✅ **해결 2026-08-01** — `primary/system/{log,stat}` 5종 + `logging/viewer` 4종 보완 이식. 패키지 이름만 보고 범위를 정하면 놓친다는 사례 |
 | 2026-07-31 | **`pageQuery` 가 CSRF 토큰을 페이지 링크에 흘린다** — 신설한 `SiteContextModelAdvice.injectPageQuery` 가 `page` 만 빼고 전 파라미터를 복사했다. Spring Security 는 토큰을 읽은 뒤에도 파라미터 맵에서 지우지 않으므로, POST 가 뷰를 직접 렌더하는 경로(검증 실패 시 폼 재렌더 — `BoardCategoryMngController:79` 등 실재)에서 **모든 페이지 링크 href 에 토큰이 박힌다**. Referer 로 외부 유출 + 브라우저 히스토리 + `log_access` 적재 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. 요청의 `CsrfToken` 에서 실제 파라미터명을 읽어 제외하고, 못 읽으면 기본값 `_csrf` 로 막는다(커스텀 이름 대응). 테스트 2건 추가. **조각 채택 화면이 0곳이라 실제 유출은 없었다** — 65개 목록 전환 전에 잡았다 |
 | 2026-07-31 | **`/fileDown/{id}/thumb` 이 접근통제 없이 열렸다** — `FileServiceImpl.downloadThumbnail` 만 `enforceDownloadAuth` 가 없었다(`download`·`previewInline`·`downloadGroup` 은 전부 있음). 무매칭 DENY 시절엔 도달 불가였으나 P4 의 `/fileDown/**` PERMIT_ALL 규칙이 이 경로를 열어 **MEMBER 전용 첨부의 썸네일이 UUID 만 알면 익명에게 노출**되는 상태가 됐다 | P4 | **높음** | ✅ **해결 2026-07-31** — 코드 리뷰에서 검출. `enforceDownloadAuth` 추가. **바이러스 게이트(`isDownloadable`)는 넣지 않았다** — 썸네일은 `ThumbnailGenerator` 가 새로 만든 JPG 라 원본 악성코드를 옮기지 않는다는 인터페이스 javadoc 의 **의도된 예외**가 맞다. 그 논리는 악성코드 전파만 다루고 접근통제는 다루지 않는다는 점이 누락 지점이었다 |
 

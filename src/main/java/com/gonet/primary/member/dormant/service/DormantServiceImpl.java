@@ -91,6 +91,28 @@ public class DormantServiceImpl extends EgovAbstractServiceImpl implements Dorma
             r.notified30D(), r.notified7D(), r.notified1D(), r.transferred(), r.purged(), r.mailFailures());
     }
 
+    /**
+     * dry-run 미리보기 — 조회만 한다. 쓰기 메서드가 아니므로 클래스 레벨
+     * {@code readOnly=true} 를 그대로 쓴다(override 하지 않는다).
+     *
+     * <p>실행 경로와 <b>같은 매퍼 질의</b>를 쓰는 것이 중요하다. 별도 카운트 쿼리를
+     * 만들면 조건이 갈려서 "미리보기는 0건인데 실제로는 200명이 옮겨지는" 상황이 난다.
+     */
+    @Override
+    public DormantDryRunResult previewDaily() {
+        // stage 문자열은 실행 경로(notifyStage 호출부)와 **반드시 같아야** 한다.
+        // 다르면 미리보기는 0건인데 실제로는 수백 명이 움직인다.
+        int n30 = mapper.findNoticeCandidates(CUTOFF_30D, "30D").size();
+        int n7  = mapper.findNoticeCandidates(CUTOFF_7D,  "7D").size();
+        int n1  = mapper.findNoticeCandidates(CUTOFF_1D,  "1D").size();
+        int transfer = mapper.findTransferCandidates(DAYS_UNTIL_DORMANT).size();
+        int purge    = mapper.findExpiredDormantIds(RETENTION_YEARS * 365, PURGE_BATCH_LIMIT).size();
+
+        log.info("===DORMANT_DRY_RUN notice30D={} notice7D={} notice1D={} transfer={} purge={}",
+            n30, n7, n1, transfer, purge);
+        return new DormantDryRunResult(n30, n7, n1, transfer, purge);
+    }
+
     @Override
     public DormantBatchResult runDailyOnce() {
         int[] failures = { 0 };

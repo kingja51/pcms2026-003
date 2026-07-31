@@ -121,6 +121,11 @@ gopcms:
   lifecycle:
     withdraw-purge:
       dry-run: true
+  # 휴면 배치도 로컬은 dry-run — 개발 DB 의 회원이 조용히 tb_member 밖으로
+  # 옮겨지면 다음 로그인 테스트가 "계정이 없다" 로 실패하고 원인을 찾기 어렵다.
+  member:
+    dormant:
+      dry-run: true
 
   content:
     sync:

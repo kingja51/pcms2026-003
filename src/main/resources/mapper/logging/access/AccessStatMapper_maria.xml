@@ -1,0 +1,376 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  접근 로그 일별 집계 + 통계 조회 Mapper.
+  log_access 직접 SELECT 는 금지(서버 부하). 모든 조회는 stat_* 집계 테이블에서.
+-->
+<mapper namespace="com.gonet.logging.access.mapper.AccessStatMapper">
+
+  <!-- ==================================================================
+       배치 INSERT — INSERT ... SELECT 한 번으로 집계
+       ================================================================== -->
+
+  <delete id="deleteDaily">
+    DELETE FROM stat_access_daily WHERE stat_date = CURDATE()
+  </delete>
+
+  <!--
+    site_id × user_type × bucket_hour 조합으로 집계.
+    동시에 NULL 차원(전체) 도 함께 INSERT (UNION ALL) — 화면 조회 단순화.
+    p95 는 MariaDB 11.7 기준 PERCENTILE_CONT 미지원 → 근사치(0.95 위치 정렬) 대체.
+  -->
+  <insert id="aggregateDaily">
+    INSERT INTO stat_access_daily (
+      stat_date, site_id, site_code, user_type, bucket_hour,
+      pv, uv, unique_users, avg_response_ms, p95_response_ms,
+      err_4xx, err_5xx, bytes_sent
+    )
+    SELECT
+        #{statDate} AS stat_date,
+        site_id,
+        MAX(site_code)                                 AS site_code,
+        user_type,
+        bucket_hour,
+        COUNT(*)                                       AS pv,
+        COUNT(DISTINCT client_ip)                      AS uv,
+        COUNT(DISTINCT actor_user_id)                  AS unique_users,
+        ROUND(IFNULL(AVG(response_ms), 0))             AS avg_response_ms,
+        IFNULL(MAX(CASE WHEN rn_pct &gt;= 0.95 THEN response_ms END), 0) AS p95_response_ms,
+        SUM(CASE WHEN status_code &gt;= 400 AND status_code &lt; 500 THEN 1 ELSE 0 END) AS err_4xx,
+        SUM(CASE WHEN status_code &gt;= 500 THEN 1 ELSE 0 END) AS err_5xx,
+        IFNULL(SUM(bytes_sent), 0)                     AS bytes_sent
+      FROM (
+        SELECT
+            site_id, site_code,
+            COALESCE(actor_user_type, 'ANONYMOUS') AS user_type,
+            HOUR(logged_at) AS bucket_hour,
+            client_ip, actor_user_id, response_ms, status_code, bytes_sent,
+            PERCENT_RANK() OVER (PARTITION BY site_id, COALESCE(actor_user_type,'ANONYMOUS'), HOUR(logged_at)
+                                  ORDER BY response_ms) AS rn_pct
+          FROM log_access
+         WHERE logged_at &gt;= #{statDate}
+           AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+      ) t
+     GROUP BY site_id, user_type, bucket_hour
+
+    UNION ALL
+
+    -- 부분합 (a) 사이트별 — user_type/bucket_hour NULL → ② 사이트별 점유율
+    -- site_code 는 GROUP BY 에서 제외 (UNIQUE KEY 가 site_id 만 포함하므로 같은 site_id 의
+    -- 과거/현재 site_code 가 섞여 있어도 한 행으로 합친다 — 2026-04-30 dup-key 회귀 방지)
+    SELECT
+        #{statDate}, site_id, MAX(site_code), NULL, NULL,
+        COUNT(*),
+        COUNT(DISTINCT client_ip),
+        COUNT(DISTINCT actor_user_id),
+        ROUND(IFNULL(AVG(response_ms), 0)),
+        0,
+        SUM(CASE WHEN status_code &gt;= 400 AND status_code &lt; 500 THEN 1 ELSE 0 END),
+        SUM(CASE WHEN status_code &gt;= 500 THEN 1 ELSE 0 END),
+        IFNULL(SUM(bytes_sent), 0)
+      FROM log_access
+     WHERE logged_at &gt;= #{statDate}
+       AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+     GROUP BY site_id
+
+    UNION ALL
+
+    -- 부분합 (b) 사용자 유형별 — site/bucket_hour NULL → ③ 사용자 유형 분포
+    SELECT
+        #{statDate}, NULL, NULL,
+        COALESCE(actor_user_type, 'ANONYMOUS') AS user_type,
+        NULL,
+        COUNT(*),
+        COUNT(DISTINCT client_ip),
+        COUNT(DISTINCT actor_user_id),
+        ROUND(IFNULL(AVG(response_ms), 0)),
+        0,
+        SUM(CASE WHEN status_code &gt;= 400 AND status_code &lt; 500 THEN 1 ELSE 0 END),
+        SUM(CASE WHEN status_code &gt;= 500 THEN 1 ELSE 0 END),
+        IFNULL(SUM(bytes_sent), 0)
+      FROM log_access
+     WHERE logged_at &gt;= #{statDate}
+       AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+     GROUP BY COALESCE(actor_user_type, 'ANONYMOUS')
+
+    UNION ALL
+
+    -- 부분합 (c) 시간대별 — site/user_type NULL → ④ 시간대별 트래픽
+    SELECT
+        #{statDate}, NULL, NULL, NULL,
+        HOUR(logged_at) AS bucket_hour,
+        COUNT(*),
+        COUNT(DISTINCT client_ip),
+        COUNT(DISTINCT actor_user_id),
+        ROUND(IFNULL(AVG(response_ms), 0)),
+        0,
+        SUM(CASE WHEN status_code &gt;= 400 AND status_code &lt; 500 THEN 1 ELSE 0 END),
+        SUM(CASE WHEN status_code &gt;= 500 THEN 1 ELSE 0 END),
+        IFNULL(SUM(bytes_sent), 0)
+      FROM log_access
+     WHERE logged_at &gt;= #{statDate}
+       AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+     GROUP BY HOUR(logged_at)
+
+    UNION ALL
+
+    -- 부분합 (d) 전체 합계 — 모두 NULL → 요약 카드용 totalPv 등
+    SELECT
+        #{statDate}, NULL, NULL, NULL, NULL,
+        COUNT(*),
+        COUNT(DISTINCT client_ip),
+        COUNT(DISTINCT actor_user_id),
+        ROUND(IFNULL(AVG(response_ms), 0)),
+        0,
+        SUM(CASE WHEN status_code &gt;= 400 AND status_code &lt; 500 THEN 1 ELSE 0 END),
+        SUM(CASE WHEN status_code &gt;= 500 THEN 1 ELSE 0 END),
+        IFNULL(SUM(bytes_sent), 0)
+      FROM log_access
+     WHERE logged_at &gt;= #{statDate}
+       AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+  </insert>
+
+  <delete id="deleteUriDaily">
+    DELETE FROM stat_access_uri_daily WHERE stat_date = CURDATE()
+  </delete>
+
+  <!-- URI 별 집계 — TOP 1000 만 INSERT (디스크 절약) -->
+  <insert id="aggregateUriDaily">
+    INSERT INTO stat_access_uri_daily (
+      stat_date, site_id, site_code, request_uri,
+      pv, uv, avg_response_ms
+    )
+    SELECT * FROM (
+      SELECT
+          #{statDate} AS stat_date,
+          site_id, site_code, request_uri,
+          COUNT(*)                          AS pv,
+          COUNT(DISTINCT client_ip)         AS uv,
+          ROUND(IFNULL(AVG(response_ms),0)) AS avg_response_ms
+        FROM log_access
+       WHERE logged_at &gt;= #{statDate}
+         AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+       GROUP BY site_id, site_code, request_uri
+       ORDER BY pv DESC
+       LIMIT 1000
+    ) t
+  </insert>
+
+  <!-- ==================================================================
+       통계 화면 조회 — 모두 stat_access_daily 만 사용
+       ================================================================== -->
+
+  <sql id="dailyCols">
+    stat_id, stat_date, site_id, site_code, user_type, bucket_hour,
+    pv, uv, unique_users, avg_response_ms, p95_response_ms,
+    err_4xx, err_5xx, bytes_sent, computed_at
+  </sql>
+
+  <!-- ① 일별 PV/UV 시계열 (전체 차원 = NULL/NULL/NULL) -->
+  <select id="dailySeries" resultType="com.gonet.logging.access.dto.AccessStatDaily">
+    SELECT <include refid="dailyCols"/>
+      FROM stat_access_daily
+     WHERE stat_date BETWEEN #{from} AND #{to}
+       AND user_type   IS NULL
+       AND bucket_hour IS NULL
+    <choose>
+      <when test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+      </when>
+    </choose>
+     ORDER BY stat_date ASC
+  </select>
+
+  <!-- ② 사이트별 트래픽 점유율 (기간 합산, user_type/bucket NULL 행만) -->
+  <select id="siteShareSummary" resultType="com.gonet.logging.access.dto.AccessStatDaily">
+    SELECT
+        NULL AS stat_id,
+        MAX(stat_date) AS stat_date,
+        site_id, site_code, NULL AS user_type, NULL AS bucket_hour,
+        SUM(pv)            AS pv,
+        SUM(uv)            AS uv,
+        SUM(unique_users)  AS unique_users,
+        ROUND(AVG(avg_response_ms)) AS avg_response_ms,
+        0 AS p95_response_ms,
+        SUM(err_4xx)       AS err_4xx,
+        SUM(err_5xx)       AS err_5xx,
+        SUM(bytes_sent)    AS bytes_sent,
+        NOW()              AS computed_at
+      FROM stat_access_daily
+     WHERE stat_date BETWEEN #{from} AND #{to}
+       AND user_type   IS NULL
+       AND bucket_hour IS NULL
+       
+     GROUP BY site_id, site_code
+     ORDER BY pv DESC
+  </select>
+
+  <!-- ③ 사용자 유형별 분포 -->
+  <select id="userTypeShareSummary" resultType="com.gonet.logging.access.dto.AccessStatDaily">
+    SELECT
+        NULL AS stat_id,
+        MAX(stat_date) AS stat_date,
+        #{siteId} AS site_id, NULL AS site_code,
+        user_type,
+        NULL AS bucket_hour,
+        SUM(pv)            AS pv,
+        SUM(uv)            AS uv,
+        SUM(unique_users)  AS unique_users,
+        ROUND(AVG(avg_response_ms)) AS avg_response_ms,
+        0 AS p95_response_ms,
+        SUM(err_4xx)       AS err_4xx,
+        SUM(err_5xx)       AS err_5xx,
+        SUM(bytes_sent)    AS bytes_sent,
+        NOW()              AS computed_at
+      FROM stat_access_daily
+     WHERE stat_date BETWEEN #{from} AND #{to}
+       AND user_type   IS NOT NULL
+       AND bucket_hour IS NULL
+    <choose>
+      <when test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+      </when>
+    </choose>
+     GROUP BY user_type
+     ORDER BY pv DESC
+  </select>
+
+  <!-- ④ 시간대별 트래픽 패턴 (0~23) -->
+  <select id="hourlySummary" resultType="com.gonet.logging.access.dto.AccessStatDaily">
+    SELECT
+        NULL AS stat_id,
+        MAX(stat_date) AS stat_date,
+        #{siteId} AS site_id, NULL AS site_code,
+        NULL AS user_type,
+        bucket_hour,
+        SUM(pv)            AS pv,
+        SUM(uv)            AS uv,
+        SUM(unique_users)  AS unique_users,
+        ROUND(AVG(avg_response_ms)) AS avg_response_ms,
+        0 AS p95_response_ms,
+        SUM(err_4xx)       AS err_4xx,
+        SUM(err_5xx)       AS err_5xx,
+        SUM(bytes_sent)    AS bytes_sent,
+        NOW()              AS computed_at
+      FROM stat_access_daily
+     WHERE stat_date BETWEEN #{from} AND #{to}
+       AND user_type   IS NULL
+       AND bucket_hour IS NOT NULL
+    <choose>
+      <when test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+      </when>
+    </choose>
+     GROUP BY bucket_hour
+     ORDER BY bucket_hour ASC
+  </select>
+
+  <!-- ⑤ 인기 페이지 TOP N -->
+  <select id="topPages" resultType="com.gonet.logging.access.dto.AccessStatUriDaily">
+    SELECT
+        NULL AS stat_id,
+        MAX(stat_date) AS stat_date,
+        site_id, MAX(site_code) AS site_code,
+        request_uri,
+        SUM(pv)                       AS pv,
+        SUM(uv)                       AS uv,
+        ROUND(AVG(avg_response_ms))   AS avg_response_ms,
+        NOW()                         AS computed_at
+      FROM stat_access_uri_daily
+     WHERE stat_date BETWEEN #{from} AND #{to}
+    <if test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+    </if>
+     GROUP BY site_id, request_uri
+     ORDER BY pv DESC
+     LIMIT #{limit}
+  </select>
+
+  <!-- ==================================================================
+       stat_daily_visit (설계서 §10.4) — 같은 source(log_access)에서 동시 집계
+       ================================================================== -->
+
+  <insert id="aggregateDailyVisit">
+    INSERT INTO stat_daily_visit (
+      stat_date, site_id,
+      visit_count, unique_count, pv_count,
+      created_by, created_ip, created_at,
+      updated_by, updated_ip, updated_at
+    )
+    SELECT
+        #{statDate}                                       AS stat_date,
+        site_id,
+        COUNT(DISTINCT COALESCE(session_id, client_ip))   AS visit_count,
+        COUNT(DISTINCT client_ip)                         AS unique_count,
+        COUNT(*)                                          AS pv_count,
+        'SYSTEM', '127.0.0.1', NOW(),
+        'SYSTEM', '127.0.0.1', NOW()
+      FROM log_access
+     WHERE logged_at &gt;= #{statDate}
+       AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+       AND site_id IS NOT NULL
+     GROUP BY site_id
+    ON DUPLICATE KEY UPDATE
+      visit_count  = VALUES(visit_count),
+      unique_count = VALUES(unique_count),
+      pv_count     = VALUES(pv_count),
+      updated_by   = 'SYSTEM',
+      updated_ip   = '127.0.0.1',
+      updated_at   = NOW()
+  </insert>
+
+  <select id="listDailyVisit" resultType="com.gonet.logging.access.dto.DailyVisitStat">
+    SELECT
+        v.stat_date, v.site_id,
+        s.site_code AS site_code,
+        v.visit_count, v.unique_count, v.pv_count
+      FROM stat_daily_visit v
+      LEFT JOIN gopcms_primary.tb_site s ON s.site_id = v.site_id
+     WHERE v.stat_date BETWEEN #{from} AND #{to}
+    <if test="siteId != null and siteId != ''">
+       AND v.site_id = #{siteId}
+    </if>
+     ORDER BY v.stat_date ASC, v.site_id ASC
+  </select>
+
+  <select id="sumDailyVisitBySite" resultType="com.gonet.logging.access.dto.DailyVisitStat">
+    SELECT
+        MAX(v.stat_date) AS stat_date,
+        v.site_id,
+        s.site_code      AS site_code,
+        SUM(v.visit_count)  AS visit_count,
+        SUM(v.unique_count) AS unique_count,
+        SUM(v.pv_count)     AS pv_count
+      FROM stat_daily_visit v
+      LEFT JOIN gopcms_primary.tb_site s ON s.site_id = v.site_id
+     WHERE v.stat_date BETWEEN #{from} AND #{to}
+     GROUP BY v.site_id, s.site_code
+     ORDER BY pv_count DESC
+  </select>
+
+  <!-- 요약 카드 -->
+  <select id="periodSummary" resultType="map">
+    SELECT
+        IFNULL(SUM(pv), 0)                AS totalPv,
+        IFNULL(SUM(uv), 0)                AS totalUv,
+        IFNULL(SUM(unique_users), 0)      AS totalUniqueUsers,
+        IFNULL(ROUND(AVG(avg_response_ms)),0) AS avgResponseMs,
+        IFNULL(SUM(err_4xx), 0)           AS err4xx,
+        IFNULL(SUM(err_5xx), 0)           AS err5xx,
+        IFNULL(SUM(bytes_sent), 0)        AS bytesSent
+      FROM stat_access_daily
+     WHERE stat_date BETWEEN #{from} AND #{to}
+       AND user_type   IS NULL
+       AND bucket_hour IS NULL
+    <choose>
+      <when test="siteId != null and siteId != ''">
+       AND site_id = #{siteId}
+      </when>
+      <otherwise>
+       AND site_id IS NULL
+      </otherwise>
+    </choose>
+  </select>
+
+</mapper>

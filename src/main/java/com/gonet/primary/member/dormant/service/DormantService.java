@@ -23,6 +23,27 @@ public interface DormantService {
     DormantBatchResult runDailyOnce();
 
     /**
+     * <b>dry-run 미리보기</b> — 아무것도 바꾸지 않고 대상 건수만 센다.
+     *
+     * <p>휴면 배치는 회원을 {@code tb_member} 밖으로 옮기고 만료분을 파기한다.
+     * 되돌릴 수 없는 작업이라, 켜기 전에 <b>"내일 새벽에 몇 명이 움직이는지"</b> 를
+     * 먼저 볼 수 있어야 한다. {@code RetentionPurgeExecutor} 의 dry-run 과 같은 취지다.
+     *
+     * <p>도입 절차: {@code dry-run=true} 로 1~2주 돌리며 매일 01:00 로그의 건수가
+     * 예상치와 맞는지 확인한 뒤 {@code false} 로 전환한다.
+     *
+     * @return 각 단계의 <b>후보</b> 건수(실제 처리 건수가 아니다)
+     */
+    DormantDryRunResult previewDaily();
+
+    /** dry-run 미리보기 결과 — 실제 처리는 하지 않은 후보 건수. */
+    record DormantDryRunResult(int notice30D,
+                                int notice7D,
+                                int notice1D,
+                                int transferCandidates,
+                                int purgeCandidates) {}
+
+    /**
      * <b>본인확인이 끝난 뒤</b>의 역이관 — {@code tb_member_dormant} → {@code tb_member}.
      *
      * <p><b>이 메서드는 본인확인을 하지 않는다.</b> 확인은 호출자

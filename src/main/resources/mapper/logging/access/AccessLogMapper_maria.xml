@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.logging.access.mapper.AccessLogMapper">
+
+  <insert id="insert" parameterType="com.gonet.logging.access.dto.AccessLog">
+    INSERT INTO log_access (
+      site_id, site_code,
+      actor_user_id, actor_user_type, actor_login_id,
+      request_uri, http_method, query_string, referer,
+      client_ip, user_agent,
+      status_code, response_ms, bytes_sent,
+      session_id, trace_id, logged_at,
+      created_by, created_ip, created_at
+    ) VALUES (
+      #{siteId}, #{siteCode},
+      #{actorUserId}, #{actorUserType}, #{actorLoginId},
+      #{requestUri}, #{httpMethod}, #{queryString}, #{referer},
+      #{clientIp}, #{userAgent},
+      #{statusCode}, #{responseMs}, #{bytesSent},
+      #{sessionId}, #{traceId}, COALESCE(#{loggedAt}, CURRENT_TIMESTAMP),
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <select id="countByDate" resultType="long">
+    SELECT COUNT(1)
+      FROM log_access
+     WHERE logged_at &gt;= #{statDate}
+       AND logged_at &lt;  DATE_ADD(#{statDate}, INTERVAL 1 DAY)
+  </select>
+
+  <!-- ────────────────────────────────────────────────
+       관리자 viewer — 최신 N 건 (기본 10,000 cap)
+       ──────────────────────────────────────────────── -->
+
+  <sql id="viewerCols">
+    log_access_id, site_id, site_code,
+    actor_user_id, actor_user_type, actor_login_id,
+    request_uri, http_method, query_string, referer,
+    client_ip, user_agent, status_code, response_ms, bytes_sent,
+    session_id, trace_id, logged_at,
+    created_by, created_ip, created_at
+  </sql>
+
+  <!--
+    M-9 — 기본 날짜 범위 fail-safe. dateFrom/dateTo 미지정 시 최근 24시간으로 자동 제한.
+    log_access 는 인덱스가 logged_at 기준이라 범위 미지정 시 전체 스캔 위험 (테이블 크기
+    파티션당 수천만 행). COALESCE 로 기본값 강제.
+  -->
+  <sql id="recentFilter">
+    WHERE logged_at &gt;= COALESCE(#{search.dateFrom}, DATE_SUB(NOW(), INTERVAL 1 DAY))
+      AND logged_at &lt;  COALESCE(DATE_ADD(#{search.dateTo}, INTERVAL 1 DAY), NOW())
+    <if test="search.keyword != null and search.keyword != ''">
+      AND (
+            request_uri    LIKE CONCAT('%', #{search.keyword}, '%')
+         OR client_ip      LIKE CONCAT('%', #{search.keyword}, '%')
+         OR actor_login_id LIKE CONCAT('%', #{search.keyword}, '%')
+         OR site_code      LIKE CONCAT('%', #{search.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="findRecent" resultType="com.gonet.logging.access.dto.AccessLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_access
+    <include refid="recentFilter"/>
+     ORDER BY logged_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countRecent" resultType="long">
+    SELECT COUNT(1)
+      FROM log_access
+    <include refid="recentFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.logging.access.dto.AccessLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_access
+     WHERE log_access_id = #{id}
+     LIMIT 1
+  </select>
+
+  <select id="findByTraceId" resultType="com.gonet.logging.access.dto.AccessLog">
+    SELECT <include refid="viewerCols"/>
+      FROM log_access
+     WHERE trace_id = #{traceId}
+     ORDER BY logged_at ASC
+     LIMIT 200
+  </select>
+
+</mapper>

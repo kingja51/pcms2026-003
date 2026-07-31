@@ -94,11 +94,22 @@
        AND verified_at IS NULL
   </delete>
 
-  <!-- P7 보존 배치 — 만료됐거나 이미 소비된 행 정리. -->
+  <!--
+    P7 보존 배치 — created_at 기준 **단일 술어**.
+
+    TTL 이 분 단위라 cutoff(일 단위)보다 오래된 행은 만료됐든 소비됐든 죽은 데이터다.
+    조건을 하나로 두는 이유는 아래 countExpiredBefore 와 술어를 맞추기 위해서다 —
+    갈리면 dry-run 미리보기 건수와 실제 삭제 건수가 달라져 미리보기가 무의미해진다.
+  -->
   <delete id="deleteExpiredBefore">
     DELETE FROM tb_member_otp
-     WHERE expires_at &lt; #{threshold}
-        OR verified_at IS NOT NULL
+     WHERE created_at &lt; #{threshold}
   </delete>
+
+  <select id="countExpiredBefore" resultType="int">
+    SELECT COUNT(*)
+      FROM tb_member_otp
+     WHERE created_at &lt; #{threshold}
+  </select>
 
 </mapper>

@@ -51,4 +51,12 @@ public interface MemberOtpMapper {
 
     /** 만료·사용완료 정리 — P7 보존 배치가 호출한다. */
     int deleteExpiredBefore(@Param("threshold") LocalDateTime threshold);
+
+    /**
+     * 위 삭제 대상 건수 — dry-run 미리보기용.
+     *
+     * <p>{@link #deleteExpiredBefore} 와 <b>같은 술어</b>를 써야 한다. 갈리면
+     * 미리보기 건수와 실제 삭제 건수가 달라져 dry-run 이 무의미해진다.
+     */
+    int countExpiredBefore(@Param("threshold") LocalDateTime threshold);
 }

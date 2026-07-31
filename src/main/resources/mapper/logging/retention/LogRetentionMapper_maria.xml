@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  logging DB log_* 테이블 보존 정책 정리.
+  cutoff 이전 행을 batch DELETE.
+
+  - LIMIT 으로 잘라서 트랜잭션 크기 제한 (binlog/replication 부하 방지)
+  - 호출 측에서 반환값(=삭제된 행 수)이 batchSize 보다 작아질 때까지 반복
+  - InnoDB 라 인덱스 leaf 페이지 락이 row-level — DELETE 중에도 INSERT 는 차단되지 않음
+-->
+<mapper namespace="com.gonet.logging.retention.mapper.LogRetentionMapper">
+
+  <delete id="deleteLogAccessOlderThan">
+    DELETE FROM log_access
+     WHERE logged_at &lt; #{cutoff}
+     LIMIT #{batchSize}
+  </delete>
+
+  <delete id="deleteLogAuditOlderThan">
+    DELETE FROM log_audit
+     WHERE logged_at &lt; #{cutoff}
+     LIMIT #{batchSize}
+  </delete>
+
+  <delete id="deleteLogLoginOlderThan">
+    DELETE FROM log_login
+     WHERE logged_at &lt; #{cutoff}
+     LIMIT #{batchSize}
+  </delete>
+
+  <delete id="deleteLogFileDownloadOlderThan">
+    DELETE FROM log_file_download
+     WHERE downloaded_at &lt; #{cutoff}
+     LIMIT #{batchSize}
+  </delete>
+
+  <delete id="deleteLogErrorOlderThan">
+    DELETE FROM log_error
+     WHERE logged_at &lt; #{cutoff}
+     LIMIT #{batchSize}
+  </delete>
+
+  <delete id="deleteLogPrivacyAccessOlderThan">
+    DELETE FROM log_privacy_access
+     WHERE accessed_at &lt; #{cutoff}
+     LIMIT #{batchSize}
+  </delete>
+
+  <!--
+    dry-run 미리보기용 건수 — delete 와 **같은 술어**를 쓴다.
+    LIMIT(batchSize) 는 넣지 않는다: 삭제는 배치로 나눠 돌지만
+    미리보기는 "전부 몇 건인가" 를 알려줘야 하기 때문이다.
+  -->
+  <select id="countLogAccessOlderThan" resultType="int">
+    SELECT COUNT(*) FROM log_access WHERE logged_at &lt; #{cutoff}
+  </select>
+
+  <select id="countLogAuditOlderThan" resultType="int">
+    SELECT COUNT(*) FROM log_audit WHERE logged_at &lt; #{cutoff}
+  </select>
+
+  <select id="countLogLoginOlderThan" resultType="int">
+    SELECT COUNT(*) FROM log_login WHERE logged_at &lt; #{cutoff}
+  </select>
+
+  <select id="countLogFileDownloadOlderThan" resultType="int">
+    SELECT COUNT(*) FROM log_file_download WHERE downloaded_at &lt; #{cutoff}
+  </select>
+
+  <select id="countLogErrorOlderThan" resultType="int">
+    SELECT COUNT(*) FROM log_error WHERE logged_at &lt; #{cutoff}
+  </select>
+
+  <select id="countLogPrivacyAccessOlderThan" resultType="int">
+    SELECT COUNT(*) FROM log_privacy_access WHERE accessed_at &lt; #{cutoff}
+  </select>
+
+</mapper>

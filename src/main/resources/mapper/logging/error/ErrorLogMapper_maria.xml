@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.gonet.logging.error.mapper.ErrorLogMapper">
+
+  <sql id="cols">
+    log_error_id,
+    site_id, site_code,
+    actor_user_id, actor_user_type, actor_login_id,
+    request_uri, http_method, query_string,
+    client_ip, user_agent,
+    error_class, error_message, stack_trace, status_code,
+    trace_id, session_id, logged_at,
+    created_by, created_ip, created_at
+  </sql>
+
+  <insert id="insert" parameterType="com.gonet.logging.error.dto.ErrorLog"
+          useGeneratedKeys="true" keyProperty="logErrorId">
+    INSERT INTO log_error (
+      site_id, site_code,
+      actor_user_id, actor_user_type, actor_login_id,
+      request_uri, http_method, query_string,
+      client_ip, user_agent,
+      error_class, error_message, stack_trace, status_code,
+      trace_id, session_id, logged_at,
+      created_by, created_ip, created_at
+    ) VALUES (
+      #{siteId}, #{siteCode},
+      #{actorUserId}, #{actorUserType}, #{actorLoginId},
+      #{requestUri}, #{httpMethod}, #{queryString},
+      #{clientIp}, #{userAgent},
+      #{errorClass}, #{errorMessage}, #{stackTrace}, #{statusCode},
+      #{traceId}, #{sessionId}, COALESCE(#{loggedAt}, CURRENT_TIMESTAMP),
+      #{createdBy}, #{createdIp}, COALESCE(#{createdAt}, CURRENT_TIMESTAMP)
+    )
+  </insert>
+
+  <sql id="recentFilter">
+    WHERE logged_at &gt;= #{search.dateFrom}
+      AND logged_at &lt;  DATE_ADD(#{search.dateTo}, INTERVAL 1 DAY)
+    <if test="search.keyword != null">
+      AND (
+            error_class    LIKE CONCAT('%', #{search.keyword}, '%')
+         OR error_message  LIKE CONCAT('%', #{search.keyword}, '%')
+         OR request_uri    LIKE CONCAT('%', #{search.keyword}, '%')
+         OR client_ip      LIKE CONCAT('%', #{search.keyword}, '%')
+         OR actor_login_id LIKE CONCAT('%', #{search.keyword}, '%')
+      )
+    </if>
+  </sql>
+
+  <select id="findRecent" resultType="com.gonet.logging.error.dto.ErrorLog">
+    SELECT <include refid="cols"/>
+      FROM log_error
+    <include refid="recentFilter"/>
+     ORDER BY logged_at DESC
+     LIMIT #{search.pageSize} OFFSET #{search.offset}
+  </select>
+
+  <select id="countRecent" resultType="long">
+    SELECT COUNT(1)
+      FROM log_error
+    <include refid="recentFilter"/>
+  </select>
+
+  <select id="findById" resultType="com.gonet.logging.error.dto.ErrorLog">
+    SELECT <include refid="cols"/>
+      FROM log_error
+     WHERE log_error_id = #{id}
+     LIMIT 1
+  </select>
+
+  <select id="findByTraceId" resultType="com.gonet.logging.error.dto.ErrorLog">
+    SELECT <include refid="cols"/>
+      FROM log_error
+     WHERE trace_id = #{traceId}
+     ORDER BY logged_at ASC
+     LIMIT 200
+  </select>
+
+</mapper>

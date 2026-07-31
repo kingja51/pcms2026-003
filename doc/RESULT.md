@@ -12,6 +12,116 @@
 ---
 
 ```
+================ 2026.8.1 03:12:20 =======================
+```
+
+## P7 — 운영 · 관측 🟡 작업 완료, DoD 발화 검증 대기
+
+**완료**: 2026-08-01 03:12:20
+**목표**: 로그가 쌓이고 배치가 돈다.
+
+### 산출물
+
+| 구분 | 내용 |
+|---|---|
+| 이식 | java 39 (logging/access 14 · error 4 · retention 3 · viewer 4 · shedlock 1 · scheduler 6 · system/log·stat 5 · 필터 2) + 매퍼 XML 5 |
+| 신규 | `MemberOtpRetentionTarget` · `LogRetentionService.preview` + count 질의 6종 · `SchedulerContractTest` |
+| 교정 | `DormantScheduler` cron 외부화 + enabled + dry-run |
+| 마이그레이션 | `V2026080103__seed_url_access_p7.sql` — Actuator 5행 |
+| 테스트 | 52건 (기존 48 + `SchedulerContractTest` 4) |
+
+### DoD 검증 결과
+
+| 항목 | 결과 |
+|---|---|
+| ArchUnit · 전체 테스트 | ✅ 10/10 · 52건 |
+| 접속 로그 → 집계 → `stat_*` | 🟡 미실행 |
+| 배치 dry-run 발화 + ShedLock 락 행 | 🟡 규약은 자동 검사, 발화는 미확인 |
+| 로그가 롤백과 무관하게 남음(`REQUIRES_NEW`) | 🟡 선언은 코드 확인, 실행은 미확인 |
+| Actuator 비공개 엔드포인트 익명 차단 | 🟡 미실행 |
+
+### Actuator 가 전부 막혀 있었다
+
+`/actuator/**` 접근 규칙이 하나도 없어 **무매칭 DENY** 가 걸린다. `health` 조차
+열리지 않으므로 **LB·컨테이너 헬스체크가 계속 실패**했을 상태다.
+
+찾기 어려운 종류의 결함이다. `application.yml` 은
+`include: health, info, metrics, prometheus, httpexchanges` 로 노출을 선언하고 있어
+**설정만 보면 열린 것처럼 보인다.** 실제로 막는 것은 DB 의 인가 규칙이다.
+
+`V2026080103` 으로 정책대로 열었다:
+
+| 대상 | 정책 | 이유 |
+|---|---|---|
+| `health`(+그룹)·`info`·`prometheus` | PERMIT_ALL | 헬스체크·메트릭 수집은 익명이어야 동작한다. health 상세는 yml 이 `when-authorized` 라 익명에게는 UP/DOWN 만 보인다 |
+| 나머지 | ROLE_ADMIN | `httpexchanges` 는 **최근 요청의 URI·헤더**를 담아 사실상 접속 로그다 |
+
+### 스케줄러 — 8종이 아니라 6종이고, 하나는 규약 위반이었다
+
+제외 2종: `GeminiFileRenewScheduler`(GenAI SDK 미도입) · `WeatherCollectScheduler`
+(날씨 도메인 미이식). PLAN 의 "8종" 은 001 기준 숫자다.
+
+**`DormantScheduler` 는 cron 이 하드코딩**(`"0 0 1 * * *"`)돼 있었고 dry-run 도 없었다.
+CLAUDE.md 규약("cron 은 `${…:기본값}` 으로 외부화하고 dry-run 플래그를 둔다") 위반이다.
+
+스케줄러는 이런 결함이 잘 안 드러난다. 평소에 조용하고, 화면처럼 눈에 띄지도 않는다.
+배포 없이 시각을 못 바꾼다는 사실은 정작 **급히 꺼야 할 때** 알게 된다.
+
+그래서 같은 실수를 자동으로 잡도록 `SchedulerContractTest` 를 만들었다:
+
+- 모든 `@Scheduled` cron 이 `${…:기본값}` 인가 (기본값 없는 자리표시자도 잡는다)
+- 파괴적 배치 4종에 dry-run 이 있는가
+- 모든 스케줄 메서드에 `@SchedulerLock` 이 붙었는가
+- 이식 제외 2종이 딸려오지 않았는가
+
+바이트코드가 아니라 소스 텍스트를 본다 — `:기본값` 문법까지 확인하려면 그게 정확하다.
+
+### dry-run 을 두 곳에 새로 넣었다
+
+**`DormantScheduler`** — 회원을 `tb_member` 밖으로 옮기고 만료분을 파기한다.
+`DormantService.previewDaily()` 를 신설해 후보 건수만 센다. 중요한 것은
+**실행 경로와 같은 매퍼 질의를 쓰는 것**이다. 작성 중 실제로 stage 리터럴을
+`"D30"` 으로 잘못 적었는데 실행 경로는 `"30D"` 였다 — 그대로 뒀으면
+"미리보기 0건, 실제 200명" 이 됐을 것이다.
+
+**`LogRetentionScheduler`** — 감사·접속·로그인 로그를 지운다. 되돌릴 수 없고,
+이 로그들은 사고가 난 뒤에야 필요해진다. `retention-months` 를 잘못 넣어 의도보다
+많이 지우는 실수는 **지우고 나서는 확인할 방법이 없다.** count 질의 6종을 추가하고
+`preview(cutoff, privacyCutoff)` 를 만들었다. `log_privacy_access` 는 보존 기간이
+달라(PIPA 24개월) cutoff 를 따로 받는다 — 같은 값을 쓰면 미리보기가 부풀려진다.
+
+### OTP 정리 — P5 이월분을 닫았다
+
+P5 에서 `deleteExpiredBefore` 만 만들고 호출할 배치가 없어 행이 무한 누적되는
+상태였다. `MemberOtpRetentionTarget` 으로 `RetentionTarget` SPI 에 붙였다.
+
+새 스케줄러를 만들지 않은 이유: `SoftDeleteRetentionScheduler` 가 이미
+**dry-run · 감사 로그 · ShedLock** 을 갖추고 있다. 같은 것을 또 만들면
+dry-run 이 한쪽에만 있는 식으로 갈린다.
+
+술어도 정리했다. 원래 `expires_at < threshold OR verified_at IS NOT NULL` 이었는데
+뒷 조건이 cutoff 를 무시해 count 와 delete 가 어긋난다. **`created_at < threshold`
+단일 기준**으로 바꿨다 — TTL 이 분 단위라 cutoff(일 단위)보다 오래된 행은 상태와
+무관하게 죽은 데이터다.
+
+### 패키지 이름만 보고 범위를 정하면 놓친다
+
+1차 이식에서 `logging/*` 과 `scheduler` 만 훑었다. 그런데 **로그 뷰어·통계 화면
+컨트롤러는 `primary/system/{log,stat}`** 에 있었다. 템플릿(`admin/system/log`·
+`access-stat`)은 P4 에서 이미 들어와 있어 **화면만 있고 컨트롤러가 없는** 상태였다.
+`logging/viewer` 도 dto 1개만 들어와 있었다. 5 + 4개를 보완 이식했다.
+
+### 미해결
+
+1. **DoD 발화 검증 4건** — 기동 필요
+2. **파일 정리 트리거가 둘** — `FilePurgeScheduler.runOnce()` 와
+   `FileRetentionTarget`(→ `SoftDeleteRetentionScheduler`) 이 같은 정리를 한다.
+   후자에만 dry-run 이 걸려서 **어느 경로로 도는지에 따라 dry-run 이 먹기도 하고
+   안 먹기도 한다.** dry-run 을 덧대는 것보다 트리거를 하나로 합치는 편이 맞다
+
+---
+
+```
 ================ 2026.8.1 02:05:10 =======================
 ```
 

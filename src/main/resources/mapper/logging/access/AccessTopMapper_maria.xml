@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  log_access + log_file_download 기반 TOP-N 통계 (logging DB).
+  공통 필터:  logged_at >= #{from}  AND  logged_at < DATE_ADD(#{to}, INTERVAL 1 DAY)
+  공통 결과:  AccessTopRow { label, value, valueExtra }
+-->
+<mapper namespace="com.gonet.logging.access.mapper.AccessTopMapper">
+
+  <sql id="dateFilter">
+    logged_at &gt;= #{from}
+    AND logged_at &lt;  DATE_ADD(#{to}, INTERVAL 1 DAY)
+  </sql>
+
+  <!-- ① 가장 많이 접속한 IP -->
+  <select id="topClientIps" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT client_ip AS label,
+           COUNT(*)  AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND client_ip IS NOT NULL AND client_ip &lt;&gt; ''
+     GROUP BY client_ip
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!-- ② Referer 도메인 — `https://host/path` → `host` -->
+  <select id="topRefererDomains" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(referer, '/', 3), '://', -1) AS label,
+           COUNT(*)                                                      AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND referer IS NOT NULL AND referer &lt;&gt; ''
+     GROUP BY label
+     HAVING label IS NOT NULL AND label &lt;&gt; ''
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!-- ③ 비정상 상태코드(4xx/5xx) 유발 IP -->
+  <select id="topErrorIps" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT client_ip AS label,
+           COUNT(*)  AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND status_code &gt;= 400
+       AND client_ip IS NOT NULL AND client_ip &lt;&gt; ''
+     GROUP BY client_ip
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!--
+    ④ 평균 응답속도가 가장 느린 URI — 최소 호출수(minCalls) 조건.
+    value = 호출 수, valueExtra = 평균 ms (반올림 정수 → Double 캐스팅).
+  -->
+  <select id="topSlowUris" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT request_uri          AS label,
+           COUNT(*)              AS value,
+           AVG(response_ms)      AS valueExtra
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND response_ms IS NOT NULL
+       AND request_uri IS NOT NULL AND request_uri &lt;&gt; ''
+     GROUP BY request_uri
+    HAVING COUNT(*) &gt;= #{minCalls}
+     ORDER BY valueExtra DESC, value DESC
+     LIMIT #{limit}
+  </select>
+
+  <!--
+    ⑤ 비로그인(ANONYMOUS) 접근이 가장 많은 URI.
+    제외:
+      · 루트 "/" — 의미 없는 lobby ping. 통계 노이즈만 발생.
+  -->
+  <select id="topAnonymousUris" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT request_uri AS label,
+           COUNT(*)    AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND (actor_user_type IS NULL
+            OR actor_user_type = ''
+            OR actor_user_type = 'ANONYMOUS')
+       AND request_uri IS NOT NULL AND request_uri &lt;&gt; ''
+       AND request_uri &lt;&gt; '/'
+     GROUP BY request_uri
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!--
+    ⑥ 가장 많이 방문한 메뉴/경로 — log_access 에 menu_id 컬럼 부재.
+    URI 의 첫 2 경로 세그먼트(/a/b) 를 메뉴 단위로 그룹핑 폴백.
+    예: '/admin/system/site/123' → '/admin/system'
+
+    제외:
+      · 루트 "/" — 의미 없는 lobby ping. 메뉴 단위로 그룹핑 후에도 "/" 로 남는 행 제거.
+  -->
+  <select id="topMenuPaths" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT CASE
+             WHEN INSTR(SUBSTRING(request_uri, 2), '/') &gt; 0 THEN
+               CONCAT('/', SUBSTRING_INDEX(SUBSTRING(request_uri, 2), '/', 2))
+             ELSE request_uri
+           END     AS label,
+           COUNT(*) AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND request_uri IS NOT NULL AND request_uri LIKE '/%'
+       AND request_uri &lt;&gt; '/'
+       AND status_code &lt; 400
+     GROUP BY label
+    HAVING label &lt;&gt; '/'
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!-- ⑦ 접속량이 가장 많은 User-Agent -->
+  <select id="topUserAgents" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT user_agent AS label,
+           COUNT(*)   AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND user_agent IS NOT NULL AND user_agent &lt;&gt; ''
+     GROUP BY user_agent
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!-- ⑧ 가장 많은 종류의 URI 를 스캔한 IP — distinct count -->
+  <select id="topUriScannerIps" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT client_ip                  AS label,
+           COUNT(DISTINCT request_uri) AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND client_ip IS NOT NULL AND client_ip &lt;&gt; ''
+     GROUP BY client_ip
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!--
+    ⑨ 누적 트래픽 TOP 20 — IP 단위 (로그인 사용자라도 IP 가 더 보편적).
+    value = SUM(bytes_sent) bytes, valueExtra = 요청 수.
+  -->
+  <select id="topBandwidthIps" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT client_ip            AS label,
+           SUM(bytes_sent)       AS value,
+           COUNT(*)              AS valueExtra
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND bytes_sent IS NOT NULL AND bytes_sent &gt; 0
+       AND client_ip   IS NOT NULL AND client_ip &lt;&gt; ''
+     GROUP BY client_ip
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!-- ⑩ 404 Not Found 가 가장 많이 발생하는 URI -->
+  <select id="top404Uris" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT request_uri AS label,
+           COUNT(*)    AS value
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND status_code = 404
+       AND request_uri IS NOT NULL AND request_uri &lt;&gt; ''
+     GROUP BY request_uri
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!-- ⑪ 가장 많이 다운로드된 파일 — log_file_download 기준 -->
+  <select id="topDownloadFiles" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT COALESCE(NULLIF(original_name, ''), file_id) AS label,
+           COUNT(*)                                      AS value,
+           SUM(size_bytes)                               AS valueExtra
+      FROM log_file_download
+     WHERE downloaded_at &gt;= #{from}
+       AND downloaded_at &lt;  DATE_ADD(#{to}, INTERVAL 1 DAY)
+       AND result        = 'SUCCESS'
+     GROUP BY label
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+  <!--
+    ⑫ 가장 많이 방문한 로그인 사용자 — actor_login_id NOT NULL.
+    value = 요청 수, valueExtra = distinct IP 수
+    (한 계정이 여러 IP 에서 들어오면 도용/봇 의심 신호).
+  -->
+  <select id="topLoginUsers" resultType="com.gonet.logging.access.dto.AccessTopRow">
+    SELECT actor_login_id            AS label,
+           COUNT(*)                   AS value,
+           COUNT(DISTINCT client_ip)  AS valueExtra
+      FROM log_access
+     WHERE <include refid="dateFilter"/>
+       AND actor_login_id IS NOT NULL
+       AND actor_login_id &lt;&gt; ''
+       AND (actor_user_type IS NULL OR actor_user_type &lt;&gt; 'ANONYMOUS')
+     GROUP BY actor_login_id
+     ORDER BY value DESC, label ASC
+     LIMIT #{limit}
+  </select>
+
+</mapper>
